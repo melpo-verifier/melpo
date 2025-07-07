@@ -1,0 +1,17 @@
+bugfix:
+  - '**/fix/**'
+  - '**/bug/**'
+
+enhancement:
+  - '**/feature/**'
+  - '**/enhancement/**'
+  - 'src/features/**'
+
+documentation:
+  - '**/*.md'
+  - 'docs/**'
+
+config:
+  - '.github/**'
+  - '**/*.yml'
+  - '**/*.yaml'
