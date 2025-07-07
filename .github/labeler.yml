@@ -1,17 +1,17 @@
 bugfix:
-  - '**/fix/**'
-  - '**/bug/**'
+  - "**/fix/**"
+  - "**/bug/**"
 
 enhancement:
-  - '**/feature/**'
-  - '**/enhancement/**'
-  - 'src/features/**'
+  - "**/feature/**"
+  - "**/enhancement/**"
+  - "src/features/**"
 
 documentation:
-  - '**/*.md'
-  - 'docs/**'
+  - "**/*.md"
+  - "docs/**"
 
 config:
-  - '.github/**'
-  - '**/*.yml'
-  - '**/*.yaml'
+  - ".github/**"
+  - "**/*.yml"
+  - "**/*.yaml"
