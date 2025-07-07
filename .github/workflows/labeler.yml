@@ -1,0 +1,17 @@
+name: "Auto Label PRs"
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  label:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write      # Needed for labeling PRs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@v4
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
