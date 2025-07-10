@@ -78,6 +78,12 @@ module.exports = async ({ interaction, whichdefault }) => {
       .setCustomId("cancelsetup")
       .setLabel("Cancel")
       .setStyle("Danger"),
+    new ButtonBuilder()
+      .setLabel("Configure on dashboard")
+      .setStyle("Link")
+      .setURL(
+        `https://melpo.app/dashboard/${interaction.guild.id}`,
+      ),
   );
 
   const selectRoleMenu = new StringSelectMenuBuilder()
