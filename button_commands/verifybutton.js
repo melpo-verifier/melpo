@@ -963,6 +963,8 @@ async function constructApplicationEmbed(
   if (answers.length > 0) {
     // let index = 1;
     let totalCharacterCount = 0;
+    const MAX_TOTAL_CHARACTERS = 3600;
+    const MAX_FIELD_CHARACTERS = 1024; // Reasonable limit per field
     answers.forEach((answer, index) => {
       // // const question = questions[index].content;
       // // const mcqIndicator = questions[index].mcq?.length > 0 ? '(MCQ)' : '';
@@ -1008,22 +1010,49 @@ async function constructApplicationEmbed(
 
       // console.log(answer)
 
-      var formattedField = [
-        `**${index + 1}.** **${questions[index].content}**`,
-        `_ _ ${answer.content || "No answer provided"}`,
-      ].join("\n");
-
-      if (formattedField.length > 1024) {
-        formattedField = formattedField.slice(0, 1021) + "...";
+      if(totalCharacterCount >= MAX_TOTAL_CHARACTERS) {
+        return;
       }
 
-      if (totalCharacterCount + formattedField.length > 3900) {
-        const remainingCharacters = 3900 - totalCharacterCount;
-        formattedField =
-          formattedField.slice(0, remainingCharacters - 3) + "...";
+      const questionText = `**${index + 1}.** **${questions[index].content}**`;
+      const answertext = answer.content || "No answer provided";
+
+      var formattedField = [
+        questionText,
+        `_ _ ${answertext}`,
+      ].join("\n");
+
+      if (formattedField.length > MAX_FIELD_CHARACTERS) {
+        formattedField = formattedField.slice(0, MAX_FIELD_CHARACTERS - 3) + "...";
+      }
+
+      // if (totalCharacterCount + formattedField.length > 3900) {
+      //   const remainingCharacters = 3900 - totalCharacterCount;
+      //   formattedField =
+      //     formattedField.slice(0, remainingCharacters - 3) + "...";
+      // }
+
+      if (totalCharacterCount + formattedField.length > MAX_TOTAL_CHARACTERS) {
+        const remainingCharacters = MAX_TOTAL_CHARACTERS - totalCharacterCount;
+        if (remainingCharacters > 100) { // Only add if there's meaningful space left
+          formattedField = formattedField.slice(0, remainingCharacters - 3) + "...";
+          console.log(`Truncated field ${index + 1} to fit within total limits.`);
+        } else {
+          console.log(`Field ${index + 1} exceeds total limit and will not be added.`);
+          // Add a note that content was truncated
+          if (totalCharacterCount + 60 <= MAX_TOTAL_CHARACTERS) { // Check if we can fit the truncation notice
+            container.addTextDisplayComponents(
+              new TextDisplayBuilder({
+                content: "**Note:** Some responses were truncated due to length limits.",
+              }),
+            );
+          }
+          return;
+        }
       }
 
       totalCharacterCount += formattedField.length;
+      console.log(totalCharacterCount);
 
       container.addTextDisplayComponents(
         new TextDisplayBuilder({
