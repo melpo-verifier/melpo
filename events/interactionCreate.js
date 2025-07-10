@@ -16,11 +16,15 @@ module.exports = {
   async execute(interaction, client) {
     try {
       if (
-        !interaction ||
-        (!interaction.isCommand() &&
-          !interaction.isButton() &&
-          !interaction.isStringSelectMenu() &&
-          !interaction.isModalSubmit())
+        !interaction //||
+        // (!interaction.isCommand() &&
+        //   !interaction.isButton() &&
+        //   !interaction.isStringSelectMenu() &&
+        //   !interaction.isChannelSelectMenu() &&
+        //   !interaction.isRoleSelectMenu() &&
+        //   !interaction.isMentionableSelectMenu() &&
+        //   !interaction.isUserSelectMenu() &&
+        //   !interaction.isModalSubmit())
       ) {
         return;
       }

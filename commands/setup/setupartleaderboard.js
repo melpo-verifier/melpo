@@ -3,6 +3,7 @@ const {
   ActionRowBuilder,
   PermissionsBitField,
   ChannelSelectMenuBuilder,
+  MessageFlags,
 } = require("discord.js");
 const { Whitelist } = require("../../dbObjects.js");
 
@@ -18,7 +19,7 @@ module.exports = {
       return await interaction.reply({
         content:
           "You do not have the required permissions (Manage Server) to use this command.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
