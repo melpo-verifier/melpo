@@ -59,6 +59,12 @@ module.exports = async ({ interaction }) => {
       .setCustomId("cancelsetup")
       .setLabel("Cancel")
       .setStyle("Danger"),
+    new ButtonBuilder()
+      .setLabel("Configure on dashboard")
+      .setStyle("Link")
+      .setURL(
+        `https://melpo.app/dashboard/${interaction.guild.id}`,
+      ),
   );
 
   const editmenu = new ActionRowBuilder();
