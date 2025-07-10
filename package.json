@@ -1,6 +1,6 @@
 {
   "name": "melpo",
-  "version": "3.2.5",
+  "version": "3.2.6",
   "description": "Verification bot",
   "main": "index.js",
   "scripts": {
