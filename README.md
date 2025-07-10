@@ -10,9 +10,6 @@ A Discord verification bot that helps server administrators manage user access t
 - Automatic cleanup of old data
 - Support for multiple bot listing APIs
 
-A demo of Melpo Verifier in action:
-![](https://iili.io/2U4PkWg.gif)
-
 ## Setup
 
 ### Prerequisites
