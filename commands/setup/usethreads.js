@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, PermissionsBitField } = require("discord.js");
+const { SlashCommandBuilder, PermissionsBitField, MessageFlags } = require("discord.js");
 const { ServerConfig } = require("../../dbObjects.js");
 
 module.exports = {
@@ -21,7 +21,7 @@ module.exports = {
     ) {
       return interaction.reply({
         content: "You need the `Manage Server` permission to use this command.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -34,7 +34,7 @@ module.exports = {
         return interaction.reply({
           content:
             "Server configuration not found. Please set up the server configuration first.",
-          ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         });
       }
 
@@ -45,14 +45,14 @@ module.exports = {
 
       await interaction.reply({
         content: `Thread usage has been **${newState ? "enabled" : "disabled"}** in the server configuration.\nAll applications will now attach a thread in which staff can discuss and all answers to questions will be sent.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
       console.error("Error toggling thread usage:", error);
       await interaction.reply({
         content:
           "An error occurred while toggling thread usage. Please try again later.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   },

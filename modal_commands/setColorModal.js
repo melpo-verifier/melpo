@@ -1,3 +1,4 @@
+const { MessageFlags } = require("discord.js");
 const { updateTemporarySetup } = require("../js/tempconfigfuncs.js");
 const customizationMenu = require("../menu_commands/selectcustomizationMenu.js");
 
@@ -10,7 +11,7 @@ module.exports = async ({ interaction }) => {
     return interaction.reply({
       content:
         "Invalid color format! Please provide a valid hex color code (e.g., #FF0000 or FF0000).",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 

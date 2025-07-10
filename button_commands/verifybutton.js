@@ -82,7 +82,7 @@ module.exports = async ({ interaction, client }) => {
   // }
   // Check if the user already has an active verification session
   if (activeVerifications.has(interaction.user.id)) {
-    return await interaction.editReply({
+    return await interaction.reply({
       content: `<@${interaction.user.id}>, you already have an active verification session! Please complete or cancel it before starting a new one.`,
       flags: MessageFlags.Ephemeral,
     });
