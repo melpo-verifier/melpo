@@ -34,7 +34,7 @@ module.exports = {
         return interaction.reply({
           content:
             "Server configuration not found. Please set up the server configuration first.",
-        flags: MessageFlags.Ephemeral,
+           flags: MessageFlags.Ephemeral,
         });
       }
 
