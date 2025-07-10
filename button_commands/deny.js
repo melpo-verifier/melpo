@@ -3,8 +3,8 @@ const {
   ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
+  // ContainerBuilder,
+  // TextDisplayBuilder,
 } = require("discord.js");
 const { ServerConfig } = require("../dbObjects.js");
 
@@ -61,18 +61,18 @@ module.exports = async ({ interaction }) => {
   );
 
   if (hasComponents) {
-    const confirmContainer = new ContainerBuilder({
-      accent_color: 4161521,
-    }).addTextDisplayComponents(
-      new TextDisplayBuilder({
-        content:
-          '**Are you sure you want to Deny this user?**\nClick "Confirm Denial" to deny or "Cancel" to return.',
-      }),
-    );
+    // const confirmContainer = new ContainerBuilder({
+    //   accent_color: 4161521,
+    // }).addTextDisplayComponents(
+    //   new TextDisplayBuilder({
+    //     content:
+    //       '**Are you sure you want to Deny this user?**\nClick "Confirm Denial" to deny or "Cancel" to return.',
+    //   }),
+    // );
 
     await interaction.message.edit({
       flags: [MessageFlags.IsComponentsV2],
-      components: [originalComponents[0], confirmContainer, verifyRow],
+      components: [originalComponents[0], verifyRow],
     });
   } else {
     const verifyEmbed = new EmbedBuilder(originalEmbed).addFields({

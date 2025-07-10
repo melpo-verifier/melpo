@@ -101,7 +101,7 @@ class ErrorHandler {
     if (
       error.name === "SequelizeError" ||
       error.message?.includes("database") ||
-      error.code?.startsWith("23")
+      (typeof error.code === "string" && error.code.startsWith("23"))
     ) {
       return this.ERROR_TYPES.DATABASE;
     }
