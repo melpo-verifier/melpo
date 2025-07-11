@@ -182,6 +182,10 @@ module.exports = class InviteManager {
 
           await Tracker.save();
         }
+        if (!invite) {
+          console.warn(`No invite found for member ${member.user.tag} (${member.id})`);
+          return;
+        }
       } catch (error) {
         console.error(
           `An error occurred at processing memberJoin event in dinvite: ${error}`,
