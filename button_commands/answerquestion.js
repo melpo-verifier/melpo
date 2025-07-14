@@ -13,6 +13,12 @@ const { QuestionId, ServerConfig } = require("../dbObjects.js");
 // MAYBE EASIER TO CHANGE DATABASE TO A USER RELATED DATABASE, NOT MESSAGE ID RELATED DATABASE IN CASE IF THE USER LEAVES THE SERVER (USER -> GUILD1: {...}, gUILD2: {...})
 
 module.exports = async ({ interaction, client }) => {
+
+  if (interaction.replied || interaction.deferred) {
+    console.warn("Interaction already replied or deferred, skipping.");
+    return;
+  }
+
   const user = interaction.user;
   const info = await QuestionId.findOne({
     where: { interactionMessageId: interaction.message.id },
@@ -69,11 +75,11 @@ module.exports = async ({ interaction, client }) => {
       .setDisabled(true),
   );
 
+  await message.edit({ components: [disabledconfirmrow] });
   const sendanswer = await interaction.reply({
     content: `Please send your answer to the question you just pressed "answer" to`,
     components: [cancelButton],
   });
-  await message.edit({ components: [disabledconfirmrow] });
 
   await QuestionId.destroy({
     where: { interactionMessageId: interaction.message.id },
