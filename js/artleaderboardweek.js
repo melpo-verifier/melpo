@@ -170,6 +170,7 @@ module.exports = async (client) => {
   });
 
   async function resetleaderboard(guild, client) {
+    let canvas, ctx, n1, n2, n3, frame, gold, silver, bronze;
     if (shouldSkipProcessing(guild.id, client.user.id)) return;
 
     const config = await ArtBoardConfig.findOne({
@@ -228,6 +229,7 @@ module.exports = async (client) => {
       async function fetchImage(artchannels, messageId) {
         for (const channelId of artchannels) {
           try {
+
             const channel = await client.channels.fetch(channelId, {
               force: true,
             });
@@ -311,22 +313,22 @@ module.exports = async (client) => {
       console.log("4");
 
       const Canvas = require("canvas");
-      const canvas = Canvas.createCanvas(1920, 1080);
-      const ctx = canvas.getContext("2d");
+      canvas = Canvas.createCanvas(1920, 1080);
+      ctx = canvas.getContext("2d");
       const background = await Canvas.loadImage(
         "./leaderboardimages/gallery2.png",
       );
 
       console.log(topPlaces);
 
-      const n1 = await Canvas.loadImage(topPlaces[0].image.url.toString());
-      const n2 = await Canvas.loadImage(topPlaces[1].image.url.toString());
-      const n3 = await Canvas.loadImage(topPlaces[2].image.url.toString());
+      n1 = await Canvas.loadImage(topPlaces[0].image.url.toString());
+      n2 = await Canvas.loadImage(topPlaces[1].image.url.toString());
+      n3 = await Canvas.loadImage(topPlaces[2].image.url.toString());
 
-      const frame = await Canvas.loadImage("./leaderboardimages/artframe.png");
-      const gold = await Canvas.loadImage("./leaderboardimages/gold2.png");
-      const silver = await Canvas.loadImage("./leaderboardimages/silver2.png");
-      const bronze = await Canvas.loadImage("./leaderboardimages/bronze2.png");
+      frame = await Canvas.loadImage("./leaderboardimages/artframe.png");
+      gold = await Canvas.loadImage("./leaderboardimages/gold2.png");
+      silver = await Canvas.loadImage("./leaderboardimages/silver2.png");
+      bronze = await Canvas.loadImage("./leaderboardimages/bronze2.png");
       const artist1 = await client.users.fetch(topPlaces[0].author);
       const artist2 = await client.users.fetch(topPlaces[1].author);
       const artist3 = await client.users.fetch(topPlaces[2].author);
@@ -582,6 +584,24 @@ module.exports = async (client) => {
           "\n```",
       );
       console.error("Error resetting leaderboard:", error);
+    } finally {
+      if (canvas) {
+        canvas.width = 0;
+        canvas.height = 0;
+        canvas = null;
+      }      
+      if (ctx) ctx = null;
+      if (n1) n1 = null;
+      if (n2) n2 = null;
+      if (n3) n3 = null;
+      if (frame) frame = null;
+      if (gold) gold = null;
+      if (silver) silver = null;
+      if (bronze) bronze = null;
+      
+      if (global.gc) {
+        global.gc();
+      }
     }
   }
 
@@ -606,7 +626,7 @@ module.exports = async (client) => {
             console.log("resetting novaguild leaderboard");
             resetleaderboard(novaguild, client);
           }
-        });
+        }, 5000);
       }
 
       if (client.user.id === "1291000170032402433") {
