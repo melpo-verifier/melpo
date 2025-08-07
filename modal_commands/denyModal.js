@@ -1,6 +1,6 @@
 const {
-  ButtonBuilder,
-  ActionRowBuilder,
+  // ButtonBuilder,
+  // ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
   ContainerBuilder,
@@ -14,33 +14,33 @@ const {
 const { Verification, ServerConfig } = require("../dbObjects.js");
 
 module.exports = async ({ interaction, client, userid }) => {
-  const disverify = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("verify")
-      .setLabel("Verify")
-      .setStyle("Success")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("deny")
-      .setLabel("Deny")
-      .setStyle("Danger")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("reasondeny")
-      .setLabel("Deny with reason")
-      .setStyle("Danger")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("question")
-      .setLabel("Question")
-      .setStyle("Primary")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("action")
-      .setLabel("Kick")
-      .setStyle("Secondary")
-      .setDisabled(true),
-  );
+  // const disverify = new ActionRowBuilder().addComponents(
+  //   new ButtonBuilder()
+  //     .setCustomId("verify")
+  //     .setLabel("Verify")
+  //     .setStyle("Success")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("deny")
+  //     .setLabel("Deny")
+  //     .setStyle("Danger")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("reasondeny")
+  //     .setLabel("Deny with reason")
+  //     .setStyle("Danger")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("question")
+  //     .setLabel("Question")
+  //     .setStyle("Primary")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("action")
+  //     .setLabel("Kick")
+  //     .setStyle("Secondary")
+  //     .setDisabled(true),
+  // );
 
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
@@ -54,12 +54,12 @@ module.exports = async ({ interaction, client, userid }) => {
 
   await interaction.deferUpdate();
   //disable buttons without changing the other components
-  if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-    const originalContainer = interaction.message.components[0];
-    interaction.editReply({ components: [originalContainer, disverify] });
-  } else {
-    await interaction.editReply({ components: [disverify] });
-  }
+  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
+  //   const originalContainer = interaction.message.components[0];
+  //   interaction.editReply({ components: [originalContainer, disverify] });
+  // } else {
+  //   await interaction.editReply({ components: [disverify] });
+  // }
 
   const verification = await Verification.findOne({
     where: { userId: userid },
