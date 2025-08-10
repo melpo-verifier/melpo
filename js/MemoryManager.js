@@ -2,7 +2,7 @@ class MemoryManager {
   constructor(client) {
     this.client = client;
     this.cleanupInterval = 900000;
-    this.memoryThreshold = 450;
+    this.memoryThreshold = 400;
     this.emergencyThreshold = 500;
     this.lastCleanup = 0;
     this.stats = {
@@ -46,10 +46,6 @@ class MemoryManager {
 
       if (this.client.commandLoader?.clearCache) {
         this.client.commandLoader.clearCache();
-      }
-
-      if (global.gc) {
-        global.gc();
       }
 
       this.lastCleanup = Date.now();

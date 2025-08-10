@@ -240,20 +240,17 @@ class ErrorHandler {
       this.errorStats.clear();
 
       if (global.gc) {
-        for (let i = 0; i < 3; i++) {
-          global.gc();
-          await new Promise((resolve) => setTimeout(resolve, 100));
-        }
+        global.gc();
       }
 
       try {
         const owner = await client.users.fetch("808738877945675786");
         await owner.send(
-          `🚨 **CRITICAL MEMORY ERROR** 🚨\nBot had to perform emergency cleanup. Error: ${error.message}`,
+          `Bot had to perform emergency cleanup. Error: ${error.message}`,
         );
       } catch (err) {
         console.error(
-          "Failed to notify owner about critical memory error:",
+          "Failed to notify owner about memory error:",
           err.message,
         );
       }
