@@ -1,6 +1,6 @@
 const {
-  ButtonBuilder,
-  ActionRowBuilder,
+  // ButtonBuilder,
+  // ActionRowBuilder,
   EmbedBuilder,
   AttachmentBuilder,
   MessageFlags,
@@ -29,33 +29,33 @@ module.exports = async ({ interaction, client, userid, context }) => {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  const disverify = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("verify")
-      .setLabel("Verify")
-      .setStyle("Success")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("deny")
-      .setLabel("Deny")
-      .setStyle("Danger")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("reasondeny")
-      .setLabel("Deny with reason")
-      .setStyle("Danger")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("question")
-      .setLabel("Question")
-      .setStyle("Primary")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("action")
-      .setLabel("Kick")
-      .setStyle("Secondary")
-      .setDisabled(true),
-  );
+  // const disverify = new ActionRowBuilder().addComponents(
+  //   new ButtonBuilder()
+  //     .setCustomId("verify")
+  //     .setLabel("Verify")
+  //     .setStyle("Success")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("deny")
+  //     .setLabel("Deny")
+  //     .setStyle("Danger")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("reasondeny")
+  //     .setLabel("Deny with reason")
+  //     .setStyle("Danger")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("question")
+  //     .setLabel("Question")
+  //     .setStyle("Primary")
+  //     .setDisabled(true),
+  //   new ButtonBuilder()
+  //     .setCustomId("action")
+  //     .setLabel("Kick")
+  //     .setStyle("Secondary")
+  //     .setDisabled(true),
+  // );
 
   const serverConfig = await ServerConfig.findOne({
     where: { server_id: interaction.guild.id },
@@ -155,12 +155,12 @@ module.exports = async ({ interaction, client, userid, context }) => {
   }
 
   //disable buttons
-  if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-    const originalContainer = interaction.message.components[0];
-    await interaction.editReply({ components: [originalContainer, disverify] });
-  } else {
-    await interaction.editReply({ components: [disverify] });
-  }
+  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
+  //   const originalContainer = interaction.message.components[0];
+  //   await interaction.editReply({ components: [originalContainer, disverify] });
+  // } else {
+  //   await interaction.editReply({ components: [disverify] });
+  // }
 
   //send welcome message
   if (welcomeChannel !== null && welcomeMessage !== null) {
