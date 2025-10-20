@@ -250,9 +250,24 @@ manager.spawn();
 global.shardManager = manager;
 
 function initializeAPI() {
-  if (process.platform === "win32") {
+  const shouldPostStats = (() => {
+    if (process.env.POST_STATS === "false") return false;
+    if (process.env.POST_STATS === "true") return true;
+    const hasApiKey =
+      !!process.env.DISCORDBOTLIST ||
+      !!process.env.TOPGG ||
+      !!process.env.DISCORDBOTSGG ||
+      !!process.env.DISFORGE ||
+      !!process.env.DISCORDEXTREMELIST ||
+      !!process.env.DISCORDS ||
+      !!process.env.DISCORDSERVICES ||
+      !!process.env.VOIDBOTS;
+    return process.env.NODE_ENV === "production" && !!process.env.MELPO_ID && hasApiKey;
+  })();
+
+  if (!shouldPostStats) {
     console.log(
-      "Running on Windows, assuming development environment, skipping API initialization",
+      "API poster disabled (set POST_STATS='true' to force, POST_STATS='false' to disable).",
     );
     return;
   }
