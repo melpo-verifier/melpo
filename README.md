@@ -2,6 +2,8 @@
 
 A Discord verification bot that helps server administrators manage user access to your Discord server with a question based application.
 
+**To-Do list:** [Trello board](https://trello.com/b/cdS0hWIk/melpo)
+
 ## Features
 
 - User verification system
