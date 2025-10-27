@@ -5,104 +5,52 @@ const {
   AttachmentBuilder,
   MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../../dbObjects.js");
+const { Application } = require("../../dbObjects.js");
 const fs = require("fs");
 const path = require("path");
 const {
-  createTemporarySetup,
-  deleteTemporarySetup,
+  deleteTempApplication,
 } = require("../../js/tempconfigfuncs.js");
+const { TempApplication } = require("../../dbObjects.js");
 
-module.exports = async ({ interaction, client }) => {
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+module.exports = async ({ interaction, client, context }) => {
+  const appName = context[0] === "firsttime" ? context[1] : context[0];
 
-  const [serverConfig] = await ServerConfig.findOrCreate({
-    where: { server_id: interaction.guild.id },
-  });
-
-  const questions = temporarySetup.questions || serverConfig.questions;
-  const reviewChannel =
-    temporarySetup.reviewchannel === "deleted"
-      ? null
-      : temporarySetup.reviewchannel || serverConfig.reviewchannel;
-  const verifyLogsChannel =
-    temporarySetup.verifylogs === "deleted"
-      ? null
-      : temporarySetup.verifylogs || serverConfig.verifylogs;
-  const verifyChannel =
-    temporarySetup.verifychannel === "deleted"
-      ? null
-      : temporarySetup.verifychannel || serverConfig.verifychannel;
-  const verificationwelcomechannel =
-    temporarySetup.verificationwelcomechannel === "deleted"
-      ? null
-      : temporarySetup.verificationwelcomechannel ||
-        serverConfig.verificationwelcomechannel;
-
-  const verifiedRole =
-    (temporarySetup.verifiedrole || serverConfig.verifiedrole)?.length > 0
-      ? temporarySetup.verifiedrole || serverConfig.verifiedrole
-      : null;
-  const autoRole =
-    (temporarySetup.autorole || serverConfig.autorole)?.length > 0
-      ? temporarySetup.autorole || serverConfig.autorole
-      : null;
-  const unverifiedRole =
-    (temporarySetup.unverifiedrole || serverConfig.unverifiedrole)?.length > 0
-      ? temporarySetup.unverifiedrole || serverConfig.unverifiedrole
-      : null;
-  const pingRole =
-    (temporarySetup.pingrole || serverConfig.pingrole)?.length > 0
-      ? temporarySetup.pingrole || serverConfig.pingrole
-      : null;
-  const managerRole =
-    (temporarySetup.managerrole || serverConfig.managerrole)?.length > 0
-      ? temporarySetup.managerrole || serverConfig.managerrole
-      : null;
-  const useThreads =
-    temporarySetup.usethreads !== undefined
-      ? temporarySetup.usethreads
-      : serverConfig.usethreads || false;
-
-  if (
-    !(
-      verifyChannel &&
-      reviewChannel &&
-      verifiedRole &&
-      questions &&
-      questions.length > 0
-    )
-  )
+  console.log(appName)
+  const tempApp = await TempApplication.findOne({ where: { name: appName } });
+  if (!tempApp) {
     return interaction.reply({
-      content:
-        "You need to set up all the *required* channels, roles and questions before finishing the setup.",
+      content: "Temp setup not found.",
       flags: MessageFlags.Ephemeral,
     });
+  }
 
-  const verifychannelembed = {
-    ...serverConfig.verifychannelembed,
-    ...temporarySetup.verifychannelembed,
-  };
+  let existingApp = null;
+  if (tempApp.name) {
+    existingApp = await Application.findOne({ where: { name: tempApp.name } });
+  }
 
-  const startmessage = {
-    ...serverConfig.startmessage,
-    ...temporarySetup.startmessage,
-  };
+  const questions = tempApp.questions && tempApp.questions.length > 0
+    ? tempApp.questions
+    : existingApp?.questions || [];
+  const reviewChannel = tempApp.reviewchannel || existingApp?.reviewchannel;
+  const verifyChannel = tempApp.verifychannel || existingApp?.verifychannel;
+  const verifiedRole = (tempApp.verifiedrole && tempApp.verifiedrole.length > 0)
+    ? tempApp.verifiedrole
+    : (existingApp?.verifiedrole && existingApp.verifiedrole.length > 0 ? existingApp.verifiedrole : null);
 
-  const finishmessage = {
-    ...serverConfig.finishmessage,
-    ...temporarySetup.finishmessage,
-  };
+  if (!(verifyChannel && reviewChannel && verifiedRole && questions && questions.length > 0)) {
+    return interaction.reply({
+      content: "You need to set up all the *required* channels, roles and questions before finishing the setup.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-  const verifymessage = {
-    ...serverConfig.verifymessage,
-    ...temporarySetup.verifymessage,
-  };
-
-  const verificationwelcomemessage = {
-    ...serverConfig.verificationwelcomemessage,
-    ...temporarySetup.verificationwelcomemessage,
-  };
+  const verifychannelembed = tempApp.verifychannelembed || {};
+  const startmessage = tempApp.startmessage || {};
+  const finishmessage = tempApp.finishmessage || {};
+  const verifymessage = tempApp.verifymessage || {};
+  const verificationwelcomemessage = tempApp.verificationwelcomemessage || {};
 
   cleanConfig(verifychannelembed);
   cleanConfig(startmessage);
@@ -110,18 +58,9 @@ module.exports = async ({ interaction, client }) => {
   cleanConfig(verifymessage);
   cleanConfig(verificationwelcomemessage);
 
-  const color =
-    verifychannelembed.color === "deleted"
-      ? null
-      : verifychannelembed.color || null;
-  const title =
-    verifychannelembed.title === "deleted"
-      ? null
-      : verifychannelembed.title || null;
-  const description =
-    verifychannelembed.description === "deleted"
-      ? null
-      : verifychannelembed.description || null;
+  const color = verifychannelembed.color || null;
+  const title = verifychannelembed.title || null;
+  const description = verifychannelembed.description || null;
 
   if (questions.length === 0) {
     return interaction.reply({
@@ -139,109 +78,74 @@ module.exports = async ({ interaction, client }) => {
   ];
 
   for (const category of imageCategories) {
-    if (temporarySetup[category]?.image === "deleted") {
-      console.log(
-        `Skipping validation for ${category}: image marked for deletion`,
-      );
+    if (tempApp[category]?.image === "deleted") {
+      console.log(`Skipping validation for ${category}: image marked for deletion`);
       continue;
     }
 
-    if (temporarySetup[category]?.image) {
-      const imagePath = path.join(
-        __dirname,
-        "..",
-        "..",
-        temporarySetup[category].image,
-      );
+    if (tempApp[category]?.image) {
+      const imagePath = path.join(__dirname, "..", "..", tempApp[category].image);
       try {
         await fs.promises.access(imagePath, fs.constants.F_OK);
         console.log(`Image exists: ${imagePath}`);
       } catch {
         console.error(`Image not found: ${imagePath}`);
-        temporarySetup[category].image = null;
+        tempApp[category].image = null;
         throw new Error(`Image not found: ${imagePath}`);
       }
     }
   }
 
-  if (temporarySetup.verifychannelembed?.image) {
-    await deleteOldImages(
-      interaction.guild.id,
-      verifychannelembed.image,
-      "images/verifychannelembed",
-    );
-    verifychannelembed.image = verifychannelembed.image
-      ? verifychannelembed.image?.replace(/_temp/, "")
-      : null;
+  if (tempApp.verifychannelembed?.image) {
+    await deleteOldImages(interaction.guild.id, verifychannelembed.image, "images/verifychannelembed");
+    verifychannelembed.image = verifychannelembed.image ? verifychannelembed.image.replace(/_temp/, "") : null;
   }
-  if (temporarySetup.startmessage?.image) {
-    await deleteOldImages(
-      interaction.guild.id,
-      startmessage.image,
-      "images/startmessage",
-    );
-    startmessage.image = startmessage.image
-      ? startmessage.image?.replace(/_temp/, "")
-      : null;
+  if (tempApp.startmessage?.image) {
+    await deleteOldImages(interaction.guild.id, startmessage.image, "images/startmessage");
+    startmessage.image = startmessage.image ? startmessage.image.replace(/_temp/, "") : null;
   }
-  if (temporarySetup.finishmessage?.image) {
-    await deleteOldImages(
-      interaction.guild.id,
-      finishmessage.image,
-      "images/finishmessage",
-    );
-    finishmessage.image = finishmessage.image
-      ? finishmessage.image?.replace(/_temp/, "")
-      : null;
+  if (tempApp.finishmessage?.image) {
+    await deleteOldImages(interaction.guild.id, finishmessage.image, "images/finishmessage");
+    finishmessage.image = finishmessage.image ? finishmessage.image.replace(/_temp/, "") : null;
   }
-  if (temporarySetup.verifymessage?.image) {
-    await deleteOldImages(
-      interaction.guild.id,
-      verifymessage.image,
-      "images/verifymessage",
-    );
-    verifymessage.image = verifymessage.image
-      ? verifymessage.image?.replace(/_temp/, "")
-      : null;
+  if (tempApp.verifymessage?.image) {
+    await deleteOldImages(interaction.guild.id, verifymessage.image, "images/verifymessage");
+    verifymessage.image = verifymessage.image ? verifymessage.image.replace(/_temp/, "") : null;
   }
-  if (temporarySetup.verificationwelcomemessage?.image) {
-    await deleteOldImages(
-      interaction.guild.id,
-      verificationwelcomemessage.image,
-      "images/verificationwelcomemessage",
-    );
-    verificationwelcomemessage.image = verificationwelcomemessage.image
-      ? verificationwelcomemessage.image?.replace(/_temp/, "")
-      : null;
+  if (tempApp.verificationwelcomemessage?.image) {
+    await deleteOldImages(interaction.guild.id, verificationwelcomemessage.image, "images/verificationwelcomemessage");
+    verificationwelcomemessage.image = verificationwelcomemessage.image ? verificationwelcomemessage.image.replace(/_temp/, "") : null;
   }
 
-  Object.assign(serverConfig, {
-    reviewchannel: reviewChannel,
-    verifylogs: verifyLogsChannel,
-    verifychannel: verifyChannel,
-    verifiedrole: verifiedRole,
-    questions: questions,
-    verifychannelembed: verifychannelembed,
-    startmessage: startmessage,
-    finishmessage: finishmessage,
-    verifymessage: verifymessage,
-    verificationwelcomemessage: verificationwelcomemessage,
-    autorole: autoRole,
-    unverifiedrole: unverifiedRole,
-    pingrole: pingRole,
-    managerrole: managerRole,
-    verificationwelcomechannel: verificationwelcomechannel,
-    usethreads: useThreads,
-  });
+  // Build appData with only non-empty fields to allow defaults for new apps
+  const appData = { server_id: interaction.guild.id, name: tempApp.name };
+  const fields = [
+    'questions', 'reviewchannel', 'verifylogs', 'verifychannel', 'verifiedrole',
+    'verifychannelembed', 'startmessage', 'finishmessage', 'verifymessage',
+    'verificationwelcomemessage', 'autorole', 'unverifiedrole', 'pingrole',
+    'managerrole', 'verificationwelcomechannel', 'usethreads'
+  ];
 
-  await serverConfig.save();
+  for (const field of fields) {
+    const value = tempApp[field];
+    if (value != null && value !== '' &&
+        (Array.isArray(value) ? value.length > 0 : true) &&
+        (typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).length > 0 : true)) {
+      appData[field] = value;
+    }
+  }
 
-  //check if there already is verification message in the verifychannel, if not then send new one
+  if (existingApp) {
+    Object.assign(existingApp, appData);
+    await existingApp.save();
+  } else {
+    existingApp = await Application.create(appData);
+  }
+
   const verifyChannelObj = interaction.guild.channels.cache.get(verifyChannel);
   if (!verifyChannelObj) {
     return interaction.reply({
-      content:
-        "The user verification channel has been deleted. Please set up the user verification channel again.",
+      content: "The user verification channel has been deleted. Please set up the user verification channel again.",
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -252,87 +156,75 @@ module.exports = async ({ interaction, client }) => {
       m.author.id === client.user.id &&
       m.embeds.length > 0 &&
       m.embeds[0].footer &&
-      m.embeds[0].footer.text ===
-        "Thanks for verifying! - Developed by milo_dev",
+      m.embeds[0].footer.text === `${tempApp.name}`,
   );
+
+  // Use fallback logic for embed fields
+  const embedColor = (tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) || "#3f7ff1";
+  const embedTitle = tempApp.verifychannelembed?.title ?? existingApp?.verifychannelembed?.title ?? "Verification";
+  const embedDescription = tempApp.verifychannelembed?.description ?? existingApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
+  const embedImage = tempApp.verifychannelembed?.image ?? existingApp?.verifychannelembed?.image;
 
   if (!verificationMessage) {
     const verificationembed = new EmbedBuilder()
-      .setColor(color)
-      .setTitle(title ?? null)
-      .setDescription(description)
+      .setColor(embedColor)
+      .setTitle(embedTitle)
+      .setDescription(embedDescription)
       .setImage(
-        verifychannelembed.image
-          ? `attachment://verifychannelimage.${verifychannelembed.image.split(".").pop()}`
+        embedImage
+          ? `attachment://verifychannelimage.${embedImage.split(".").pop()}`
           : null,
       )
-      .setFooter({ text: "Thanks for verifying! - Developed by milo_dev" });
+      .setFooter({ text: `${tempApp.name}` });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId("verifybutton")
+        .setCustomId(`verifybutton_${existingApp.id}`)
         .setLabel("Verify")
         .setStyle("Success"),
     );
 
-    var attachment;
-
-    if (verifychannelembed.image) {
-      if (fs.existsSync(verifychannelembed.image)) {
-        try {
-          attachment = new AttachmentBuilder(verifychannelembed.image).setName(
-            `verifychannelimage.${path.extname(verifychannelembed.image).slice(1)}`,
-          );
-        } catch (error) {
-          console.error("Error creating attachment:", error);
-        }
-      } else {
-        console.error(`File not found: ${verifychannelembed.image}`);
+    let attachment;
+    if (embedImage) {
+      if (fs.existsSync(embedImage)) {
+        attachment = new AttachmentBuilder(embedImage).setName(
+          `verifychannelimage.${path.extname(embedImage).slice(1)}`,
+        );
       }
     }
 
-    await interaction.guild.channels.cache
-      .get(verifyChannel)
-      .send({
-        embeds: [verificationembed],
-        components: [row],
-        files: attachment ? [attachment] : [],
-      });
+    await verifyChannelObj.send({
+      embeds: [verificationembed],
+      components: [row],
+      files: attachment ? [attachment] : [],
+    });
   } else {
-    //check if the latest message is up to date with the current setup and if not then update it
-    const verifymessage = verificationMessage.embeds[0];
-
-    const verifymessageEmbed = new EmbedBuilder(verifymessage)
-      .setColor(color)
-      .setTitle(title ?? null)
-      .setDescription(description)
+    // Use the same fallback logic for updates
+    const verifymessageEmbed = new EmbedBuilder(verificationMessage.embeds[0])
+      .setColor(embedColor)
+      .setTitle(embedTitle)
+      .setDescription(embedDescription)
       .setImage(
-        verifychannelembed.image
-          ? `attachment://verifychannelimage.${verifychannelembed.image.split(".").pop()}`
+        embedImage
+          ? `attachment://verifychannelimage.${embedImage.split(".").pop()}`
           : null,
       )
-      .setFooter({ text: "Thanks for verifying! - Developed by milo_dev" });
+      .setFooter({ text: `${tempApp.name}` });
 
-    if (verifychannelembed.image) {
-      if (fs.existsSync(verifychannelembed.image)) {
-        // console.log('image exists!')
-        try {
-          attachment = new AttachmentBuilder(verifychannelembed.image).setName(
-            `verifychannelimage.${path.extname(verifychannelembed.image).slice(1)}`,
-          );
-        } catch (error) {
-          console.error("Error creating attachment:", error);
-        }
-      } else {
-        console.error(`File not found: ${verifychannelembed.image}`);
+    let attachment;
+    if (embedImage) {
+      if (fs.existsSync(embedImage)) {
+        attachment = new AttachmentBuilder(embedImage).setName(
+          `verifychannelimage.${path.extname(embedImage).slice(1)}`,
+        );
       }
     }
 
     if (
-      verifymessage.title !== verifymessageEmbed.title ||
-      verifymessage.description !== verifymessageEmbed.description ||
-      verifymessage.image.url !== verifymessageEmbed.image.url ||
-      verifymessage.color !== verifymessageEmbed.color
+      verificationMessage.embeds[0].title !== verifymessageEmbed.title ||
+      verificationMessage.embeds[0].description !== verifymessageEmbed.description ||
+      verificationMessage.embeds[0].image?.url !== verifymessageEmbed.image?.url ||
+      verificationMessage.embeds[0].color !== verifymessageEmbed.color
     ) {
       await verificationMessage.edit({
         embeds: [verifymessageEmbed],
@@ -341,8 +233,7 @@ module.exports = async ({ interaction, client }) => {
     }
   }
 
-  //delete the temporary setup from the datbase
-  await deleteTemporarySetup(interaction.guild.id);
+  await deleteTempApplication(interaction.guild.id, { name: appName });
 
   const finishembed = new EmbedBuilder()
     .setColor("#3f7ff1")
@@ -350,11 +241,11 @@ module.exports = async ({ interaction, client }) => {
 
   if (interaction.customId.includes("firsttime")) {
     finishembed.setDescription(
-      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe bot is now ready to verify users.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nThis is just the basic setup. You can further customize messages, roles and channels by running the \`/setup\` command again.`,
+      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" is now ready to verify users.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nThis is just the basic setup. You can further customize messages, roles and channels by running the \`/setup edit "${tempApp.name}"\` command again.`,
     );
   } else {
     finishembed.setDescription(
-      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe bot is now ready to verify users.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nYou can redo or adjust this setup any time by running the \`/setup\` command again.`,
+      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" has been updated.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nYou can redo or adjust this setup any time by running the \`/setup edit "${tempApp.name}"\` command again.`,
     );
   }
 
@@ -371,7 +262,6 @@ function cleanConfig(config) {
       delete config[key];
     } else if (typeof config[key] === "object" && config[key] !== null) {
       cleanConfig(config[key]);
-
       if (Object.keys(config[key]).length === 0) {
         delete config[key];
       }
@@ -413,7 +303,7 @@ async function deleteOldImages(serverId, newImagePath, imageDir) {
     }
 
     if (newImagePath.includes("_temp")) {
-      const finalName = path.basename(newImagePath?.replace("_temp", ""));
+      const finalName = path.basename(newImagePath.replace("_temp", ""));
       const finalPath = path.join(absoluteImageDir, finalName);
       await fs.promises.rename(absoluteNewPath, finalPath);
       console.log(`Renamed: ${path.basename(newImagePath)} -> ${finalName}`);

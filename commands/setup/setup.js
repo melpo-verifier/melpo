@@ -83,21 +83,31 @@ module.exports = {
           .setTitle("Ongoing Application Setup")
           .setDescription(`Setup for "${name}" is already in progress. Continue or start a new one?`)
           .setColor("#3f7ff1");
-        const buttons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`continue_app_${tempApp.id}`).setLabel("Continue").setStyle("Primary"),
-          new ButtonBuilder().setCustomId("cancelsetup").setLabel("Cancel").setStyle("Danger"),
-        );
-        return interaction.reply({ embeds: [embed], components: [buttons], flags: MessageFlags.Ephemeral });
+        // const buttons = new ActionRowBuilder().addComponents(
+        //   new ButtonBuilder().setCustomId(`continue_app_${tempApp.name}`).setLabel("Continue").setStyle("Primary"),
+        //   new ButtonBuilder().setCustomId(`cancelsetup_${tempApp.name}`).setLabel("Cancel").setStyle("Danger"),
+        // );
+      const continuebuttons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("generalinfo_false_" + tempApp.name)
+          .setLabel("Continue previous setup")
+          .setStyle("Success"),
+        new ButtonBuilder()
+          .setCustomId("generalinfo_true_" + tempApp.name)
+          .setLabel("Start New Setup")
+          .setStyle("Primary"),
+      );
+        return interaction.reply({ embeds: [embed], components: [continuebuttons] });
       }
 
       const nextbuttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`next_0`)
+          .setCustomId(`next_0_${tempApp.name}`)
           .setLabel("Next")
           .setStyle("Primary")
           .setDisabled(true),
         new ButtonBuilder()
-          .setCustomId("cancelsetup")
+          .setCustomId(`cancelsetup_${tempApp.name}`)
           .setLabel("Cancel")
           .setStyle("Danger"),
       );
@@ -115,7 +125,7 @@ module.exports = {
         });
 
       const channelmenu = new ChannelSelectMenuBuilder()
-        .setCustomId("firstTimeMenu_0")
+        .setCustomId(`firstTimeMenu_0_${tempApp.name}`)
         .addChannelTypes("GuildText")
         .setPlaceholder("Select the channel users will start verification in")
         .setMinValues(1)
@@ -135,21 +145,31 @@ module.exports = {
           flags: MessageFlags.Ephemeral,
         });
       }
-      const { tempApp, created } = await createTempApplication(interaction.guild.id, { name: app.name, appId: app.id });
+      const { tempApp, created } = await createTempApplication(interaction.guild.id, { name: app.name });
       if (!created) {
         const embed = new EmbedBuilder()
           .setTitle("Ongoing Application Edit")
           .setDescription(`Edit for "${app.name}" is already in progress. Continue or start a new one?`)
           .setColor("#3f7ff1");
-        const buttons = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`continue_app_${tempApp.id}`).setLabel("Continue").setStyle("Primary"),
-          new ButtonBuilder().setCustomId("cancelsetup").setLabel("Cancel").setStyle("Danger"),
+        // const buttons = new ActionRowBuilder().addComponents(
+        //   new ButtonBuilder().setCustomId(`continue_app_${tempApp.name}`).setLabel("Continue").setStyle("Primary"),
+        //   new ButtonBuilder().setCustomId(`cancelsetup_${tempApp.name}`).setLabel("Cancel").setStyle("Danger"),
+        // );
+        const continuebuttons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("generalinfo_false_" + tempApp.name)
+            .setLabel("Continue previous setup")
+            .setStyle("Success"),
+          new ButtonBuilder()
+            .setCustomId("generalinfo_true_" + tempApp.name)
+            .setLabel("Start New Setup")
+            .setStyle("Primary"),
         );
-        return interaction.reply({ embeds: [embed], components: [buttons], flags: MessageFlags.Ephemeral });
+        return interaction.reply({ embeds: [embed], components: [continuebuttons] });
       }
 
       // First time edit for this app
-      generalinfo({ interaction, client, appMode: true, appIdentifier: { appId: app.id } });
+      generalinfo({ interaction, client, appName: tempApp.name });
     }
   },
 };

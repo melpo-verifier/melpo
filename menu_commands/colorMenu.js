@@ -4,22 +4,23 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require("discord.js");
-const { updateTemporarySetup } = require("../js/tempconfigfuncs.js");
+const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 const customizationMenu = require("./selectcustomizationMenu.js");
 
 module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0];
+  const appName = context[1];
 
   const value = interaction.values[0];
 
   if (value !== "custom") {
-    await updateTemporarySetup(interaction.guild.id, {
+    await updateTempApplication(interaction.guild.id, {
       [customIdValue]: { color: value },
-    });
-    customizationMenu({ interaction, customIdValue });
+    }, { name: appName });
+    customizationMenu({ interaction, customIdValue, appName });
   } else if (value === "custom") {
     const modal = new ModalBuilder()
-      .setCustomId(`setColorModal_${customIdValue}`)
+      .setCustomId(`setColorModal_${customIdValue}_${appName}`)
       .setTitle("Set Embed Color");
 
     const color = new TextInputBuilder()

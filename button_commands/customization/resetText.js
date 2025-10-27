@@ -1,20 +1,21 @@
-const { updateTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { updateTemporarySetup, updateTempApplication } = require("../../js/tempconfigfuncs.js");
 const customizationMenu = require("../../menu_commands/selectcustomizationMenu.js");
 const { ServerConfig } = require("../../dbObjects.js");
 
 module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0].toString();
+  const appName = context[1];
 
   const defaultValue = getDefaultValue(customIdValue);
 
-  await updateTemporarySetup(interaction.guild.id, {
+  await updateTempApplication(interaction.guild.id, {
     [customIdValue]: {
       title: defaultValue.title,
       description: defaultValue.description,
     },
-  });
+  }, { name: appName });
 
-  customizationMenu({ interaction, customIdValue });
+  customizationMenu({ interaction, customIdValue, appName });
 };
 
 const getDefaultValue = (fieldName) => {

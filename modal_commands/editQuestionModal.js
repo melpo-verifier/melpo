@@ -1,9 +1,11 @@
-const { ServerConfig } = require("../dbObjects.js");
-const {
-  createTemporarySetup,
-  updateTemporarySetup,
-} = require("../js/tempconfigfuncs.js");
+const { ServerConfig, Application } = require("../dbObjects.js");
+// const {
+//   createtempApp,
+//   updatetempApp,
+// } = require("../js/tempconfigfuncs.js");
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
+const { createTempApplication, updateTempApplication } = require("../js/tempconfigfuncs.js");
+
 
 module.exports = async ({ interaction, client, context }) => {
   const question = interaction.fields.getTextInputValue("question");
@@ -15,14 +17,18 @@ module.exports = async ({ interaction, client, context }) => {
 
   const isfirsttime = parseInt(context[1]);
   const qnumber = parseInt(context[0]);
+  const appName = context?.[2] ?? context?.[1] ?? context?.[0];
+  console.log(appName)
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
+  // const serverConfig = await ServerConfig.findOne({
+  //   where: { server_id: interaction.guild.id },
+  // });
+  const applicationSetup = await Application.findOne({ where: { name: appName } });
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  // const { tempApp } = await createtempApp(interaction.guild.id);
+  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
-  var questions = temporarySetup.questions || serverConfig.questions;
+  var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;
   if (
     Array.isArray(questions) &&
     questions.every((q) => typeof q === "string")
@@ -42,13 +48,16 @@ module.exports = async ({ interaction, client, context }) => {
     questions = questions.filter((q) => q.content.length > 0);
   }
 
-  await updateTemporarySetup(interaction.guild.id, { questions: questions });
+  // await updatetempApp(interaction.guild.id, { questions: questions });
+  await updateTempApplication(interaction.guild.id, {
+    questions: questions,
+  }, { name: appName });
 
   if (isfirsttime === 0) {
-    questioninfo({ interaction, client });
+    questioninfo({ interaction, client, appName });
   } else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction, client });
+    firsttimequestions({ interaction, client, appName });
   }
 };

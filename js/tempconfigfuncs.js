@@ -114,14 +114,16 @@ async function updateBotLeaves() {
 }
 
 async function createTempApplication(serverID, appData = {}) {
-  const where = appData.appId
-    ? { server_id: serverID, appId: appData.appId }
+  const where = appData.id
+    ? { server_id: serverID, id: appData.id }
     : { server_id: serverID, name: appData.name };
 
+  console.log(where);
   const [tempApp, created] = await TempApplication.findOrCreate({
     where: where,
     defaults: { server_id: serverID, ...appData },
   });
+
   return { tempApp, created };
 }
 

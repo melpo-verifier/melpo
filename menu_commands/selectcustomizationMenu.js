@@ -6,12 +6,12 @@ const {
   ButtonStyle,
   AttachmentBuilder,
 } = require("discord.js");
-const { createTemporarySetup } = require("../js/tempconfigfuncs.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { createTempApplication } = require("../js/tempconfigfuncs.js");
+const { Application } = require("../dbObjects.js");
 const fs = require("fs");
 const path = require("path");
 
-module.exports = async ({ interaction, customIdValue }) => {
+module.exports = async ({ interaction, customIdValue, appName, context }) => {
   var chosenvalue;
   if (customIdValue) {
     chosenvalue = customIdValue;
@@ -19,67 +19,69 @@ module.exports = async ({ interaction, customIdValue }) => {
     chosenvalue = interaction.values[0];
   }
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  appName = appName || context[0];
+
+  const applicationSetup = await Application.findOne({
+    where: { name: appName },
   });
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
   const title =
-    temporarySetup[chosenvalue]?.title === "deleted"
+    tempApp[chosenvalue]?.title === "deleted"
       ? null
       : (
-          temporarySetup[chosenvalue]?.title || serverConfig[chosenvalue]?.title
+          tempApp[chosenvalue]?.title || applicationSetup[chosenvalue]?.title
         )?.replace("${interaction.guild.name}", interaction.guild.name) || null;
 
   const description =
-    temporarySetup[chosenvalue]?.description === "deleted"
+    tempApp[chosenvalue]?.description === "deleted"
       ? null
       : (
-          temporarySetup[chosenvalue]?.description ||
-          serverConfig[chosenvalue]?.description
+          tempApp[chosenvalue]?.description ||
+          applicationSetup[chosenvalue]?.description
         )?.replace("${interaction.guild.name}", interaction.guild.name) || null;
 
   const color =
-    temporarySetup[chosenvalue]?.color === "deleted"
+    tempApp[chosenvalue]?.color === "deleted"
       ? null
-      : temporarySetup[chosenvalue]?.color || serverConfig[chosenvalue]?.color;
+      : tempApp[chosenvalue]?.color || applicationSetup[chosenvalue]?.color;
 
   const image =
-    temporarySetup[chosenvalue]?.image === "deleted"
+    tempApp[chosenvalue]?.image === "deleted"
       ? null
-      : temporarySetup[chosenvalue]?.image ||
-        serverConfig[chosenvalue]?.image ||
+      : tempApp[chosenvalue]?.image ||
+        applicationSetup[chosenvalue]?.image ||
         null;
 
   const text =
-    temporarySetup[chosenvalue]?.text === "deleted"
+    tempApp[chosenvalue]?.text === "deleted"
       ? null
-      : temporarySetup[chosenvalue]?.text ||
-        serverConfig[chosenvalue]?.text ||
+      : tempApp[chosenvalue]?.text ||
+        applicationSetup[chosenvalue]?.text ||
         null;
 
   const setImage = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`setText_${chosenvalue}`)
+      .setCustomId(`setText_${chosenvalue}_${appName}`)
       .setLabel("Set Text")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`setImage_${chosenvalue}`)
+      .setCustomId(`setImage_${chosenvalue}_${appName}`)
       .setLabel("Set Image")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`removeImage_${chosenvalue}`)
+      .setCustomId(`removeImage_${chosenvalue}_${appName}`)
       .setLabel("Remove Image")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId(`resetText_${chosenvalue}`)
+      .setCustomId(`resetText_${chosenvalue}_${appName}`)
       .setLabel("Reset Text")
       .setStyle(ButtonStyle.Danger),
   );
 
   const colourmenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`colorMenu_${chosenvalue}`)
+      .setCustomId(`colorMenu_${chosenvalue}_${appName}`)
       .setPlaceholder("Select color")
       .setOptions(
         { label: "Custom hex color", value: "custom", emoji: "🎨" },
@@ -188,22 +190,47 @@ module.exports = async ({ interaction, customIdValue }) => {
     embed.setFooter({ text: `This is the ${chosenvalue}.` });
   }
 
-  var messagecomponent1 = interaction.message.components[1];
+  // Rebuild the customization select menu with the correct default
+  const selectcustomizationMenu = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId("selectcustomizationMenu_" + appName)
+      .setPlaceholder("Select what message you want to customize")
+      .addOptions(
+        {
+          label: "Verify channel Embed",
+          description: `Message to which users click "verify" to start verification`,
+          value: "verifychannelembed",
+          default: chosenvalue === "verifychannelembed",
+        },
+        {
+          label: "Verification start message",
+          description: `Message user gets when starting verification`,
+          value: "startmessage",
+          default: chosenvalue === "startmessage",
+        },
+        {
+          label: "Verification finish message",
+          description: "Message user gets when finishing verification",
+          value: "finishmessage",
+          default: chosenvalue === "finishmessage",
+        },
+        {
+          label: "On verify message",
+          description: "Message user gets when getting verified",
+          value: "verifymessage",
+          default: chosenvalue === "verifymessage",
+        },
+        {
+          label: "Verification welcome message",
+          description: "Welcome message in the server when user gets verified",
+          value: "verificationwelcomemessage",
+          default: chosenvalue === "verificationwelcomemessage",
+        },
+      ),
+  );
 
-  //customize interaction.message.components[1] to make chosenvalue the default option selected IF there is a chosenvalue
-  if (chosenvalue) {
-    messagecomponent1.components.forEach((component) => {
-      if (component.customId === "selectcustomizationMenu") {
-        component.options.forEach((option) => {
-          if (option.value === chosenvalue) {
-            option.default = true;
-          } else {
-            option.default = false;
-          }
-        });
-      }
-    });
-  }
+  // Get the finish buttons from the last component
+  const finishbuttons = interaction.message.components[interaction.message.components.length - 1];
 
   if (interaction.replied || interaction.deferred) {
     if (
@@ -215,10 +242,10 @@ module.exports = async ({ interaction, customIdValue }) => {
         embeds: embed ? [infoembed, embed] : [infoembed],
         components: [
           interaction.message.components[0],
-          messagecomponent1,
+          selectcustomizationMenu,
           colourmenu,
           setImage,
-          interaction.message.components.pop(),
+          finishbuttons,
         ],
         files: attachment ? [attachment] : [],
       });
@@ -228,9 +255,9 @@ module.exports = async ({ interaction, customIdValue }) => {
         embeds: infoembed ? [infoembed, embed] : [embed],
         components: [
           interaction.message.components[0],
-          messagecomponent1,
+          selectcustomizationMenu,
           setImage,
-          interaction.message.components.pop(),
+          finishbuttons,
         ],
         files: attachment ? [attachment] : [],
       });
@@ -245,10 +272,10 @@ module.exports = async ({ interaction, customIdValue }) => {
         embeds: embed ? [infoembed, embed] : [infoembed],
         components: [
           interaction.message.components[0],
-          messagecomponent1,
+          selectcustomizationMenu,
           colourmenu,
           setImage,
-          interaction.message.components.pop(),
+          finishbuttons,
         ],
         files: attachment ? [attachment] : [],
       });
@@ -258,9 +285,9 @@ module.exports = async ({ interaction, customIdValue }) => {
         embeds: infoembed ? [infoembed, embed] : [embed],
         components: [
           interaction.message.components[0],
-          messagecomponent1,
+          selectcustomizationMenu,
           setImage,
-          interaction.message.components.pop(),
+          finishbuttons,
         ],
         files: attachment ? [attachment] : [],
       });

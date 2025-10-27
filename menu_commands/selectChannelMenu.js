@@ -2,6 +2,7 @@ const generalinfo = require("../button_commands/setupbuttons/generalinfo.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const ivalue = interaction.values[0];
+  const appName = context[0];
 
   var whichdefault;
 
@@ -15,5 +16,5 @@ module.exports = async ({ interaction, client, context }) => {
     whichdefault = 3;
   }
 
-  await generalinfo({ interaction, client, whichdefault, context });
+  await generalinfo({ interaction, client, whichdefault, appName });
 };

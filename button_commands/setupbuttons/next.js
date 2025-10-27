@@ -5,10 +5,13 @@ const {
   ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder,
 } = require("discord.js");
-const { createTemporarySetup } = require("../../js/tempconfigfuncs.js");
+// const { createTemporarySetup, createTempApplication } = require("../../js/tempconfigfuncs.js");
+const { TempApplication } = require("../../dbObjects.js");
 
 module.exports = async ({ interaction, context }) => {
+  await interaction.deferUpdate();
   const nextnumber = parseInt(context[0]);
+  const appName = context[1]
 
   const originalComponents = interaction.message.components;
   const actionRow = originalComponents[1];
@@ -22,13 +25,13 @@ module.exports = async ({ interaction, context }) => {
     originalButtons[1],
   );
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
 
   if (nextnumber === 0) {
     const verifyChannel = temporarySetup.verifychannel;
 
     const channelmenu = new ChannelSelectMenuBuilder()
-      .setCustomId("firstTimeMenu_1")
+      .setCustomId(`firstTimeMenu_1_${appName}`)
       .setChannelTypes("GuildText")
       .setPlaceholder("Channel the applications will be sent to (for mods)")
       .setMinValues(1)
@@ -53,7 +56,7 @@ module.exports = async ({ interaction, context }) => {
         },
       ]);
 
-    await interaction.update({ components: [] });
+    await interaction.editReply({ components: [] });
     await interaction.message.edit({
       embeds: [updatedEmbed],
       components: [selectmenu, updatedActionRow],
@@ -63,7 +66,7 @@ module.exports = async ({ interaction, context }) => {
     const verifyChannel = temporarySetup.verifychannel;
 
     const channelmenu = new RoleSelectMenuBuilder()
-      .setCustomId("firstTimeMenu_2")
+      .setCustomId(`firstTimeMenu_2_${appName}`)
       .setPlaceholder("Role(s) to be given to verified users")
       .setMinValues(1)
       .setMaxValues(15);
@@ -92,7 +95,7 @@ module.exports = async ({ interaction, context }) => {
         },
       ]);
 
-    await interaction.update({ components: [] });
+    await interaction.editReply({ components: [] });
     await interaction.message.edit({
       embeds: [updatedEmbed],
       components: [selectmenu, updatedActionRow],
@@ -100,6 +103,6 @@ module.exports = async ({ interaction, context }) => {
   } else if (nextnumber === 2) {
     const firsttimequestions = require("../../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction });
+    firsttimequestions({ interaction, appName });
   }
 };

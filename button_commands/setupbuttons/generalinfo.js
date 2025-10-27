@@ -5,44 +5,46 @@ const {
   ChannelSelectMenuBuilder,
   StringSelectMenuBuilder,
 } = require("discord.js");
-const {
-  createTemporarySetup,
-  deleteTemporarySetup,
-} = require("../../js/tempconfigfuncs.js");
-const { ServerConfig } = require("../../dbObjects.js");
+const { createTempApplication, deleteTempApplication } = require("../../js/tempconfigfuncs.js");
+const { Application } = require("../../dbObjects.js");
+const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, context, whichdefault }) => {
-  const { catagorybuttons } = require("../../js/constants.js");
-  catagorybuttons.components.forEach((button) => button.setDisabled(false));
-  catagorybuttons.components[0].setDisabled(true);
-
-  if (context && context[0] === "true") {
-    await deleteTemporarySetup(interaction.guild.id);
+module.exports = async ({ interaction, context, whichdefault, appName }) => {
+  // Try to get appName from appName, context[1], or context[0]
+  appName = appName ?? context?.[1] ?? context?.[0];
+  if (!appName) {
+    return interaction.reply({
+      content: 'Application name is missing. Please try again.',
+      ephemeral: true,
+    });
   }
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
+  if (context && context[0] === "true") {
+    await deleteTempApplication(interaction.guild.id, { name: appName });
+  }
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const applicationSetup = await Application.findOne({ where: { name: appName } });
+
+  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
   const reviewChannel =
-    temporarySetup.reviewchannel === "deleted"
+    tempApp.reviewchannel === "deleted"
       ? null
-      : temporarySetup.reviewchannel || serverConfig.reviewchannel;
+      : tempApp.reviewchannel || applicationSetup.reviewchannel;
   const verifyLogsChannel =
-    temporarySetup.verifylogs === "deleted"
+    tempApp.verifylogs === "deleted"
       ? null
-      : temporarySetup.verifylogs || serverConfig.verifylogs;
+      : tempApp.verifylogs || applicationSetup.verifylogs;
   const verifyChannel =
-    temporarySetup.verifychannel === "deleted"
+    tempApp.verifychannel === "deleted"
       ? null
-      : temporarySetup.verifychannel || serverConfig.verifychannel;
+      : tempApp.verifychannel || applicationSetup.verifychannel;
   const verificationwelcomechannel =
-    temporarySetup.verificationwelcomechannel === "deleted"
+    tempApp.verificationwelcomechannel === "deleted"
       ? null
-      : temporarySetup.verificationwelcomechannel ||
-        serverConfig.verificationwelcomechannel;
+      : tempApp.verificationwelcomechannel ||
+        applicationSetup.verificationwelcomechannel;
+
 
   const generalembed = new EmbedBuilder()
     .setColor("#3f7ff1")
@@ -81,11 +83,11 @@ module.exports = async ({ interaction, context, whichdefault }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup")
+      .setCustomId("finishsetup_" + appName)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup")
+      .setCustomId("cancelsetup_" + appName)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -97,7 +99,7 @@ module.exports = async ({ interaction, context, whichdefault }) => {
   );
 
   const selectChannelMenu = new StringSelectMenuBuilder()
-    .setCustomId("selectChannelMenu")
+    .setCustomId("selectChannelMenu_" + appName)
     .setPlaceholder("Select which channel you want to setup")
     .addOptions(
       {
@@ -127,7 +129,7 @@ module.exports = async ({ interaction, context, whichdefault }) => {
     );
 
   const channelMenu = new ChannelSelectMenuBuilder()
-    .setCustomId(`channelMenu_${whichdefault}`)
+    .setCustomId(`channelMenu_${whichdefault}_${appName}`)
     .setChannelTypes("GuildText")
     .setPlaceholder("Select channel")
     .setMinValues(0)
@@ -157,18 +159,20 @@ module.exports = async ({ interaction, context, whichdefault }) => {
     new ActionRowBuilder().setComponents(channelMenu),
   ];
 
+  const categoryButtons = createCategoryButtons(appName, 0); // 0 = Channels is disabled
+
   if (interaction.isCommand()) {
     await interaction.reply({
       content: "",
       embeds: [generalembed],
-      components: [catagorybuttons, ...menus, finishbuttons],
+      components: [categoryButtons, ...menus, finishbuttons],
       files: [],
     });
   } else {
     await interaction.update({
       content: "",
       embeds: [generalembed],
-      components: [catagorybuttons, ...menus, finishbuttons],
+      components: [categoryButtons, ...menus, finishbuttons],
       files: [],
     });
   }

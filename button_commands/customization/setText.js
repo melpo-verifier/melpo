@@ -7,10 +7,13 @@ const {
   ComponentType,
 } = require("discord.js");
 const activeCollectors = new Map();
-const { updateTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { updateTemporarySetup, updateTempApplication } = require("../../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const customIdValue = context[0];
+  const appName = context[1];
+  console.log(appName)
+  console.log(context)
 
   // if(customIdValue === 'verificationwelcomemessage') {
   //     messageCollecting(interaction, customIdValue, client)
@@ -43,10 +46,10 @@ module.exports = async ({ interaction, client, context }) => {
   // }
 
   if (customIdValue === "verificationwelcomemessage") {
-    messageCollecting(interaction, customIdValue, client);
+    messageCollecting(interaction, customIdValue, appName);
   } else {
     const modal = new ModalBuilder()
-      .setCustomId(`setTextModal_${customIdValue}`)
+      .setCustomId(`setTextModal_${customIdValue}_${appName}`)
       .setTitle("Edit Embed Text");
 
     // Get existing values or set defaults
@@ -79,7 +82,7 @@ module.exports = async ({ interaction, client, context }) => {
   }
 };
 
-async function messageCollecting(interaction, customIdValue) {
+async function messageCollecting(interaction, customIdValue, appName) {
   const channelId = interaction.channel.id;
   const userId = interaction.user.id;
 
@@ -92,8 +95,8 @@ async function messageCollecting(interaction, customIdValue) {
   const filter = (msg) => msg.author.id === userId;
   const buttonfilter = (buttonInteraction) =>
     buttonInteraction.user.id === interaction.user.id &&
-    (buttonInteraction.customId === "cancelsetText" ||
-      buttonInteraction.customId === "notitle") &&
+    (buttonInteraction.customId.startsWith("cancelsetText") ||
+      buttonInteraction.customId.startsWith("notitle")) &&
     (buttonInteraction.message.content.includes(
       "Please note you cannot use {mentionuser} in the title.",
     ) ||
@@ -307,13 +310,13 @@ async function messageCollecting(interaction, customIdValue) {
     //     console.log('Collector was cancelled.');
     // } else
     if (reason === "finished") {
-      await updateTemporarySetup(interaction.guild.id, {
+      await updateTempApplication(interaction.guild.id, {
         [customIdValue]: {
           title: title,
           description: description,
           text: "deleted",
         },
-      });
+      }, { name: appName });
       const endmessage = await interaction.message.reply({
         content:
           "Verification welcome message succesfully set! Now returning to the setup embed...",
@@ -335,7 +338,7 @@ async function messageCollecting(interaction, customIdValue) {
         botMessages.length = 0;
 
         const customizationMenu = require("../../menu_commands/selectcustomizationMenu.js");
-        customizationMenu({ interaction, customIdValue });
+        customizationMenu({ interaction, customIdValue, appName });
       }, 2500);
     } else if (reason === "cancelled") {
       // await sendMessage('interactionreply', 'Custom welcome message has been cancelled.', true);

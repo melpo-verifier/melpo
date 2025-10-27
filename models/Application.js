@@ -21,39 +21,39 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verifyChannel: {
+    verifychannel: {
       type: DataTypes.STRING,
     },
-    reviewChannel: {
+    reviewchannel: {
       type: DataTypes.STRING,
     },
-    verifyLogs: {
+    verifylogs: {
       type: DataTypes.STRING,
     },
-    verificationWelcomeChannel: {
+    verificationwelcomechannel: {
       type: DataTypes.STRING,
     },
-    verifiedRoles: {
+    verifiedrole: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    managerRoles: {
+    managerrole: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    pingRoles: {
+    pingrole: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    unverifiedRoles: {
+    unverifiedrole: {
       type: DataTypes.JSONB, 
       defaultValue: [],
     },
-    verifyFilter: {
+    verifyfilter: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verificationWelcomeMessage: {
+    verificationwelcomemessage: {
       type: DataTypes.JSONB,
       defaultValue: {
         title: "Welcome {username}!",
@@ -62,7 +62,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       allowNull: false,
     },
-    verifyChannelEmbed: {
+    verifychannelembed: {
       type: DataTypes.JSONB,
       defaultValue: {
         title: "How to verify",
@@ -71,7 +71,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       allowNull: false,
     },
-    verifyMessage: {
+    verifymessage: {
       type: DataTypes.JSONB,
       defaultValue: {
         title: `Verification accepted`,
@@ -80,7 +80,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       allowNull: false,
     },
-    startMessage: {
+    startmessage: {
       type: DataTypes.JSONB,
       defaultValue: {
         title: "${interaction.guild.name}'s Verification",
@@ -89,7 +89,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       allowNull: false,
     },
-    finishMessage: {
+    finishmessage: {
       type: DataTypes.JSONB,
       defaultValue: {
         title: `Verification Completed`,
@@ -98,7 +98,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       allowNull: false,
     },
-    denyMessage: {
+    denymessage: {
       type: DataTypes.JSONB,
       defaultValue: {
         title: `Verification Denied`,
@@ -107,7 +107,7 @@ module.exports = (sequelize, DataTypes) => {
       },
       allowNull: false,
     },
-    useThreads: {
+    usethreads: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },

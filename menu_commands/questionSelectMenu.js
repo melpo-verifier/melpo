@@ -4,21 +4,24 @@ const {
   TextInputBuilder,
   TextInputStyle,
 } = require("discord.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { Application } = require("../dbObjects.js");
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
-const { createTemporarySetup } = require("../js/tempconfigfuncs.js");
+const { createTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context);
   const qnumber = parseInt(interaction.values[0]) - 1;
+  const appName = context?.[1] ?? context?.[0];
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
+  // const serverConfig = await ServerConfig.findOne({
+  //   where: { server_id: interaction.guild.id },
+  // });
+  const applicationSetup = await Application.findOne({ where: { name: appName } });
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  // const { tempApp } = await createtempApp(interaction.guild.id);
+  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
-  var questions = temporarySetup.questions || serverConfig.questions;
+  var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;
 
   // Check if questions is an array of strings and parse
   if (
@@ -37,7 +40,7 @@ module.exports = async ({ interaction, client, context }) => {
 
   const modal = new ModalBuilder()
 
-    .setCustomId(`editQuestionModal_${qnumber}_${isfirsttime}`)
+    .setCustomId(`editQuestionModal_${qnumber}_${isfirsttime}_${appName}`)
     .setTitle("Edit or delete question");
 
   const Question = new TextInputBuilder()
@@ -64,10 +67,10 @@ module.exports = async ({ interaction, client, context }) => {
 
   await interaction.showModal(modal);
   if (isfirsttime === 0) {
-    questioninfo({ interaction, client });
+    questioninfo({ interaction, client, appName });
   } else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction, client });
+    firsttimequestions({ interaction, client, appName });
   }
 };

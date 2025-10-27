@@ -4,16 +4,17 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
 } = require("discord.js");
-const { ServerConfig } = require("../../dbObjects.js");
+const { Application } = require("../../dbObjects.js");
 const {
   createTemporarySetup,
   updateTemporarySetup,
+  createTempApplication,
+  updateTempApplication,
 } = require("../../js/tempconfigfuncs.js");
+const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction }) => {
-  const { catagorybuttons } = require("../../js/constants.js");
-  catagorybuttons.components.forEach((button) => button.setDisabled(false));
-  catagorybuttons.components[2].setDisabled(true);
+module.exports = async ({ interaction, context, appName }) => {
+  appName = appName ?? context?.[0];
 
   const questionembed = new EmbedBuilder()
     .setTitle("Questions setup")
@@ -22,14 +23,16 @@ module.exports = async ({ interaction }) => {
     )
     .setColor("#0099ff");
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const applicationSetup = await Application.findOne({ where: { name: appName } });
 
-  var questions = temporarySetup.questions || serverConfig.questions;
-  await updateTemporarySetup(interaction.guild.id, { questions: questions });
+  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
+
+  // var questions = nonEmptyArray(tempApp.questions, applicationSetup.questions);
+  var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;
+  // await updateTemporarySetup(interaction.guild.id, { questions: questions });
+  await updateTempApplication(interaction.guild.id, { name: appName }, { questions: questions });
 
   if (
     Array.isArray(questions) &&
@@ -52,11 +55,11 @@ module.exports = async ({ interaction }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup")
+      .setCustomId("finishsetup_" + appName)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup")
+      .setCustomId("cancelsetup_" + appName)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -75,7 +78,7 @@ module.exports = async ({ interaction }) => {
     });
 
     const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId("questionSelectMenu_0")
+      .setCustomId("questionSelectMenu_0_" + appName)
       .setPlaceholder("Select a question to edit or delete")
       .setMinValues(1)
       .setMaxValues(1);
@@ -108,26 +111,30 @@ module.exports = async ({ interaction }) => {
       }),
     );
 
+    const categoryButtons = createCategoryButtons(appName, 2); // 2 = Questions is disabled
+
     if (interaction.replied || interaction.deferred) {
       interaction.message.edit({
         content: "",
         embeds: [questionembed],
-        components: [catagorybuttons, editmenu, questionbuttons, finishbuttons],
+        components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
         files: [],
       });
     } else {
       interaction.update({
         content: "",
         embeds: [questionembed],
-        components: [catagorybuttons, editmenu, questionbuttons, finishbuttons],
+        components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
         files: [],
       });
     }
   } else {
+    const categoryButtons = createCategoryButtons(appName, 2); // 2 = Questions is disabled
+    
     interaction.update({
       content: "",
       embeds: [questionembed],
-      components: [catagorybuttons, questionbuttons, finishbuttons],
+      components: [categoryButtons, questionbuttons, finishbuttons],
       files: [],
     });
   }

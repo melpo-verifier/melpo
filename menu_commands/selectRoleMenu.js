@@ -1,7 +1,8 @@
 const rolesinfo = require("../button_commands/setupbuttons/rolesinfo.js");
 
-module.exports = async ({ interaction, client }) => {
+module.exports = async ({ interaction, client, context }) => {
   const ivalue = interaction.values[0];
+  const appName = context[0];
 
   var whichdefault;
 
@@ -17,5 +18,5 @@ module.exports = async ({ interaction, client }) => {
     whichdefault = 4;
   }
 
-  await rolesinfo({ interaction, client, whichdefault });
+  await rolesinfo({ interaction, client, whichdefault, context: [appName] });
 };

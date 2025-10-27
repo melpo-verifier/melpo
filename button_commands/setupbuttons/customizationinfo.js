@@ -4,11 +4,10 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
 } = require("discord.js");
+const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction }) => {
-  const { catagorybuttons } = require("../../js/constants.js");
-  catagorybuttons.components.forEach((button) => button.setDisabled(false));
-  catagorybuttons.components[3].setDisabled(true);
+module.exports = async ({ interaction, context }) => {
+  const appName = context?.[0] ?? context?.[1];
 
   const customizationEmbed = new EmbedBuilder()
     .setColor("#3f7ff1")
@@ -19,11 +18,11 @@ module.exports = async ({ interaction }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup")
+      .setCustomId("finishsetup_" + appName)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup")
+      .setCustomId("cancelsetup_" + appName)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -36,7 +35,7 @@ module.exports = async ({ interaction }) => {
 
   const selectcustomizationMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId("selectcustomizationMenu")
+      .setCustomId("selectcustomizationMenu_" + appName)
       .setPlaceholder("Select what message you want to customize")
       .addOptions(
         {
@@ -67,17 +66,19 @@ module.exports = async ({ interaction }) => {
       ),
   );
 
+  const categoryButtons = createCategoryButtons(appName, 3); // 3 = Customization is disabled
+
   if (interaction.replied || interaction.deferred) {
     await interaction.message.edit({
       content: "",
       embeds: [customizationEmbed],
-      components: [catagorybuttons, selectcustomizationMenu, finishbuttons],
+      components: [categoryButtons, selectcustomizationMenu, finishbuttons],
     });
   } else {
     await interaction.update({
       content: "",
       embeds: [customizationEmbed],
-      components: [catagorybuttons, selectcustomizationMenu, finishbuttons],
+      components: [categoryButtons, selectcustomizationMenu, finishbuttons],
     });
   }
 };

@@ -1,11 +1,24 @@
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const {
-  createTemporarySetup,
-  updateTemporarySetup,
+  // createTemporarySetup,
+  // updateTemporarySetup,
+  updateTempApplication,
 } = require("../js/tempconfigfuncs.js");
+const { TempApplication } = require("../dbObjects.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context[0]);
+  // Try to get appName from context[1], fallback to context[0]
+  let appName = context?.[1] ?? context?.[0];
+  console.log('appName:', appName);
+  console.log('context:', context);
+
+  if (!appName) {
+    return interaction.reply({
+      content: 'Application name is missing. Please try again.',
+      ephemeral: true,
+    });
+  }
 
   const question = interaction.fields.getTextInputValue(`question`);
   const mcq = interaction.fields.getTextInputValue(`mcq`);
@@ -15,7 +28,8 @@ module.exports = async ({ interaction, client, context }) => {
     mcqArray = mcqArray.slice(0, 9);
   }
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
 
   if (!temporarySetup.questions) {
     temporarySetup.questions = [];
@@ -37,15 +51,23 @@ module.exports = async ({ interaction, client, context }) => {
     })
     .filter((q) => q !== null);
 
-  await updateTemporarySetup(interaction.guild.id, {
+  // await updateTemporarySetup(interaction.guild.id, {
+  //   questions: temporarySetup.questions,
+  // });
+
+  // await updateTempApplication(interaction.guild.id, {
+  //   questions: temporarySetup.questions,
+  // }, { id: appName });
+
+  await updateTempApplication(interaction.guild.id, {
     questions: temporarySetup.questions,
-  });
+  }, { name: appName });
 
   if (isfirsttime === 0) {
-    questioninfo({ interaction, client });
+    questioninfo({ interaction, client, appName });
   } else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction });
+    firsttimequestions({ interaction, appName });
   }
 };

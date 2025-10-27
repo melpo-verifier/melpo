@@ -1,10 +1,10 @@
 const { EmbedBuilder, AttachmentBuilder, MessageFlags } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
-const { updateTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { updateTemporarySetup, updateTempApplication } = require("../../js/tempconfigfuncs.js");
 const activeCollectors = new Map();
 
-module.exports = async ({ interaction }) => {
+module.exports = async ({ interaction, context }) => {
   const channelId = interaction.channel.id;
   // Check if a collector is already active in the channel
   if (activeCollectors.has(channelId)) {
@@ -12,7 +12,8 @@ module.exports = async ({ interaction }) => {
     existingCollector.stop("newCollectorStarted");
   }
 
-  const customIdValue = interaction.customId.split("_")[1];
+  const customIdValue = context[0]
+  const appName = context[1];
 
   const imageaskembed = new EmbedBuilder()
     .setTitle("Set Image")
@@ -49,9 +50,10 @@ module.exports = async ({ interaction }) => {
           collector.stop("invalid"); // Stop the collector
           return null; // Explicitly return null to prevent further execution
         });
-        await updateTemporarySetup(interaction.guild.id, {
+
+        await updateTempApplication(interaction.guild.id, {
           [customIdValue]: { image: imagePath },
-        });
+        }, { name: appName });
         collector.stop("collected");
         collected.delete();
         interaction.deleteReply();
@@ -62,9 +64,10 @@ module.exports = async ({ interaction }) => {
           interaction.guild.id,
           customIdValue,
         );
-        await updateTemporarySetup(interaction.guild.id, {
+        await updateTempApplication(interaction.guild.id, {
           [customIdValue]: { image: imagePath },
-        }).catch((err) => {
+        }, { name: appName })
+        .catch((err) => {
           interaction.followUp({
             content: `Error downloading image: ${err.message}`,
             flags: MessageFlags.Ephemeral,

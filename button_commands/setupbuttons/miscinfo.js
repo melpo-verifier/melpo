@@ -1,22 +1,28 @@
 const { ButtonBuilder, ActionRowBuilder, EmbedBuilder } = require("discord.js");
-const { ServerConfig } = require("../../dbObjects.js");
-const { createTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { Application } = require("../../dbObjects.js");
+const { createTempApplication } = require("../../js/tempconfigfuncs.js");
+const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction }) => {
-  const { catagorybuttons } = require("../../js/constants.js");
-  catagorybuttons.components.forEach((button) => button.setDisabled(false));
-  catagorybuttons.components[4].setDisabled(true);
+module.exports = async ({ interaction, context, appName }) => {
+  // Try to get appName from context[0], fallback to context[1]
+  appName = appName ?? context?.[1] ?? context?.[0];
+  if (!appName) {
+    return interaction.reply({
+      content: 'Application name is missing. Please try again.',
+      ephemeral: true,
+    });
+  }
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const applicationSetup = await Application.findOne({
+    where: { name: appName },
   });
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
   const useThreads =
-    temporarySetup.usethreads !== null
-      ? temporarySetup.usethreads
-      : serverConfig?.usethreads || false;
+    tempApp.usethreads !== null
+      ? tempApp.usethreads
+      : applicationSetup?.usethreads || false;
 
   const miscEmbed = new EmbedBuilder()
     .setColor("#3f7ff1")
@@ -36,11 +42,11 @@ module.exports = async ({ interaction }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup")
+      .setCustomId("finishsetup_" + appName)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup")
+      .setCustomId("cancelsetup_" + appName)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -53,7 +59,7 @@ module.exports = async ({ interaction }) => {
 
   const miscButtons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`toggleusethreads_${useThreads}`)
+      .setCustomId(`toggleusethreads_${useThreads}_${appName}`)
       .setLabel(`${useThreads ? "Disable" : "Enable"} Threads`)
       .setStyle(useThreads ? "Danger" : "Success"),
     // new ButtonBuilder()
@@ -66,17 +72,19 @@ module.exports = async ({ interaction }) => {
     //     .setStyle('Primary'),
   );
 
+  const categoryButtons = createCategoryButtons(appName, 4); // 4 = Misc is disabled
+
   if (interaction.replied || interaction.deferred) {
     await interaction.message.edit({
       content: "",
       embeds: [miscEmbed],
-      components: [catagorybuttons, miscButtons, finishbuttons],
+      components: [categoryButtons, miscButtons, finishbuttons],
     });
   } else {
     await interaction.update({
       content: "",
       embeds: [miscEmbed],
-      components: [catagorybuttons, miscButtons, finishbuttons],
+      components: [categoryButtons, miscButtons, finishbuttons],
     });
   }
 };

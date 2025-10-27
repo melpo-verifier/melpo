@@ -4,11 +4,14 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
 } = require("discord.js");
-const { createTemporarySetup } = require("./tempconfigfuncs.js");
+// const { createTemporarySetup } = require("./tempconfigfuncs.js");
+const { TempApplication } = require("../dbObjects.js");
 
-async function firsttimequestions({ interaction }) {
+async function firsttimequestions({ interaction, appName }) {
   if (!interaction.id) return;
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
+  console.log(appName)
 
   var questions = temporarySetup.questions;
   const reviewChannel = temporarySetup.reviewchannel;
@@ -52,18 +55,18 @@ async function firsttimequestions({ interaction }) {
 
   const questionbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`addquestion_1`)
+      .setCustomId(`addquestion_1_${appName}`)
       .setLabel("Add Question")
       .setStyle("Primary"),
   );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup_firsttime")
+      .setCustomId(`finishsetup_firsttime_${appName}`)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup")
+      .setCustomId(`cancelsetup_${appName}`)
       .setLabel("Cancel")
       .setStyle("Danger"),
   );
@@ -76,7 +79,7 @@ async function firsttimequestions({ interaction }) {
     });
 
     const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId("questionSelectMenu_1")
+      .setCustomId(`questionSelectMenu_1_${appName}`)
       .setPlaceholder("Select a question to edit or delete")
       .setMinValues(1)
       .setMaxValues(1);

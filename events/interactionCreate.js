@@ -63,15 +63,7 @@ module.exports = {
       const userid = await extractUserId(interaction);
       const data = { interaction, client, context, userid };
 
-      // Update usage stats
-      if (!interaction.customId?.includes("cancelverification")) {
-        updateComponentUsage(command).catch((err) =>
-          console.error("Failed to update component usage:", err),
-        );
-        console.log(`Interaction received: ${interaction.customId}`);
-      }
-
-      // Handle different interaction types
+      console.time(`Interaction handled: ${interaction.customId}`);
       if (interaction.isButton()) {
         await handleButton(command, data, client, interaction);
       } else if (isSelectMenu(interaction)) {
@@ -107,6 +99,15 @@ module.exports = {
           .map(app => ({ name: app.name, value: app.name }));
         await interaction.respond(filtered);
       }
+
+      // Update usage stats
+      if (!interaction.customId?.includes("cancelverification") && interaction.customId) {
+        console.timeEnd(`Interaction handled: ${interaction.customId}`);
+        updateComponentUsage(command).catch((err) =>
+          console.error("Failed to update component usage:", err),
+        );
+        // console.log(`Interaction received: ${interaction.customId}`);
+      }
     } catch (error) {
       console.log(error);
       await ErrorHandler.handle(client, error, interaction);
@@ -132,6 +133,7 @@ setInterval(() => {
 async function handleSlashCommand(interaction, client) {
   try {
     const command = interaction.client.commands.get(interaction.commandName);
+
     if (!command) {
       console.error(
         `No command matching ${interaction.commandName} was found.`,
@@ -146,10 +148,10 @@ async function handleSlashCommand(interaction, client) {
       });
     }
 
-    console.log(`Command executed: ${command.data.name}`);
-    await updateCommandUsage(command.data.name);
-
+    console.time(`Command executed: ${command.data.name}`)
     await command.execute({ interaction, client });
+    console.timeEnd(`Command executed: ${command.data.name}`);
+    await updateCommandUsage(command.data.name);
   } catch (error) {
     await ErrorHandler.handle(client, error, interaction);
   }

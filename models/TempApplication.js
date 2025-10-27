@@ -21,57 +21,57 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verifyChannel: {
+    verifychannel: { 
       type: DataTypes.STRING,
     },
-    reviewChannel: {
+    reviewchannel: { 
       type: DataTypes.STRING,
     },
-    verifyLogs: {
+    verifylogs: { 
       type: DataTypes.STRING,
     },
-    verificationWelcomeChannel: {
+    verificationwelcomechannel: {
       type: DataTypes.STRING,
     },
-    verifiedRoles: {
+    verifiedrole: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    managerRoles: {
+    managerrole: { 
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    pingRoles: {
+    pingrole: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    unverifiedRoles: {
+    unverifiedrole: {
       type: DataTypes.JSONB, 
       defaultValue: [],
     },
-    verifyFilter: {
+    verifyfilter: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verificationWelcomeMessage: {
+    verificationwelcomemessage: {
       type: DataTypes.JSONB,
     },
-    verifyChannelEmbed: {
+    verifychannelembed: {
       type: DataTypes.JSONB,
     },
-    verifyMessage: {
+    verifymessage: {
       type: DataTypes.JSONB,
     },
-    startMessage: {
+    startmessage: {
       type: DataTypes.JSONB,
     },
-    finishMessage: {
+    finishmessage: {
       type: DataTypes.JSONB,
     },
-    denyMessage: {
+    denymessage: {
       type: DataTypes.JSONB,
     },
-    useThreads: {
+    usethreads: {
       type: DataTypes.BOOLEAN,
       defaultValue: false,
     },
@@ -79,7 +79,7 @@ module.exports = (sequelize, DataTypes) => {
     indexes: [
       {
         unique: true,
-        fields: ['server_id', 'name'], // Composite unique index
+        fields: ['server_id', 'name'],
       },
     ],
   });

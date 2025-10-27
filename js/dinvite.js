@@ -1,3 +1,4 @@
+const { Events } = require("discord.js");
 const { Collection } = require("@discordjs/collection");
 const { InviteTracker } = require("../dbObjects.js");
 
@@ -21,7 +22,7 @@ module.exports = class InviteManager {
       return hasPermission;
     }
 
-    client.on("ready", async () => {
+    client.on(Events.ClientReady, async () => {
       console.log("Starting to load invites...");
       const Allguilds = Array.from(client.guilds.cache.values());
       const batchSize = 5;
@@ -156,11 +157,11 @@ module.exports = class InviteManager {
             where: { unique_id: `${member.user.id}_${member.guild.id}` },
           });
 
-          if (invite == member.guild.vanityURLCode) {
+          if (invite == member.guild.vanityURLCode && hasVanityFeature === true) {
             // client.emit("memberJoin", member, member.guild.vanityURLCode, vanityURL)
             Tracker.id = "vanity";
-            Tracker.code = vanityURL.code;
-            Tracker.uses = vanityURL.uses;
+            Tracker.code = member.guild.vanityURLCode;
+            Tracker.uses = vanityURL?.uses ?? null;
           } else if (invite.inviter.id == member.user.id) {
             // client.emit("memberJoin", member, member, invite)
             Tracker.id = member.id;

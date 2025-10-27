@@ -1,53 +1,61 @@
 const { EmbedBuilder } = require("discord.js");
 const {
-  createTemporarySetup,
-  deleteTemporarySetup,
+  // createTemporarySetup,
+  // deleteTemporarySetup,
+  deleteTempApplication,
+  // createTempApplication,
 } = require("../../js/tempconfigfuncs.js");
+const { TempApplication } = require("../../dbObjects.js");
 const fs = require("fs");
 const path = require("path");
 
-module.exports = async ({ interaction }) => {
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+module.exports = async ({ interaction, context }) => {
+  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  await interaction.deferUpdate();
+  const appName = context[0]
+  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
 
-  const tempverifychannelembed = temporarySetup?.verifychannelembed;
-  const tempstartmessage = temporarySetup?.startmessage;
-  const tempfinishmessage = temporarySetup?.finishmessage;
-  const tempverifymessage = temporarySetup?.verifymessage;
-  const tempverificationwelcomemessage =
-    temporarySetup?.verificationwelcomemessage;
+  if (temporarySetup) {
+    const tempverifychannelembed = temporarySetup?.verifychannelembed;
+    const tempstartmessage = temporarySetup?.startmessage;
+    const tempfinishmessage = temporarySetup?.finishmessage;
+    const tempverifymessage = temporarySetup?.verifymessage;
+    const tempverificationwelcomemessage = temporarySetup?.verificationwelcomemessage;
 
-  if (tempverifychannelembed?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempverifychannelembed.image,
-      "images/verifychannelembed",
-    );
-  if (tempstartmessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempstartmessage.image,
-      "images/startmessage",
-    );
-  if (tempfinishmessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempfinishmessage.image,
-      "images/finishmessage",
-    );
-  if (tempverifymessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempverifymessage.image,
-      "images/verifymessage",
-    );
-  if (tempverificationwelcomemessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempverificationwelcomemessage.image,
-      "images/verificationwelcomemessage",
-    );
+    if (tempverifychannelembed?.image)
+      deleteNewImage(
+        interaction.guild.id,
+        tempverifychannelembed.image,
+        "images/verifychannelembed",
+      );
+    if (tempstartmessage?.image)
+      deleteNewImage(
+        interaction.guild.id,
+        tempstartmessage.image,
+        "images/startmessage",
+      );
+    if (tempfinishmessage?.image)
+      deleteNewImage(
+        interaction.guild.id,
+        tempfinishmessage.image,
+        "images/finishmessage",
+      );
+    if (tempverifymessage?.image)
+      deleteNewImage(
+        interaction.guild.id,
+        tempverifymessage.image,
+        "images/verifymessage",
+      );
+    if (tempverificationwelcomemessage?.image)
+      deleteNewImage(
+        interaction.guild.id,
+        tempverificationwelcomemessage.image,
+        "images/verificationwelcomemessage",
+      );
 
-  await deleteTemporarySetup(interaction.guild.id);
+    // await deleteTemporarySetup(interaction.guild.id);
+    await deleteTempApplication(interaction.guild.id, { name: appName });
+  }
 
   const cancelembed = new EmbedBuilder()
     .setColor("ff0000")
@@ -56,7 +64,7 @@ module.exports = async ({ interaction }) => {
       "The setup has been cancelled. No changes have been made to the server configuration. If you want to start the setup again, use the `/setup` command.",
     );
 
-  await interaction.update({
+  await interaction.editReply({
     embeds: [cancelembed],
     components: [],
     files: [],

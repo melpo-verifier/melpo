@@ -7,9 +7,11 @@ const {
 
 module.exports = async ({ interaction, context }) => {
   const isfirsttime = parseInt(context[0]);
+  const appName = context?.[1] ?? context?.[0];
+  console.log(context)
 
   const modal = new ModalBuilder()
-    .setCustomId(`addQuestionModal_${isfirsttime}`)
+    .setCustomId(`addQuestionModal_${isfirsttime}_${appName}`)
     .setTitle("Add Question");
 
   const Question = new TextInputBuilder()
