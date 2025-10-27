@@ -2,6 +2,7 @@ const {
   ServerConfig,
   Verification,
   InviteTracker,
+  Application
 } = require("../dbObjects.js");
 const {
   ButtonBuilder,
@@ -56,7 +57,7 @@ setInterval(() => {
   }
 }, 600000);
 
-module.exports = async ({ interaction, client }) => {
+module.exports = async ({ interaction, client, context }) => {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   // const sessionKey = `${interaction.user.id}`;
   const rateLimitKey = `${interaction.user.id}`;
@@ -101,32 +102,42 @@ module.exports = async ({ interaction, client }) => {
     const user = interaction.user;
     const guildId = interaction.guild.id;
 
-    const serverConfig = await ServerConfig.findOne({
-      where: { server_id: guildId },
-      attributes: [
-        "verifychannel",
-        "reviewchannel",
-        "questions",
-        "pingrole",
-        "startmessage",
-        "finishmessage",
-        "usethreads",
-      ],
+    // Find the application based on the channel where the verify button was clicked
+    const application = await Application.findOne({
+      where: { 
+        server_id: guildId,
+        name: context[0]
+      },
+      // attributes: [
+      //   "name",
+      //   "verifychannel",
+      //   "reviewchannel",
+      //   "questions",
+      //   "pingrole",
+      //   "startmessage",
+      //   "finishmessage",
+      //   "usethreads",
+      // ],
     });
 
-    if (!serverConfig) {
+    console.log(application)
+
+    if (!application) {
       return await interaction.editReply({
-        content: `Server configuration not found! Please contact the server staff.`,
+        content: `This channel is not configured as a verification channel for any application. Please contact the server staff.`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
+    const appName = application.name;
     const {
       verifychannel: verifyChannelId,
       reviewchannel: verifyLogsChannelId,
       questions: botQuestions,
       pingrole: pingStaffRoleId,
-    } = serverConfig;
+    } = application;
+
+    console.log(botQuestions)
 
     let parsedQuestions;
     try {
@@ -141,16 +152,23 @@ module.exports = async ({ interaction, client }) => {
         });
       }
 
-      parsedQuestions = botQuestions?.map((question, index) => {
-        try {
-          const parsed = JSON.parse(question);
-          if (!parsed.content || parsed.content.trim().length === 0) {
-            throw new Error(`Question ${index + 1} has empty content`);
+      parsedQuestions = botQuestions.map((question, index) => {
+        let parsed;
+        if (typeof question === "string") {
+          try {
+            parsed = JSON.parse(question);
+          } catch (error) {
+            throw new Error(`Invalid question ${index + 1}: ${error.message}`);
           }
-          return parsed;
-        } catch (error) {
-          throw new Error(`Invalid question ${index + 1}: ${error.message}`);
+        } else if (typeof question === "object" && question !== null) {
+          parsed = question;
+        } else {
+          throw new Error(`Invalid question ${index + 1}: Not a string or object`);
         }
+        if (!parsed.content || parsed.content.trim().length === 0) {
+          throw new Error(`Question ${index + 1} has empty content`);
+        }
+        return parsed;
       });
     } catch (error) {
       console.error(`Question parsing error for guild ${guildId}:`, error);
@@ -160,12 +178,13 @@ module.exports = async ({ interaction, client }) => {
       });
     }
 
-    if (interaction.channel.id !== verifyChannelId) {
-      return await interaction.editReply({
-        content: `This command can only be used in the verification channel.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+    // Channel check is no longer needed since we find the app by channel
+    // if (interaction.channel.id !== verifyChannelId) {
+    //   return await interaction.editReply({
+    //     content: `This command can only be used in the verification channel.`,
+    //     flags: MessageFlags.Ephemeral,
+    //   });
+    // }
 
     const isSetupComplete =
       verifyChannelId && verifyLogsChannelId && parsedQuestions.length > 0;
@@ -239,18 +258,16 @@ module.exports = async ({ interaction, client }) => {
       );
 
       const startEmbedTitle = replaceplaceholder(
-        serverConfig.startmessage.title,
+        application.startmessage?.title,
         interaction.user.globalName ?? interaction.user.username,
         interaction.guild.name,
       );
       const startEmbedDescription = replaceplaceholder(
-        serverConfig.startmessage.description,
-        interaction.user.globalName ??
-          interaction.user.username ??
-          interaction.user.username,
+        application.startmessage?.description,
+        interaction.user.globalName ?? interaction.user.username,
         interaction.guild.name,
       );
-      const startEmbedimage = serverConfig.startmessage.image;
+      const startEmbedimage = application.startmessage?.image;
 
       const startDMEmbed = new EmbedBuilder()
         .setTitle(
@@ -258,7 +275,9 @@ module.exports = async ({ interaction, client }) => {
         )
         .setDescription(startEmbedDescription ?? null)
         .setColor("#3f7ff1")
-        .setFooter({ text: 'Click "cancel" to cancel the verification.' })
+        .setFooter({ 
+          text: `Application: ${appName} | Click "cancel" to cancel the verification.`
+        })
         .setImage(
           startEmbedimage
             ? `attachment://startImage.${startEmbedimage.split(".").pop()}`
@@ -267,7 +286,9 @@ module.exports = async ({ interaction, client }) => {
 
       var firstQuestionEmbed = new EmbedBuilder()
         .setColor("#3f7ff1")
-        .setFooter({ text: 'Click "cancel" to cancel the verification.' });
+        .setFooter({ 
+          text: `Application: ${appName} | Click "cancel" to cancel the verification.`
+        });
 
       try {
         await dmChannel.send({
@@ -418,9 +439,10 @@ module.exports = async ({ interaction, client }) => {
               pingStaffRoleId,
               guildId,
               verifyLogsChannel,
-              serverConfig.finishmessage,
+              application.finishmessage,
               client,
-              serverConfig.usethreads,
+              application.usethreads,
+              appName,
             );
           })
           .catch(async (error) => {
@@ -454,9 +476,10 @@ module.exports = async ({ interaction, client }) => {
             pingStaffRoleId,
             guildId,
             verifyLogsChannel,
-            serverConfig.finishmessage,
+            application.finishmessage,
             client,
-            serverConfig.usethreads,
+            application.usethreads,
+            appName,
           );
         } catch (error) {
           if (
@@ -912,7 +935,7 @@ module.exports = async ({ interaction, client }) => {
   } finally {
     activeVerifications.delete(interaction.user.id);
   }
-};
+};;
 
 async function constructApplicationEmbed(
   user,
@@ -921,6 +944,7 @@ async function constructApplicationEmbed(
   serverId,
   client,
   pingStaffRoleId,
+  appName,
 ) {
   const guild = await client.guilds.fetch(serverId);
   const guildmember = await guild.members.fetch(user.id);
@@ -944,7 +968,7 @@ async function constructApplicationEmbed(
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s verification\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s application for ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
           }),
         )
         .setThumbnailAccessory(
@@ -1097,22 +1121,23 @@ async function processVerificationResult(
   finishmessage,
   client,
   useThreads,
+  appName,
 ) {
   if (reason === "completed") {
     // Process collected responses and send to verification review channel
     updateVerifications();
 
     const finishEmbedTitle = replaceplaceholder(
-      finishmessage.title,
+      finishmessage?.title,
       interaction.user.globalName ?? interaction.user.username,
       interaction.guild.name,
     );
     const finishEmbedDescription = replaceplaceholder(
-      finishmessage.description,
+      finishmessage?.description,
       interaction.user.globalName ?? interaction.user.username,
       interaction.guild.name,
     );
-    const finishEmbedimage = finishmessage.image;
+    const finishEmbedimage = finishmessage?.image;
 
     const endEmbed = new EmbedBuilder()
       .setTitle(
@@ -1120,6 +1145,7 @@ async function processVerificationResult(
       )
       .setDescription(finishEmbedDescription)
       .setColor("#008000")
+      .setFooter({ text: `Application: ${appName}` })
       .setImage(
         finishEmbedimage
           ? `attachment://finishImage.${finishEmbedimage.split(".").pop()}`
@@ -1147,6 +1173,7 @@ async function processVerificationResult(
       interaction.guild.id,
       client,
       pingStaffRoleId,
+      appName,
     );
 
     //create the buttons
