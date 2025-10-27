@@ -24,6 +24,8 @@ require("./models/status.js")(sequelize, Sequelize.DataTypes);
 require("./models/ArtBoardConfig.js")(sequelize, Sequelize.DataTypes);
 require("./models/ArtLeaderboard.js")(sequelize, Sequelize.DataTypes);
 require("./models/whitelist.js")(sequelize, Sequelize.DataTypes);
+require("./models/Application.js")(sequelize, Sequelize.DataTypes);
+require("./models/TempApplication.js")(sequelize, Sequelize.DataTypes);
 
 const force = process.argv.includes("--force") || process.argv.includes("-f");
 

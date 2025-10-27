@@ -1,4 +1,4 @@
-const { TempConfig, Statistics } = require("../dbObjects.js");
+const { TempConfig, Statistics, TempApplication } = require("../dbObjects.js");
 
 async function createTemporarySetup(serverID) {
   const [temporarySetup, created] = await TempConfig.findOrCreate({
@@ -113,6 +113,32 @@ async function updateBotLeaves() {
   await stats.save();
 }
 
+async function createTempApplication(serverID, appData = {}) {
+  const where = appData.appId
+    ? { server_id: serverID, appId: appData.appId }
+    : { server_id: serverID, name: appData.name };
+
+  const [tempApp, created] = await TempApplication.findOrCreate({
+    where: where,
+    defaults: { server_id: serverID, ...appData },
+  });
+  return { tempApp, created };
+}
+
+async function updateTempApplication(serverID, updates, appIdentifier) {
+  const where = { server_id: serverID, ...appIdentifier };
+  await TempApplication.update(updates, { where: where });
+}
+
+async function deleteTempApplication(serverID, appIdentifier) {
+  const where = { server_id: serverID, ...appIdentifier };
+  await TempApplication.destroy({ where: where });
+}
+
+async function getTempApplications(serverID) {
+  return await TempApplication.findAll({ where: { server_id: serverID } });
+}
+
 module.exports = {
   createTemporarySetup,
   updateTemporarySetup,
@@ -122,4 +148,8 @@ module.exports = {
   updateBotJoins,
   updateBotLeaves,
   updateComponentUsage,
+  createTempApplication,
+  updateTempApplication,
+  deleteTempApplication,
+  getTempApplications,
 };

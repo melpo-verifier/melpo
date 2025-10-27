@@ -4,6 +4,7 @@ const {
   updateComponentUsage,
 } = require("../js/tempconfigfuncs.js");
 const ErrorHandler = require("../js/ErrorHandling.js");
+const { Application } = require("../dbObjects.js");
 
 const interactionCache = new Map();
 const CACHE_TTL = 15000;
@@ -77,6 +78,34 @@ module.exports = {
         await handleMenu(command, data, client, interaction);
       } else if (interaction.isModalSubmit()) {
         await handleModal(command, data, client, interaction);
+      // } else if (interaction.isAutocomplete()) {
+      //   if (interaction.commandName === 'setup' && interaction.options.getFocused(true).name === 'verification') {
+      //     const focusedValue = interaction.options.getFocused();
+      //     // const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
+      //     const applications = ['verification', 'staff app']
+
+      //     // Filter suggestions based on user input
+      //     const filtered = applications
+      //       // .filter(app => app.name.toLowerCase().includes(focusedValue.toLowerCase()))
+      //       .filter(app => app.toLowerCase().includes(focusedValue.toLowerCase())) // app is a string, so no .name
+      //       .slice(0, 25) // Discord limits to 25 choices
+      //       .map(app => ({ name: app, value: app })); // Fixed: Use app directly
+      //       // .map(app => ({ name: app.name, value: app.name }));
+
+      //     // Always include "new" as an option
+      //     const choices = [{ name: 'Create New Application', value: 'new' }, ...filtered];
+
+      //     await interaction.respond(choices);
+      //   }
+      }
+      else if (interaction.isAutocomplete() && interaction.commandName === 'setup' && interaction.options.getSubcommand() === 'edit') {
+        const focusedValue = interaction.options.getFocused();
+        const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
+        const filtered = applications
+          .filter(app => app.name.toLowerCase().includes(focusedValue.toLowerCase()))
+          .slice(0, 25)
+          .map(app => ({ name: app.name, value: app.name }));
+        await interaction.respond(filtered);
       }
     } catch (error) {
       console.log(error);

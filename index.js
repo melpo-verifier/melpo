@@ -160,13 +160,13 @@ const customisationFields = [
 ];
 
 Promise.all([
-  cleanupOldInvites(),
-  cleanupTempConfig(),
-  cleanupQuestionIds(),
-  cleanupEmptyVerifications(),
-  ...(Array.isArray(customisationFields)
-    ? customisationFields.map((field) => cleanupImages(field))
-    : []),
+  // cleanupOldInvites(),
+  // cleanupTempConfig(),
+  // cleanupQuestionIds(),
+  // cleanupEmptyVerifications(),
+  // ...(Array.isArray(customisationFields)
+  //   ? customisationFields.map((field) => cleanupImages(field))
+  //   : []),
 ])
   .then(() => {
     console.log("All initial cleanup tasks completed.");
@@ -178,12 +178,12 @@ Promise.all([
 // Run at 03:30 every day
 cron.schedule("30 3 * * *", async () => {
   console.log("Cron triggered at:", new Date().toISOString());
-  return Promise.all([
-    cleanupOldInvites(),
-    cleanupTempConfig(),
-    cleanupQuestionIds(),
-    cleanupEmptyVerifications(),
-  ]);
+  // return Promise.all([
+  //   cleanupOldInvites(),
+  //   cleanupTempConfig(),
+  //   cleanupQuestionIds(),
+  //   cleanupEmptyVerifications(),
+  // ]);
 });
 
 const manager = new ShardingManager("./bot.js", {

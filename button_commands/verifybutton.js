@@ -57,6 +57,7 @@ setInterval(() => {
 }, 600000);
 
 module.exports = async ({ interaction, client }) => {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   // const sessionKey = `${interaction.user.id}`;
   const rateLimitKey = `${interaction.user.id}`;
 
@@ -65,7 +66,7 @@ module.exports = async ({ interaction, client }) => {
     const timeLeft = Math.ceil((30000 - timeSinceLastAttempt) / 1000);
 
     if (timeLeft > 0) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: `Please wait ${timeLeft} seconds before starting another verification.`,
         flags: MessageFlags.Ephemeral,
       });
@@ -82,7 +83,7 @@ module.exports = async ({ interaction, client }) => {
   // }
   // Check if the user already has an active verification session
   if (activeVerifications.has(interaction.user.id)) {
-    return await interaction.reply({
+    return await interaction.editReply({
       content: `<@${interaction.user.id}>, you already have an active verification session! Please complete or cancel it before starting a new one.`,
       flags: MessageFlags.Ephemeral,
     });
@@ -97,8 +98,6 @@ module.exports = async ({ interaction, client }) => {
   // });
 
   try {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
     const user = interaction.user;
     const guildId = interaction.guild.id;
 
