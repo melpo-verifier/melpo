@@ -10,6 +10,8 @@ const {
 } = require("./dbObjects.js");
 const { Op, Sequelize } = require("sequelize");
 const fs = require("fs");
+const path = require("path");
+const { isRemoteImage } = require("./js/imageUtils.js");
 require("dotenv").config();
 
 try {
@@ -93,8 +95,20 @@ async function cleanupEmptyVerifications() {
 }
 
 async function checkImageExists(imagePath) {
+  if (!imagePath) {
+    return false;
+  }
+
+  if (isRemoteImage(imagePath)) {
+    return true;
+  }
+
+  const resolvedPath = path.isAbsolute(imagePath)
+    ? imagePath
+    : path.join(process.cwd(), imagePath);
+
   try {
-    await fs.promises.access(imagePath, fs.constants.F_OK);
+    await fs.promises.access(resolvedPath, fs.constants.F_OK);
     return true;
   } catch (error) {
     console.error(`Error checking image: ${error}`);

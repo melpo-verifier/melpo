@@ -8,8 +8,7 @@ const {
 } = require("discord.js");
 const { createTempApplication } = require("../js/tempconfigfuncs.js");
 const { Application } = require("../dbObjects.js");
-const fs = require("fs");
-const path = require("path");
+const { resolveImage } = require("../js/imageUtils.js");
 
 module.exports = async ({ interaction, customIdValue, appName, context }) => {
   var chosenvalue;
@@ -159,30 +158,20 @@ module.exports = async ({ interaction, customIdValue, appName, context }) => {
     infoembed.setColor("#3f7ff1");
   }
 
-  var attachment;
-
-  if (image) {
-    const filePath = path.join(
-      __dirname,
-      "..",
-      "images",
-      chosenvalue,
-      path.basename(image),
-    );
-
-    if (fs.existsSync(filePath)) {
+  let attachment;
+  if (image && embed) {
+    const asset = resolveImage(image, chosenvalue);
+    if (asset.embedUrl) {
+      embed.setColor(color || "#3f7ff1").setImage(asset.embedUrl);
+    }
+    if (asset.filePath) {
       try {
-        attachment = new AttachmentBuilder(filePath).setName(
-          `${chosenvalue}.${image.split(".").pop()}`,
+        attachment = new AttachmentBuilder(asset.filePath).setName(
+          asset.attachmentName,
         );
-        embed
-          .setColor(color || "#3f7ff1")
-          .setImage(`attachment://${chosenvalue}.${image.split(".").pop()}`);
       } catch (error) {
         console.error("Error creating attachment:", error);
       }
-    } else {
-      console.error(`File not found: ${filePath}`);
     }
   }
 

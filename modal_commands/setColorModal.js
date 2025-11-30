@@ -1,5 +1,5 @@
 const { MessageFlags } = require("discord.js");
-const { updateTemporarySetup, updateTempApplication } = require("../js/tempconfigfuncs.js");
+const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 const customizationMenu = require("../menu_commands/selectcustomizationMenu.js");
 
 module.exports = async ({ interaction, context }) => {
@@ -18,8 +18,8 @@ module.exports = async ({ interaction, context }) => {
 
   const formattedValue = value.startsWith("#") ? value : `#${value}`;
 
-  await updateTempApplication(interaction.guild.id, { name: appName }, {
+  await updateTempApplication(interaction.guild.id, {
     [customIdValue]: { color: formattedValue },
-  });
+  }, { name: appName });
   customizationMenu({ interaction, customIdValue, appName });
 };

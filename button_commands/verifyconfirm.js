@@ -13,6 +13,7 @@ const {
   ThumbnailBuilder,
 } = require("discord.js");
 const { ServerConfig, Verification } = require("../dbObjects.js");
+const { resolveImage } = require("../js/imageUtils.js");
 
 module.exports = async ({ interaction, client, userid, context }) => {
   await interaction.deferUpdate();
@@ -189,28 +190,27 @@ module.exports = async ({ interaction, client, userid, context }) => {
         originalembedlast,
         verifiedRoles,
       );
+      const textImage = resolveImage(
+        welcomeMessage.image,
+        "welcomemessage",
+      );
 
-      if (welcomeMessage.image) {
-        try {
-          const attachment = new AttachmentBuilder(
-            welcomeMessage.image,
-          ).setName(`welcomemessage.${welcomeMessage.image.split(".").pop()}`);
-          await channel.send({
-            content: finalText,
-            files: [attachment],
-          });
-        } catch {
-          interaction.followUp({
-            content: `Error sending welcome message with image, sending without image.`,
-            flags: MessageFlags.Ephemeral,
-          });
-          await channel.send({
-            content: finalText,
-          });
-        }
-      } else {
-        await channel.send({ content: finalText });
+      const files = [];
+      if (textImage.filePath) {
+        files.push(
+          new AttachmentBuilder(textImage.filePath).setName(
+            textImage.attachmentName,
+          ),
+        );
       }
+
+      const finalmessage = { content: finalText, files };
+
+      if (!textImage.filePath && textImage.embedUrl) {
+        finalmessage.embeds = [new EmbedBuilder().setImage(textImage.embedUrl)];
+      }
+
+      await channel.send(finalmessage);
     } else {
       const finalTitle = welcomeMessage.title
         ? await processText(
@@ -232,17 +232,18 @@ module.exports = async ({ interaction, client, userid, context }) => {
         : null;
       const messageContent = getMentions(finalDescription);
 
+      const imageAsset = resolveImage(
+        welcomeMessage.image,
+        "welcomemessage",
+      );
+
       const welcomeEmbed = new EmbedBuilder()
         .setTitle(finalTitle && finalTitle.trim() ? finalTitle : null)
         .setDescription(finalDescription)
         .setColor(welcomeMessage.color ?? "#3f7ff1")
-        .setImage(
-          welcomeMessage.image
-            ? `attachment://welcomemessage.${welcomeMessage.image.split(".").pop()}`
-            : null,
-        );
+        .setImage(imageAsset.embedUrl);
 
-      if (welcomeMessage.image) {
+      if (imageAsset.embedUrl) {
         welcomeEmbed.setAuthor({
           name: user.user.globalName ?? user.user.username,
           iconURL: user.user.displayAvatarURL({ dynamic: true, size: 128 }),
@@ -256,10 +257,10 @@ module.exports = async ({ interaction, client, userid, context }) => {
       channel.send({
         content: messageContent || null,
         embeds: [welcomeEmbed],
-        files: welcomeMessage.image
+        files: imageAsset.filePath
           ? [
-              new AttachmentBuilder(welcomeMessage.image).setName(
-                `welcomemessage.${welcomeMessage.image.split(".").pop()}`,
+              new AttachmentBuilder(imageAsset.filePath).setName(
+                imageAsset.attachmentName,
               ),
             ]
           : [],
@@ -511,21 +512,21 @@ module.exports = async ({ interaction, client, userid, context }) => {
     verifiedRoles,
   );
 
+  const dmAsset = resolveImage(image, "verifymessage");
+
   const finalEmbed = new EmbedBuilder()
     .setTitle(finalTitle && finalTitle.trim() ? finalTitle : null)
     .setDescription(finalDescription)
     .setColor(color)
-    .setImage(
-      image ? `attachment://verifymessage.${image.split(".").pop()}` : null,
-    );
+    .setImage(dmAsset.embedUrl);
 
   try {
     await user.send({
       embeds: [finalEmbed],
-      files: image
+      files: dmAsset.filePath
         ? [
-            new AttachmentBuilder(image).setName(
-              `verifymessage.${image.split(".").pop()}`,
+            new AttachmentBuilder(dmAsset.filePath).setName(
+              dmAsset.attachmentName,
             ),
           ]
         : [],

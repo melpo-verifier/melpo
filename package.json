@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/melpo-verifier/melpo#readme",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.668.0",
     "axios": "^1.10.0",
     "canvas": "^3.1.2",
     "cors": "^2.8.5",

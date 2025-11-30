@@ -21,6 +21,7 @@ const {
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications } = require("../js/tempconfigfuncs.js");
+const { resolveImage } = require("../js/imageUtils.js");
 
 const activeVerifications = new Map();
 
@@ -268,6 +269,7 @@ module.exports = async ({ interaction, client, context }) => {
         interaction.guild.name,
       );
       const startEmbedimage = application.startmessage?.image;
+      const startImageAsset = resolveImage(startEmbedimage, "startImage");
 
       const startDMEmbed = new EmbedBuilder()
         .setTitle(
@@ -278,11 +280,7 @@ module.exports = async ({ interaction, client, context }) => {
         .setFooter({ 
           text: `Application: ${appName} | Click "cancel" to cancel the verification.`
         })
-        .setImage(
-          startEmbedimage
-            ? `attachment://startImage.${startEmbedimage.split(".").pop()}`
-            : null,
-        );
+        .setImage(startImageAsset.embedUrl);
 
       var firstQuestionEmbed = new EmbedBuilder()
         .setColor("#3f7ff1")
@@ -293,10 +291,10 @@ module.exports = async ({ interaction, client, context }) => {
       try {
         await dmChannel.send({
           embeds: [startDMEmbed],
-          files: startEmbedimage
+          files: startImageAsset.filePath
             ? [
-                new AttachmentBuilder(startEmbedimage).setName(
-                  `startImage.${startEmbedimage.split(".").pop()}`,
+                new AttachmentBuilder(startImageAsset.filePath).setName(
+                  startImageAsset.attachmentName,
                 ),
               ]
             : [],
@@ -1137,7 +1135,11 @@ async function processVerificationResult(
       interaction.user.globalName ?? interaction.user.username,
       interaction.guild.name,
     );
-    const finishEmbedimage = finishmessage?.image;
+      const finishEmbedimage = finishmessage?.image;
+      const finishImageAsset = resolveImage(
+        finishEmbedimage,
+        "finishImage",
+      );
 
     const endEmbed = new EmbedBuilder()
       .setTitle(
@@ -1146,21 +1148,17 @@ async function processVerificationResult(
       .setDescription(finishEmbedDescription)
       .setColor("#008000")
       .setFooter({ text: `Application: ${appName}` })
-      .setImage(
-        finishEmbedimage
-          ? `attachment://finishImage.${finishEmbedimage.split(".").pop()}`
-          : null,
-      );
+        .setImage(finishImageAsset.embedUrl);
 
     dmChannel.send({
       embeds: [endEmbed],
-      files: finishEmbedimage
-        ? [
-            new AttachmentBuilder(finishEmbedimage).setName(
-              `finishImage.${finishEmbedimage.split(".").pop()}`,
+        files: finishImageAsset.filePath
+          ? [
+            new AttachmentBuilder(finishImageAsset.filePath).setName(
+              finishImageAsset.attachmentName,
             ),
           ]
-        : [],
+          : [],
     });
 
     user = user || interaction.user;

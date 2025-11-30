@@ -17,6 +17,7 @@ const {
   Verification,
   InviteTracker,
 } = require("../../dbObjects.js");
+const { resolveImage } = require("../../js/imageUtils.js");
 
 async function rateLimitedOperation(operation, maxRetries = 3) {
   let retries = 0;
@@ -550,17 +551,18 @@ module.exports = {
                 : null;
               const messageContent = getMentions(finalDescription);
 
+              const imageAsset = resolveImage(
+                welcomeMessage.image,
+                "welcomemessage",
+              );
+
               const welcomeEmbed = new EmbedBuilder()
                 .setTitle(finalTitle ?? null)
                 .setDescription(finalDescription)
                 .setColor(welcomeMessage.color ?? "#3f7ff1")
-                .setImage(
-                  welcomeMessage.image
-                    ? `attachment://welcomemessage.${welcomeMessage.image.split(".").pop()}`
-                    : null,
-                );
+                .setImage(imageAsset.embedUrl);
 
-              if (welcomeMessage.image) {
+              if (imageAsset.embedUrl) {
                 welcomeEmbed.setAuthor({
                   name: user.user.globalName ?? user.user.username,
                   iconURL: user.user.displayAvatarURL({
@@ -577,10 +579,10 @@ module.exports = {
               await channel.send({
                 content: messageContent || null,
                 embeds: [welcomeEmbed],
-                files: welcomeMessage.image
+                files: imageAsset.filePath
                   ? [
-                      new AttachmentBuilder(welcomeMessage.image).setName(
-                        `welcomemessage.${welcomeMessage.image.split(".").pop()}`,
+                      new AttachmentBuilder(imageAsset.filePath).setName(
+                        imageAsset.attachmentName,
                       ),
                     ]
                   : [],
@@ -611,23 +613,21 @@ module.exports = {
             verifiedRoles,
           );
 
+          const dmImage = resolveImage(image, "verifymessage");
+
           const finalEmbed = new EmbedBuilder()
             .setTitle(finalTitle ?? null)
             .setDescription(finalDescription)
             .setColor(color)
-            .setImage(
-              image
-                ? `attachment://verifymessage.${image.split(".").pop()}`
-                : null,
-            );
+            .setImage(dmImage.embedUrl);
 
           await user
             .send({
               embeds: [finalEmbed],
-              files: image
+              files: dmImage.filePath
                 ? [
-                    new AttachmentBuilder(image).setName(
-                      `verifymessage.${image.split(".").pop()}`,
+                    new AttachmentBuilder(dmImage.filePath).setName(
+                      dmImage.attachmentName,
                     ),
                   ]
                 : [],

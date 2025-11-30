@@ -6,8 +6,6 @@ const {
 } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const {
-  createTemporarySetup,
-  updateTemporarySetup,
   createTempApplication,
   updateTempApplication,
 } = require("../../js/tempconfigfuncs.js");
@@ -32,7 +30,7 @@ module.exports = async ({ interaction, context, appName }) => {
   // var questions = nonEmptyArray(tempApp.questions, applicationSetup.questions);
   var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;
   // await updateTemporarySetup(interaction.guild.id, { questions: questions });
-  await updateTempApplication(interaction.guild.id, { name: appName }, { questions: questions });
+  await updateTempApplication(interaction.guild.id, { questions: questions }, { name: appName });
 
   if (
     Array.isArray(questions) &&

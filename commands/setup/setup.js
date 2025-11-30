@@ -9,6 +9,7 @@ const {
 } = require("discord.js");
 const { ServerConfig, Application } = require("../../dbObjects.js");
 const { createTempApplication } = require("../../js/tempconfigfuncs.js");
+const { ServerConfigComponent } = require("../../js/serverConfigUI.js");
 
 const generalinfo = require("../../button_commands/setupbuttons/generalinfo.js");
 
@@ -37,6 +38,27 @@ module.exports = {
             .setRequired(true)
             .setAutocomplete(true)
         )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('delete')
+        .setDescription('Delete an existing application')
+        .addStringOption(option =>
+          option.setName('name')
+            .setDescription('Name of the application to delete')
+            .setRequired(true)
+            .setAutocomplete(true)
+        )
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('list')
+        .setDescription('List all applications for this server')
+    )
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('server')
+        .setDescription('Edit server-wide configuration')
     ),
   async execute({ interaction, client }) {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
@@ -55,7 +77,7 @@ module.exports = {
     if (!serverConfig) {
       serverConfig = await ServerConfig.create({
         server_id: interaction.guild.id,
-        autoRoles: [],
+        autorole: [],
       });
     }
 
@@ -137,7 +159,10 @@ module.exports = {
         embeds: [generalembed],
         components: [verificationchannelmenu, nextbuttons],
       });
-    } else if (subcommand === 'edit') {
+    } 
+    
+    
+    else if (subcommand === 'edit') {
       const app = applications.find(a => a.name.toLowerCase() === name.toLowerCase());
       if (!app) {
         return interaction.reply({
@@ -170,6 +195,43 @@ module.exports = {
 
       // First time edit for this app
       generalinfo({ interaction, client, appName: tempApp.name });
+    }
+
+
+    else if (subcommand === 'server') {
+      const component = ServerConfigComponent({
+        guild: interaction.guild,
+        serverConfig,
+        applicationCount: applications.length,
+      });
+
+      return interaction.reply({
+        ...component,
+        flags: [MessageFlags.IsComponentsV2],
+      });
+    }
+
+    else if (subcommand === 'list') {
+      if (applications.length === 0) {
+        return interaction.reply({
+          content: 'No applications found for this server.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      const appList = applications
+        .map(app => `- **${app.name}**`)
+        .join('\n');
+
+      const applicationlistEmbed = new EmbedBuilder()
+        .setTitle("Applications List")
+        .setDescription(`You currently have ${applications.length} applications set up, you can configure them using these commands:\nEdit: \`/setup edit <name>\`\nDelete: \`/setup delete <name>\`\n${appList}`)
+        .setColor("#3f7ff1");
+
+
+      return interaction.reply({
+        // content: `Applications for this server:\n${appList}`,
+        embeds: [applicationlistEmbed],
+      });
     }
   },
 };

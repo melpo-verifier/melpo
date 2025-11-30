@@ -12,6 +12,12 @@ const {
   deleteTempApplication,
 } = require("../../js/tempconfigfuncs.js");
 const { TempApplication } = require("../../dbObjects.js");
+const { resolveImage } = require("../../js/imageUtils.js");
+const {
+  promoteCustomizationImage,
+  purgeOldImages,
+  isR2ImageResource,
+} = require("../../js/customizationImages.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const appName = context[0] === "firsttime" ? context[1] : context[0];
@@ -20,7 +26,7 @@ module.exports = async ({ interaction, client, context }) => {
   const tempApp = await TempApplication.findOne({ where: { name: appName } });
   if (!tempApp) {
     return interaction.reply({
-      content: "Temp setup not found.",
+      content: "Temp setup not found. This can happen if you already had a different setup in progress and finished that. Please click cancel and use `/setup` again.",
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -83,6 +89,10 @@ module.exports = async ({ interaction, client, context }) => {
       continue;
     }
 
+    if (isR2ImageResource(tempApp[category]?.image)) {
+      continue;
+    }
+
     if (tempApp[category]?.image) {
       const imagePath = path.join(__dirname, "..", "..", tempApp[category].image);
       try {
@@ -96,26 +106,36 @@ module.exports = async ({ interaction, client, context }) => {
     }
   }
 
-  if (tempApp.verifychannelembed?.image) {
-    await deleteOldImages(interaction.guild.id, verifychannelembed.image, "images/verifychannelembed");
-    verifychannelembed.image = verifychannelembed.image ? verifychannelembed.image.replace(/_temp/, "") : null;
-  }
-  if (tempApp.startmessage?.image) {
-    await deleteOldImages(interaction.guild.id, startmessage.image, "images/startmessage");
-    startmessage.image = startmessage.image ? startmessage.image.replace(/_temp/, "") : null;
-  }
-  if (tempApp.finishmessage?.image) {
-    await deleteOldImages(interaction.guild.id, finishmessage.image, "images/finishmessage");
-    finishmessage.image = finishmessage.image ? finishmessage.image.replace(/_temp/, "") : null;
-  }
-  if (tempApp.verifymessage?.image) {
-    await deleteOldImages(interaction.guild.id, verifymessage.image, "images/verifymessage");
-    verifymessage.image = verifymessage.image ? verifymessage.image.replace(/_temp/, "") : null;
-  }
-  if (tempApp.verificationwelcomemessage?.image) {
-    await deleteOldImages(interaction.guild.id, verificationwelcomemessage.image, "images/verificationwelcomemessage");
-    verificationwelcomemessage.image = verificationwelcomemessage.image ? verificationwelcomemessage.image.replace(/_temp/, "") : null;
-  }
+  await finalizeCustomizationImage(
+    tempApp,
+    "verifychannelembed",
+    "images/verifychannelembed",
+    interaction.guild.id,
+  );
+  await finalizeCustomizationImage(
+    tempApp,
+    "startmessage",
+    "images/startmessage",
+    interaction.guild.id,
+  );
+  await finalizeCustomizationImage(
+    tempApp,
+    "finishmessage",
+    "images/finishmessage",
+    interaction.guild.id,
+  );
+  await finalizeCustomizationImage(
+    tempApp,
+    "verifymessage",
+    "images/verifymessage",
+    interaction.guild.id,
+  );
+  await finalizeCustomizationImage(
+    tempApp,
+    "verificationwelcomemessage",
+    "images/verificationwelcomemessage",
+    interaction.guild.id,
+  );
 
   // Build appData with only non-empty fields to allow defaults for new apps
   const appData = { server_id: interaction.guild.id, name: tempApp.name };
@@ -164,17 +184,14 @@ module.exports = async ({ interaction, client, context }) => {
   const embedTitle = tempApp.verifychannelembed?.title ?? existingApp?.verifychannelembed?.title ?? "Verification";
   const embedDescription = tempApp.verifychannelembed?.description ?? existingApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
   const embedImage = tempApp.verifychannelembed?.image ?? existingApp?.verifychannelembed?.image;
+  const embedImageAsset = resolveImage(embedImage, "verifychannelimage");
 
   if (!verificationMessage) {
     const verificationembed = new EmbedBuilder()
       .setColor(embedColor)
       .setTitle(embedTitle)
       .setDescription(embedDescription)
-      .setImage(
-        embedImage
-          ? `attachment://verifychannelimage.${embedImage.split(".").pop()}`
-          : null,
-      )
+      .setImage(embedImageAsset.embedUrl)
       .setFooter({ text: `${tempApp.name}` });
 
     const row = new ActionRowBuilder().addComponents(
@@ -185,12 +202,10 @@ module.exports = async ({ interaction, client, context }) => {
     );
 
     let attachment;
-    if (embedImage) {
-      if (fs.existsSync(embedImage)) {
-        attachment = new AttachmentBuilder(embedImage).setName(
-          `verifychannelimage.${path.extname(embedImage).slice(1)}`,
-        );
-      }
+    if (embedImageAsset.filePath) {
+      attachment = new AttachmentBuilder(embedImageAsset.filePath).setName(
+        embedImageAsset.attachmentName,
+      );
     }
 
     await verifyChannelObj.send({
@@ -204,20 +219,14 @@ module.exports = async ({ interaction, client, context }) => {
       .setColor(embedColor)
       .setTitle(embedTitle)
       .setDescription(embedDescription)
-      .setImage(
-        embedImage
-          ? `attachment://verifychannelimage.${embedImage.split(".").pop()}`
-          : null,
-      )
+      .setImage(embedImageAsset.embedUrl)
       .setFooter({ text: `${tempApp.name}` });
 
     let attachment;
-    if (embedImage) {
-      if (fs.existsSync(embedImage)) {
-        attachment = new AttachmentBuilder(embedImage).setName(
-          `verifychannelimage.${path.extname(embedImage).slice(1)}`,
-        );
-      }
+    if (embedImageAsset.filePath) {
+      attachment = new AttachmentBuilder(embedImageAsset.filePath).setName(
+        embedImageAsset.attachmentName,
+      );
     }
 
     if (
@@ -270,46 +279,83 @@ function cleanConfig(config) {
   return config;
 }
 
-async function deleteOldImages(serverId, newImagePath, imageDir) {
-  try {
-    const absoluteImageDir = path.join(__dirname, "..", "..", imageDir);
-
-    if (!fs.existsSync(absoluteImageDir)) {
-      await fs.promises.mkdir(absoluteImageDir, { recursive: true });
-    }
-
-    const files = await fs.promises.readdir(absoluteImageDir);
-
-    if (!newImagePath || newImagePath === "deleted") {
-      for (const file of files) {
-        if (file.includes(serverId)) {
-          await fs.promises.unlink(path.join(absoluteImageDir, file));
-          console.log(`Deleted: ${file}`);
-        }
-      }
-      return;
-    }
-
-    const absoluteNewPath = path.join(__dirname, "..", "..", newImagePath);
-
-    await fs.promises.access(absoluteNewPath, fs.constants.F_OK);
-
-    for (const file of files) {
-      const fullPath = path.join(absoluteImageDir, file);
-      if (file.includes(serverId) && fullPath !== absoluteNewPath) {
-        await fs.promises.unlink(fullPath);
-        console.log(`Deleted old: ${file}`);
-      }
-    }
-
-    if (newImagePath.includes("_temp")) {
-      const finalName = path.basename(newImagePath.replace("_temp", ""));
-      const finalPath = path.join(absoluteImageDir, finalName);
-      await fs.promises.rename(absoluteNewPath, finalPath);
-      console.log(`Renamed: ${path.basename(newImagePath)} -> ${finalName}`);
-    }
-  } catch (err) {
-    console.error("File operation failed:", err);
-    throw new Error(`Image operation failed: ${err.message}`);
+async function finalizeCustomizationImage(tempApp, sectionKey, imageDir, guildId) {
+  const section = tempApp[sectionKey];
+  if (!section || !section.image) {
+    return;
   }
+
+  if (section.image === "deleted") {
+    section.image = null;
+    return;
+  }
+
+  if (isR2ImageResource(section.image)) {
+    section.image = await finalizeRemoteImage(section.image);
+    return;
+  }
+
+  // await deleteOldImages(guildId, section.image, imageDir);
+  // section.image = section.image ? section.image.replace(/_temp/, "") : null;
 }
+
+async function finalizeRemoteImage(image) {
+  let finalizedImage = image;
+  if (image.isTemp) {
+    finalizedImage = await promoteCustomizationImage(image);
+  }
+
+  await purgeOldImages({
+    serverId: finalizedImage.serverId,
+    appName: finalizedImage.appName,
+    section: finalizedImage.section,
+    keepKey: finalizedImage.key,
+    filter: "final",
+  });
+
+  return finalizedImage;
+}
+
+// async function deleteOldImages(serverId, newImagePath, imageDir) {
+//   try {
+//     const absoluteImageDir = path.join(__dirname, "..", "..", imageDir);
+
+//     if (!fs.existsSync(absoluteImageDir)) {
+//       await fs.promises.mkdir(absoluteImageDir, { recursive: true });
+//     }
+
+//     const files = await fs.promises.readdir(absoluteImageDir);
+
+//     if (!newImagePath || newImagePath === "deleted") {
+//       for (const file of files) {
+//         if (file.includes(serverId)) {
+//           await fs.promises.unlink(path.join(absoluteImageDir, file));
+//           console.log(`Deleted: ${file}`);
+//         }
+//       }
+//       return;
+//     }
+
+//     const absoluteNewPath = path.join(__dirname, "..", "..", newImagePath);
+
+//     await fs.promises.access(absoluteNewPath, fs.constants.F_OK);
+
+//     for (const file of files) {
+//       const fullPath = path.join(absoluteImageDir, file);
+//       if (file.includes(serverId) && fullPath !== absoluteNewPath) {
+//         await fs.promises.unlink(fullPath);
+//         console.log(`Deleted old: ${file}`);
+//       }
+//     }
+
+//     if (newImagePath.includes("_temp")) {
+//       const finalName = path.basename(newImagePath.replace("_temp", ""));
+//       const finalPath = path.join(absoluteImageDir, finalName);
+//       await fs.promises.rename(absoluteNewPath, finalPath);
+//       console.log(`Renamed: ${path.basename(newImagePath)} -> ${finalName}`);
+//     }
+//   } catch (err) {
+//     console.error("File operation failed:", err);
+//     throw new Error(`Image operation failed: ${err.message}`);
+//   }
+// }

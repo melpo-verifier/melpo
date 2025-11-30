@@ -16,19 +16,19 @@ module.exports = async ({ interaction, client, context }) => {
 
   if (selectedRole === 0) {
     whichdefault = 0;
-    await updateTempApplication(interaction.guild.id, { name: appName }, { verifiedrole: roles });
+    await updateTempApplication(interaction.guild.id,  { verifiedrole: roles }, { name: appName });
   } else if (selectedRole === 1) {
     whichdefault = 1;
-    await updateTempApplication(interaction.guild.id, { name: appName }, { unverifiedrole: roles });
+    await updateTempApplication(interaction.guild.id, { unverifiedrole: roles }, { name: appName });
   } else if (selectedRole === 2) {
     whichdefault = 2;
-    await updateTempApplication(interaction.guild.id, { name: appName }, { pingrole: roles });
+    await updateTempApplication(interaction.guild.id, { pingrole: roles }, { name: appName });
   } else if (selectedRole === 3) {
     whichdefault = 3;
-    await updateTempApplication(interaction.guild.id, { name: appName }, { managerrole: roles });
+    await updateTempApplication(interaction.guild.id, { managerrole: roles }, { name: appName });
   } else if (selectedRole === 4) {
     whichdefault = 4;
-    await updateTempApplication(interaction.guild.id, { name: appName }, { autorole: roles });
+    await updateTempApplication(interaction.guild.id, { autorole: roles }, { name: appName });
   }
 
   await rolesinfo({ interaction, client, whichdefault, context: [appName] });
