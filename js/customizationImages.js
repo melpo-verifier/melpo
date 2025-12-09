@@ -39,6 +39,7 @@ const r2Client = new S3Client({
 });
 
 const PREFIX_ROOT = "customizations";
+const TEMP_FOLDER = "temp";
 
 const isR2ImageResource = (image) =>
   Boolean(image && typeof image === "object" && image.storage === "r2" && image.key);
@@ -52,14 +53,30 @@ const sanitizeAppName = (name = "") =>
     .replace(/^-+|-+$/g, "")
     || "app";
 
-const buildPrefix = (serverId, appName, section) =>
-  `${PREFIX_ROOT}/${serverId}/${sanitizeAppName(appName)}/${section}/`;
+const generateFileId = () => crypto.randomUUID().replace(/-/g, "");
 
-const buildKey = ({ serverId, appName, section, extension, isTemp }) => {
-  const prefix = buildPrefix(serverId, appName, section);
-  const unique = crypto.randomUUID().replace(/-/g, "");
-  const suffix = isTemp ? "_temp" : "";
-  return `${prefix}${unique}${suffix}.${extension}`;
+const buildBasePrefix = (serverId, appName) =>
+  `${PREFIX_ROOT}/${serverId}/${sanitizeAppName(appName)}`;
+
+const buildSectionPrefix = ({ serverId, appName, section, scope = "final" }) => {
+  const base = buildBasePrefix(serverId, appName);
+  if (scope === "temp") {
+    return `${base}/${TEMP_FOLDER}/${section}/`;
+  }
+  return `${base}/${section}/`;
+};
+
+const buildKey = ({
+  serverId,
+  appName,
+  section,
+  extension,
+  scope = "temp",
+  fileId,
+}) => {
+  const prefix = buildSectionPrefix({ serverId, appName, section, scope });
+  const resolvedFileId = fileId || generateFileId();
+  return `${prefix}${resolvedFileId}.${extension}`;
 };
 
 const getPublicUrl = (key) => {
@@ -67,6 +84,13 @@ const getPublicUrl = (key) => {
     return null;
   }
   return `${PUBLIC_BASE}/${key}`;
+};
+
+const extractFileIdFromKey = (key) => {
+  if (!key) {
+    return null;
+  }
+  return path.basename(key, path.extname(key));
 };
 
 const serializeImage = (image) => {
@@ -83,7 +107,27 @@ const serializeImage = (image) => {
     appName: image.appName,
     section: image.section,
     isTemp: Boolean(image.isTemp),
+    fileId: image.fileId || extractFileIdFromKey(image.key),
   };
+};
+
+const isTempKey = (key) =>
+  Boolean(key && (key.split("/").includes(TEMP_FOLDER) || key.includes("_temp")));
+
+const getFinalKeyFromTemp = (key) => {
+  if (!key || !isTempKey(key)) {
+    return key;
+  }
+
+  const segments = key.split("/");
+  const tempIndex = segments.indexOf(TEMP_FOLDER);
+  if (tempIndex !== -1) {
+    const finalSegments = [...segments];
+    finalSegments.splice(tempIndex, 1);
+    return finalSegments.join("/");
+  }
+
+  return key.replace("_temp", "");
 };
 
 async function uploadCustomizationImage({
@@ -98,12 +142,14 @@ async function uploadCustomizationImage({
     throw new Error("uploadCustomizationImage expects a Buffer");
   }
 
+  const fileId = generateFileId();
   const key = buildKey({
     serverId,
     appName,
     section,
     extension,
-    isTemp: true,
+    scope: "temp",
+    fileId,
   });
 
   const command = new PutObjectCommand({
@@ -129,15 +175,16 @@ async function uploadCustomizationImage({
     size: buffer.length,
     uploadedAt: new Date().toISOString(),
     isTemp: true,
+    fileId,
   };
 }
 
 async function promoteCustomizationImage(image) {
-  if (!isR2ImageResource(image) || !image.key.includes("_temp")) {
+  if (!isR2ImageResource(image) || !isTempKey(image.key)) {
     return image;
   }
 
-  const finalKey = image.key.replace("_temp", "");
+  const finalKey = getFinalKeyFromTemp(image.key);
   const copyCommand = new CopyObjectCommand({
     Bucket: BUCKET,
     Key: finalKey,
@@ -171,7 +218,21 @@ async function deleteImage(image) {
 }
 
 async function listSectionObjects({ serverId, appName, section }) {
-  const prefix = buildPrefix(serverId, appName, section);
+  const finalPrefix = buildSectionPrefix({ serverId, appName, section, scope: "final" });
+  const tempPrefix = buildSectionPrefix({ serverId, appName, section, scope: "temp" });
+
+  const [finalObjects, tempObjects] = await Promise.all([
+    listObjectsForPrefix(finalPrefix),
+    listObjectsForPrefix(tempPrefix),
+  ]);
+
+  return [
+    ...finalObjects.map((obj) => ({ ...obj, scope: "final" })),
+    ...tempObjects.map((obj) => ({ ...obj, scope: "temp" })),
+  ];
+}
+
+async function listObjectsForPrefix(prefix) {
   const objects = [];
   let continuationToken;
 
@@ -201,6 +262,12 @@ async function purgeOldImages({
 }) {
   const objects = await listSectionObjects({ serverId, appName, section });
   const keysToDelete = [];
+  const scopeFilter =
+    filter === "temp"
+      ? new Set(["temp"])
+      : filter === "final"
+        ? new Set(["final"])
+        : new Set(["temp", "final"]);
 
   for (const object of objects) {
     if (!object.Key) {
@@ -210,11 +277,7 @@ async function purgeOldImages({
       continue;
     }
 
-    const isTempObject = object.Key.includes("_temp");
-    if (filter === "temp" && !isTempObject) {
-      continue;
-    }
-    if (filter === "final" && isTempObject) {
+    if (!scopeFilter.has(object.scope || (isTempKey(object.Key) ? "temp" : "final"))) {
       continue;
     }
 

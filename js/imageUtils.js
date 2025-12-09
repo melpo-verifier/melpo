@@ -42,16 +42,6 @@ const resolveImage = (image, fallbackName = "image") => {
       isRemote: false,
     };
   }
-
-  const extension = path.extname(absolutePath).slice(1) || "png";
-  const attachmentName = `${fallbackName}.${extension}`;
-
-  return {
-    embedUrl: `attachment://${attachmentName}`,
-    filePath: absolutePath,
-    attachmentName,
-    isRemote: false,
-  };
 };
 
 const isRemoteImage = (image) =>
