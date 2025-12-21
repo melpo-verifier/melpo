@@ -18,7 +18,6 @@ module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context[1]);
   const qnumber = parseInt(context[0]);
   const appName = context?.[2] ?? context?.[1] ?? context?.[0];
-  console.log(appName)
 
   // const serverConfig = await ServerConfig.findOne({
   //   where: { server_id: interaction.guild.id },

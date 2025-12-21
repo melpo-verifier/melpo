@@ -121,8 +121,6 @@ module.exports = async ({ interaction, client, context }) => {
       // ],
     });
 
-    console.log(application)
-
     if (!application) {
       return await interaction.editReply({
         content: `This channel is not configured as a verification channel for any application. Please contact the server staff.`,
@@ -966,7 +964,7 @@ async function constructApplicationEmbed(
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s application for ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
           }),
         )
         .setThumbnailAccessory(
@@ -1177,23 +1175,23 @@ async function processVerificationResult(
     //create the buttons
     const verify = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`verify_${interaction.user.id}`)
+        .setCustomId(`verify_${appName}_${interaction.user.id}`)
         .setLabel("Verify")
         .setStyle("Success"),
       new ButtonBuilder()
-        .setCustomId(`deny_${interaction.user.id}`)
+        .setCustomId(`deny_${appName}_${interaction.user.id}`)
         .setLabel("Deny")
         .setStyle("Danger"),
       new ButtonBuilder()
-        .setCustomId(`reasondeny_${interaction.user.id}`)
+        .setCustomId(`reasondeny_${appName}_${interaction.user.id}`)
         .setLabel("Deny with reason")
         .setStyle("Danger"),
       new ButtonBuilder()
-        .setCustomId(`question_${interaction.user.id}`)
+        .setCustomId(`question_${appName}_${interaction.user.id}`)
         .setLabel("Question")
         .setStyle("Primary"),
       new ButtonBuilder()
-        .setCustomId(`action_${interaction.user.id}`)
+        .setCustomId(`action_${appName}_${interaction.user.id}`)
         .setLabel("Kick")
         .setStyle("Secondary"),
     );

@@ -11,9 +11,9 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { Verification, ServerConfig } = require("../dbObjects.js");
+const { Verification, Application } = require("../dbObjects.js");
 
-module.exports = async ({ interaction, client, userid }) => {
+module.exports = async ({ interaction, client, userid, appName }) => {
   // const disverify = new ActionRowBuilder().addComponents(
   //   new ButtonBuilder()
   //     .setCustomId("verify")
@@ -64,22 +64,22 @@ module.exports = async ({ interaction, client, userid }) => {
   const verification = await Verification.findOne({
     where: { userId: userid },
   });
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
   const reason = interaction.fields.getTextInputValue("denyInput");
 
   if (
-    serverConfig.verifylogs &&
+    application.verifylogs &&
     messageids &&
-    serverConfig.reviewchannel !== serverConfig.verifylogs
+    application.reviewchannel !== application.verifylogs
   ) {
     const reviewChannel = interaction.guild.channels.cache.get(
-      serverConfig.reviewchannel,
+      application.reviewchannel,
     );
     const logChannel = interaction.guild.channels.cache.get(
-      serverConfig.verifylogs,
+      application.verifylogs,
     );
 
     if (logChannel && reviewChannel && messageids) {

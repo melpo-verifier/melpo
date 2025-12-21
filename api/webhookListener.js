@@ -25,7 +25,8 @@ app.post("/api/updateVerifyChannel/:guildId", async (req, res) => {
     return res.status(400).json({ error: "Missing guildId" });
   }
 
-  const serverConfig = await ServerConfig.findOne({
+  // Watch out!!! Needs to be updated to use multiple appliccations!
+  const serverConfig = await ServerConfig.findOne({ 
     where: { server_id: guildId },
   });
   if (!serverConfig) {

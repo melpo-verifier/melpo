@@ -13,7 +13,7 @@ const {
   ThumbnailBuilder,
 } = require("discord.js");
 const {
-  ServerConfig,
+  Application,
   Verification,
   InviteTracker,
 } = require("../../dbObjects.js");
@@ -66,37 +66,90 @@ module.exports = {
           "The users to verify (mention them or provide their IDs)",
         )
         .setRequired(true),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("application")
+        .setDescription(
+          "The application to use for verification (required if multiple exist)",
+        )
+        .setAutocomplete(true)
+        .setRequired(false),
     ),
-  async execute({ interaction, client }) {
-    const serverConfig = await ServerConfig.findOne({
+  async autocomplete(interaction) {
+    const applications = await Application.findAll({
       where: { server_id: interaction.guild.id },
     });
 
+    const focusedValue = interaction.options.getFocused().toLowerCase();
+    const filtered = applications
+      .map((app) => app.name)
+      .filter((name) => name.toLowerCase().includes(focusedValue))
+      .slice(0, 25);
+
+    await interaction.respond(
+      filtered.map((name) => ({ name, value: name })),
+    );
+  },
+  async execute({ interaction, client }) {
+    // Fetch all applications for this guild
+    const applications = await Application.findAll({
+      where: { server_id: interaction.guild.id },
+    });
+
+    if (!applications || applications.length === 0) {
+      return interaction.reply({
+        content: "No applications configured for this server. Please set up an application using `/setup`.",
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    // Determine which application to use
+    let application;
+    const appNameOption = interaction.options.getString("application");
+
+    if (applications.length === 1) {
+      application = applications[0];
+    } else if (appNameOption) {
+      application = applications.find((app) => app.name === appNameOption);
+      if (!application) {
+        return interaction.reply({
+          content: `Application "${appNameOption}" not found. Available applications: ${applications.map((a) => a.name).join(", ")}`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    } else {
+      return interaction.reply({
+        content: `Multiple applications exist for this server. Please specify which one to use with the \`application\` option.\nAvailable: ${applications.map((a) => a.name).join(", ")}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     // Permission checks
-    if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+    if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
       const member = await interaction.guild.members.fetch(interaction.user.id);
-      const hasManagerRole = serverConfig.managerrole.some((role) =>
+      const hasManagerRole = application.managerrole.some((role) =>
         member.roles.cache.has(role),
       );
 
       if (!hasManagerRole) {
         return interaction.reply({
-          content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+          content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
           flags: MessageFlags.Ephemeral,
         });
       }
     } else if (
-      serverConfig &&
-      serverConfig.reviewchannel &&
-      interaction.channel.id !== serverConfig.reviewchannel
+      application &&
+      application.reviewchannel &&
+      interaction.channel.id !== application.reviewchannel
     ) {
       return interaction.reply({
-        content: `Please use this command in <#${serverConfig.reviewchannel}> or set up a manager role in \`/setup\` to use this command everywhere.`,
+        content: `Please use this command in <#${application.reviewchannel}> or set up a manager role in \`/setup\` to use this command everywhere.`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
-    if (!serverConfig?.verifiedrole || serverConfig.verifiedrole.length === 0) {
+    if (!application?.verifiedrole || application.verifiedrole.length === 0) {
       return interaction.reply({
         content:
           "Please set a verified role in the server configuration by using the `/setup` command",
@@ -143,10 +196,10 @@ module.exports = {
       });
     }
 
-    const unverifiedRoles = serverConfig.unverifiedrole;
-    const verifiedRoles = serverConfig.verifiedrole;
-    const welcomeMessage = serverConfig.verificationwelcomemessage;
-    const welcomeChannel = serverConfig.verificationwelcomechannel;
+    const unverifiedRoles = application.unverifiedrole;
+    const verifiedRoles = application.verifiedrole;
+    const welcomeMessage = application.verificationwelcomemessage;
+    const welcomeChannel = application.verificationwelcomechannel;
 
     if (
       !interaction.guild.members.me.permissions.has(
@@ -236,15 +289,15 @@ module.exports = {
 
         // if log channel is setup
         if (
-          serverConfig.verifylogs &&
+          application.verifylogs &&
           messageids &&
-          serverConfig.reviewchannel !== serverConfig.verifylogs
+          application.reviewchannel !== application.verifylogs
         ) {
           const reviewChannel = interaction.guild.channels.cache.get(
-            serverConfig.reviewchannel,
+            application.reviewchannel,
           );
           const logChannel = interaction.guild.channels.cache.get(
-            serverConfig.verifylogs,
+            application.verifylogs,
           );
 
           if (!messageids || messageids.length === 0) {
@@ -592,11 +645,11 @@ module.exports = {
         }
 
         // Send verification message to user
-        if (serverConfig.verifymessage) {
-          const title = serverConfig.verifymessage.title;
-          const description = serverConfig.verifymessage.description;
-          const color = serverConfig.verifymessage.color;
-          const image = serverConfig.verifymessage.image;
+        if (application.verifymessage) {
+          const title = application.verifymessage.title;
+          const description = application.verifymessage.description;
+          const color = application.verifymessage.color;
+          const image = application.verifymessage.image;
 
           const finalTitle = await processText(
             title,

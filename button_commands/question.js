@@ -5,21 +5,21 @@ const {
   TextInputStyle,
   MessageFlags,
 } = require("discord.js");
-const { OptOut, ServerConfig } = require("../dbObjects.js");
-module.exports = async ({ interaction, client, userid }) => {
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+const { OptOut, Application } = require("../dbObjects.js");
+module.exports = async ({ interaction, client, userid, appName }) => {
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return interaction.reply({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -38,7 +38,7 @@ module.exports = async ({ interaction, client, userid }) => {
   }
 
   const modal = new ModalBuilder()
-    .setCustomId(`questionModal_${userid}`)
+    .setCustomId(`questionModal_${appName}_${userid}`)
     .setTitle(`Question ${user.tag}`);
 
   const questioninput = new TextInputBuilder()

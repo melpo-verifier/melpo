@@ -23,7 +23,6 @@ module.exports = async ({ interaction, context }) => {
       ivalues[0] !== "deleted" ? `<#${ivalues[0]}>` : `**Not set up**`;
   } else if (number === 1) {
     console.log(ivalues[0]);
-    console.log(appName);
     await updateTempApplication(interaction.guild.id, {
       reviewchannel: ivalues[0],
     }, { name: appName });

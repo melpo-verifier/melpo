@@ -4,7 +4,7 @@ const {
   PermissionsBitField,
   MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../../dbObjects.js");
+const { Application } = require("../../dbObjects.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -23,9 +23,11 @@ module.exports = {
       });
       return;
     }
-    const serverConfig = await ServerConfig.findOne({
+
+    const applications = await Application.findAll({
       where: { server_id: interaction.guild.id },
     });
+
 
     const requiredPermissions = [
       { name: "Manage Guild", flag: "ManageGuild" },
@@ -98,62 +100,68 @@ module.exports = {
 
     description += "\n### Channel-Specific Permissions\n";
 
-    if (serverConfig?.verifychannel) {
-      const verifyChannel = interaction.guild.channels.cache.get(
-        serverConfig.verifychannel,
-      );
-      if (verifyChannel) {
-        const verifyPerms = verifyChannel.permissionsFor(client.user);
-        description += `**Verify Channel (${verifyChannel})**\n`;
-        description += `${verifyPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
-        description += `${verifyPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
-        description += `${verifyPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+    for (const app of applications) {
+      if (applications.length > 1) {
+        description += `\n**Application: ${app.name}**\n`;
       }
-    }
 
-    if (serverConfig?.reviewchannel) {
-      const reviewChannel = interaction.guild.channels.cache.get(
-        serverConfig.reviewchannel,
-      );
-      if (reviewChannel) {
-        const reviewPerms = reviewChannel.permissionsFor(client.user);
-        description += `\n**Review Channel (${reviewChannel})**\n`;
-        description += `${reviewPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
-        description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
-        description += `${reviewPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
-        description += `${reviewPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
-        description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
-        description += `${reviewPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
+      if (app?.verifychannel) {
+        const verifyChannel = interaction.guild.channels.cache.get(
+          app.verifychannel,
+        );
+        if (verifyChannel) {
+          const verifyPerms = verifyChannel.permissionsFor(client.user);
+          description += `**Verify Channel (${verifyChannel})**\n`;
+          description += `${verifyPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
+          description += `${verifyPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
+          description += `${verifyPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+        }
       }
-    }
 
-    if (serverConfig?.verifylogs) {
-      const logsChannel = interaction.guild.channels.cache.get(
-        serverConfig.verifylogs,
-      );
-      if (logsChannel) {
-        const logsPerms = logsChannel.permissionsFor(client.user);
-        description += `\n**Verification Logs Channel (${logsChannel})**\n`;
-        description += `${logsPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
-        description += `${logsPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
-        description += `${logsPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
-        description += `${logsPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
-        description += `${logsPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
-        description += `${logsPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
+      if (app?.reviewchannel) {
+        const reviewChannel = interaction.guild.channels.cache.get(
+          app.reviewchannel,
+        );
+        if (reviewChannel) {
+          const reviewPerms = reviewChannel.permissionsFor(client.user);
+          description += `\n**Review Channel (${reviewChannel})**\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
+        }
       }
-    }
 
-    if (serverConfig?.verificationwelcomechannel) {
-      const welcomeChannel = interaction.guild.channels.cache.get(
-        serverConfig.verificationwelcomechannel,
-      );
-      if (welcomeChannel) {
+      if (app?.verifylogs) {
+        const logsChannel = interaction.guild.channels.cache.get(
+          app.verifylogs,
+        );
+        if (logsChannel) {
+          const logsPerms = logsChannel.permissionsFor(client.user);
+          description += `\n**Verification Logs Channel (${logsChannel})**\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
+        }
+      }
+
+      if (app?.verificationwelcomechannel) {
+        const welcomeChannel = interaction.guild.channels.cache.get(
+          app.verificationwelcomechannel,
+        );
+        if (welcomeChannel) {
         const welcomePerms = welcomeChannel.permissionsFor(client.user);
         description += `\n**Verification Welcome Channel (${welcomeChannel})**\n`;
         description += `${welcomePerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
         description += `${welcomePerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
         description += `${welcomePerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
       }
+    }
     }
 
     description += "\n### Role Hierarchy\n";
@@ -163,59 +171,62 @@ module.exports = {
 
     let roleHierarchyIssues = 0;
 
-    if (serverConfig?.verifiedrole && serverConfig.verifiedrole.length > 0) {
-      const verifiedRoles = Array.isArray(serverConfig.verifiedrole)
-        ? serverConfig.verifiedrole
-        : [serverConfig.verifiedrole];
-      for (const roleId of verifiedRoles) {
-        const verifiedRole = interaction.guild.roles.cache.get(roleId);
-        if (verifiedRole) {
-          const canManageRole = botRole.position > verifiedRole.position;
-          if (!canManageRole) roleHierarchyIssues++;
-          description += `**Verified Role:** ${verifiedRole} (Position: ${verifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+    for (const app of applications) {
+      if (applications.length > 1) {
+        description += `\n**Application: ${app.name}**\n`;
+      }
+
+      if (app?.verifiedrole && app.verifiedrole.length > 0) {
+        const verifiedRoles = Array.isArray(app.verifiedrole)
+          ? app.verifiedrole
+          : [app.verifiedrole];
+        for (const roleId of verifiedRoles) {
+          const verifiedRole = interaction.guild.roles.cache.get(roleId);
+          if (verifiedRole) {
+            const canManageRole = botRole.position > verifiedRole.position;
+            if (!canManageRole) roleHierarchyIssues++;
+            description += `**Verified Role:** ${verifiedRole} (Position: ${verifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+          }
         }
       }
-    }
 
-    if (
-      serverConfig?.unverifiedrole &&
-      serverConfig.unverifiedrole.length > 0
-    ) {
-      const unverifiedRoles = Array.isArray(serverConfig.unverifiedrole)
-        ? serverConfig.unverifiedrole
-        : [serverConfig.unverifiedrole];
-      for (const roleId of unverifiedRoles) {
-        const unverifiedRole = interaction.guild.roles.cache.get(roleId);
-        if (unverifiedRole) {
-          const canManageRole = botRole.position > unverifiedRole.position;
-          if (!canManageRole) roleHierarchyIssues++;
-          description += `**Unverified Role:** ${unverifiedRole} (Position: ${unverifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+      if (app?.unverifiedrole && app.unverifiedrole.length > 0) {
+        const unverifiedRoles = Array.isArray(app.unverifiedrole)
+          ? app.unverifiedrole
+          : [app.unverifiedrole];
+        for (const roleId of unverifiedRoles) {
+          const unverifiedRole = interaction.guild.roles.cache.get(roleId);
+          if (unverifiedRole) {
+            const canManageRole = botRole.position > unverifiedRole.position;
+            if (!canManageRole) roleHierarchyIssues++;
+            description += `**Unverified Role:** ${unverifiedRole} (Position: ${unverifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+          }
         }
       }
-    }
 
-    if (serverConfig?.autorole && serverConfig.autorole.length > 0) {
-      const autoRoles = Array.isArray(serverConfig.autorole)
-        ? serverConfig.autorole
-        : [serverConfig.autorole];
-      for (const roleId of autoRoles) {
-        const autoRole = interaction.guild.roles.cache.get(roleId);
-        if (autoRole) {
-          const canManageRole = botRole.position > autoRole.position;
-          if (!canManageRole) roleHierarchyIssues++;
-          description += `**Auto Role:** ${autoRole} (Position: ${autoRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+      if (app?.autorole && app.autorole.length > 0) {
+        const autoRoles = Array.isArray(app.autorole)
+          ? app.autorole
+          : [app.autorole];
+        for (const roleId of autoRoles) {
+          const autoRole = interaction.guild.roles.cache.get(roleId);
+          if (autoRole) {
+            const canManageRole = botRole.position > autoRole.position;
+            if (!canManageRole) roleHierarchyIssues++;
+            description += `**Auto Role:** ${autoRole} (Position: ${autoRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+          }
         }
       }
-    }
 
-    if (serverConfig?.managerrole && serverConfig.managerrole.length > 0) {
-      const managerRoles = Array.isArray(serverConfig.managerrole)
-        ? serverConfig.managerrole
-        : [serverConfig.managerrole];
-      for (const roleId of managerRoles) {
-        const managerRole = interaction.guild.roles.cache.get(roleId);
-        if (managerRole) {
-          description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`;
+      if (app?.managerrole && app.managerrole.length > 0) {
+        const managerRoles = Array.isArray(app.managerrole)
+          ? app.managerrole
+          : [app.managerrole];
+        for (const roleId of managerRoles) {
+          const managerRole = interaction.guild.roles.cache.get(roleId);
+          if (managerRole) {
+            description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`;
+          }
         }
       }
     }

@@ -5,26 +5,26 @@ const {
   TextInputStyle,
   MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { Application } = require("../dbObjects.js");
 
-module.exports = async ({ interaction, client, userid }) => {
+module.exports = async ({ interaction, client, userid, appName }) => {
   if (!userid) {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return interaction.reply({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -33,7 +33,7 @@ module.exports = async ({ interaction, client, userid }) => {
   const user = await client.users.fetch(userid);
 
   const modal = new ModalBuilder()
-    .setCustomId("denyModal")
+    .setCustomId(`denyModal_${appName}`)
     .setTitle(`Deny ${user.tag}`);
 
   const denyinput = new TextInputBuilder()

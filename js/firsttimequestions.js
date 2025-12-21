@@ -11,7 +11,6 @@ async function firsttimequestions({ interaction, appName }) {
   if (!interaction.id) return;
   // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
   const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
-  console.log(appName)
 
   var questions = temporarySetup.questions;
   const reviewChannel = temporarySetup.reviewchannel;

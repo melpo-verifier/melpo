@@ -33,6 +33,18 @@ module.exports = {
       if (interaction.isChatInputCommand()) {
         return await handleSlashCommand(interaction, client);
       }
+      else if (interaction.isAutocomplete()) {
+        const command = interaction.client.commands.get(interaction.commandName);
+        if (!command) {
+          console.error(`No command matching ${interaction.commandName} was found.`);
+          return;
+        }
+        try {
+          await command.autocomplete(interaction);
+        } catch (error) {
+          console.error(error);
+        }
+      }
 
       const [command, ...context] = interaction.customId?.split("_") || [];
       const cacheKey = `${interaction.user.id}-${command}-${interaction.customId}`;
@@ -61,7 +73,17 @@ module.exports = {
       }
 
       const userid = await extractUserId(interaction);
-      const data = { interaction, client, context, userid };
+      
+      // Extract appName from context for button commands that use it
+      // Button customIds follow patterns like: command_appName_userId or command_appName
+      let appName = null;
+      if (context.length > 0) {
+        // For commands like verify_appName, deny_appName, etc.
+        // The first context part is typically the appName
+        appName = context[0];
+      }
+      
+      const data = { interaction, client, context, userid, appName };
 
       console.time(`Interaction handled: ${interaction.customId}`);
       if (interaction.isButton()) {
@@ -70,26 +92,9 @@ module.exports = {
         await handleMenu(command, data, client, interaction);
       } else if (interaction.isModalSubmit()) {
         await handleModal(command, data, client, interaction);
-      // } else if (interaction.isAutocomplete()) {
-      //   if (interaction.commandName === 'setup' && interaction.options.getFocused(true).name === 'verification') {
-      //     const focusedValue = interaction.options.getFocused();
-      //     // const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
-      //     const applications = ['verification', 'staff app']
-
-      //     // Filter suggestions based on user input
-      //     const filtered = applications
-      //       // .filter(app => app.name.toLowerCase().includes(focusedValue.toLowerCase()))
-      //       .filter(app => app.toLowerCase().includes(focusedValue.toLowerCase())) // app is a string, so no .name
-      //       .slice(0, 25) // Discord limits to 25 choices
-      //       .map(app => ({ name: app, value: app })); // Fixed: Use app directly
-      //       // .map(app => ({ name: app.name, value: app.name }));
-
-      //     // Always include "new" as an option
-      //     const choices = [{ name: 'Create New Application', value: 'new' }, ...filtered];
-
-      //     await interaction.respond(choices);
-      //   }
       }
+      
+      // This should be replaced by an autocompelte function in the setup command file!!! (So it can be called with the autocomplete handler at the chatinput handler above)
       else if (interaction.isAutocomplete() && interaction.commandName === 'setup' && interaction.options.getSubcommand() === 'edit') {
         const focusedValue = interaction.options.getFocused();
         const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });

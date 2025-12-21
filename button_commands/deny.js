@@ -6,24 +6,24 @@ const {
   // ContainerBuilder,
   // TextDisplayBuilder,
 } = require("discord.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { Application } = require("../dbObjects.js");
 
-module.exports = async ({ interaction }) => {
+module.exports = async ({ interaction, appName }) => {
   await interaction.deferUpdate();
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return interaction.followUp({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -51,11 +51,11 @@ module.exports = async ({ interaction }) => {
 
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`denyconfirm_${interaction.user.id}`)
+      .setCustomId(`denyconfirm_${appName}_${interaction.user.id}`)
       .setLabel("Confirm Denial")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("returntomenu")
+      .setCustomId(`returntomenu_${appName}`)
       .setLabel("Cancel")
       .setStyle("Danger"),
   );

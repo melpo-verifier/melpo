@@ -22,7 +22,6 @@ const {
 module.exports = async ({ interaction, client, context }) => {
   const appName = context[0] === "firsttime" ? context[1] : context[0];
 
-  console.log(appName)
   const tempApp = await TempApplication.findOne({ where: { name: appName } });
   if (!tempApp) {
     return interaction.reply({

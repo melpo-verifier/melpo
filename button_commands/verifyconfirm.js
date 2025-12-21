@@ -12,13 +12,13 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { ServerConfig, Verification } = require("../dbObjects.js");
+const { Application, Verification } = require("../dbObjects.js");
 const { resolveImage } = require("../js/imageUtils.js");
 
-module.exports = async ({ interaction, client, userid, context }) => {
+module.exports = async ({ interaction, client, userid, context, appName }) => {
   await interaction.deferUpdate();
 
-  const originaluserid = context[0]?.toString();
+  const originaluserid = context[1]?.toString();
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
@@ -58,29 +58,29 @@ module.exports = async ({ interaction, client, userid, context }) => {
   //     .setDisabled(true),
   // );
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     // Check if interaction user has any of the manager roles
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return await interaction.followUp({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }
   }
 
-  const unverifiedRoles = serverConfig.unverifiedrole;
-  const verifiedRoles = serverConfig.verifiedrole;
-  const welcomeMessage = serverConfig.verificationwelcomemessage;
-  const welcomeChannel = serverConfig.verificationwelcomechannel;
+  const unverifiedRoles = application.unverifiedrole;
+  const verifiedRoles = application.verifiedrole;
+  const welcomeMessage = application.verificationwelcomemessage;
+  const welcomeChannel = application.verificationwelcomechannel;
 
   const originalembedlast = interaction.message.embeds[0];
 
@@ -274,15 +274,15 @@ module.exports = async ({ interaction, client, userid, context }) => {
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
 
   if (
-    serverConfig.verifylogs &&
+    application.verifylogs &&
     messageids &&
-    serverConfig.reviewchannel !== serverConfig.verifylogs
+    application.reviewchannel !== application.verifylogs
   ) {
     const reviewChannel = interaction.guild.channels.cache.get(
-      serverConfig.reviewchannel,
+      application.reviewchannel,
     );
     const logChannel = interaction.guild.channels.cache.get(
-      serverConfig.verifylogs,
+      application.verifylogs,
     );
 
     if (logChannel && reviewChannel && messageids) {
@@ -492,10 +492,10 @@ module.exports = async ({ interaction, client, userid, context }) => {
     await verification.save();
   }
 
-  const title = serverConfig.verifymessage.title;
-  const description = serverConfig.verifymessage.description;
-  const color = serverConfig.verifymessage.color;
-  const image = serverConfig.verifymessage.image;
+  const title = application.verifymessage.title;
+  const description = application.verifymessage.description;
+  const color = application.verifymessage.color;
+  const image = application.verifymessage.image;
 
   const finalTitle = await processText(
     title,

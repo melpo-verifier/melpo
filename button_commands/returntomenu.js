@@ -4,42 +4,42 @@ const {
   EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { Application } = require("../dbObjects.js");
 
-module.exports = async ({ interaction }) => {
+module.exports = async ({ interaction, appName }) => {
   const verify = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("verify")
+      .setCustomId(`verify_${appName}`)
       .setLabel("Verify")
       .setStyle("Success"),
-    new ButtonBuilder().setCustomId("deny").setLabel("Deny").setStyle("Danger"),
+    new ButtonBuilder().setCustomId(`deny_${appName}`).setLabel("Deny").setStyle("Danger"),
     new ButtonBuilder()
-      .setCustomId("reasondeny")
+      .setCustomId(`reasondeny_${appName}`)
       .setLabel("Deny with reason")
       .setStyle("Danger"),
     new ButtonBuilder()
-      .setCustomId("question")
+      .setCustomId(`question_${appName}`)
       .setLabel("Question")
       .setStyle("Primary"),
     new ButtonBuilder()
-      .setCustomId("action")
+      .setCustomId(`action_${appName}`)
       .setLabel("Kick")
       .setStyle("Secondary"),
   );
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return interaction.reply({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }

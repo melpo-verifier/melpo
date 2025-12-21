@@ -9,7 +9,7 @@ const {
   SeparatorSpacingSize,
   MediaGalleryBuilder,
 } = require("discord.js");
-const { QuestionId, ServerConfig } = require("../dbObjects.js");
+const { QuestionId, Application } = require("../dbObjects.js");
 // MAYBE EASIER TO CHANGE DATABASE TO A USER RELATED DATABASE, NOT MESSAGE ID RELATED DATABASE IN CASE IF THE USER LEAVES THE SERVER (USER -> GUILD1: {...}, gUILD2: {...})
 
 module.exports = async ({ interaction, client }) => {
@@ -29,6 +29,8 @@ module.exports = async ({ interaction, client }) => {
   const channelId = info.channelId;
   const dmChannel = await user.createDM();
   const message = await dmChannel.messages.fetch(info.interactionMessageId);
+
+  const appName = info.appName || "verification";
 
   const confirmrow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -56,7 +58,7 @@ module.exports = async ({ interaction, client }) => {
 
   const replybutton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`question_${user.id}`)
+      .setCustomId(`question_${appName}_${user.id}`)
       .setLabel("Reply")
       .setStyle("Primary"),
   );
@@ -111,10 +113,10 @@ module.exports = async ({ interaction, client }) => {
     messageCollector.stop("cancelled");
   });
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: guildId },
+  const application = await Application.findOne({
+    where: { server_id: guildId, name: appName },
   });
-  const verificationChannelId = serverConfig.reviewchannel;
+  const verificationChannelId = application.reviewchannel;
 
   messageCollector.on("collect", async (m) => {
     var totalcontent = m.content;
@@ -128,10 +130,10 @@ module.exports = async ({ interaction, client }) => {
       );
     }
 
-    const rolesToPing = Array.isArray(serverConfig.pingstaff)
-      ? serverConfig.pingstaff?.map((roleId) => `<@&${roleId}>`).join(" ")
-      : serverConfig.pingstaff
-        ? `<@&${serverConfig.pingstaff}>`
+    const rolesToPing = Array.isArray(application.pingrole)
+      ? application.pingrole?.map((roleId) => `<@&${roleId}>`).join(" ")
+      : application.pingrole
+        ? `<@&${application.pingrole}>`
         : null;
 
     const container = new ContainerBuilder({

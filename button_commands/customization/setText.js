@@ -12,8 +12,6 @@ const { updateTemporarySetup, updateTempApplication } = require("../../js/tempco
 module.exports = async ({ interaction, client, context }) => {
   const customIdValue = context[0];
   const appName = context[1];
-  console.log(appName)
-  console.log(context)
 
   // if(customIdValue === 'verificationwelcomemessage') {
   //     messageCollecting(interaction, customIdValue, client)

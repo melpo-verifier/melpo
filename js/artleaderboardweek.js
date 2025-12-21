@@ -16,7 +16,35 @@ module.exports = async (client) => {
     return customBotId && clientId !== customBotId;
   }
 
-  const supportedImageTypes = ["image/png", "image/jpeg", "image/gif"];
+  const supportedImageTypes = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+  try {
+    const CanvasModule = require("canvas");
+    const { registerFont } = CanvasModule;
+    const fs = require("fs");
+    const path = require("path");
+
+    const fontsDir = path.join(__dirname, "..", "leaderboardimages", "fonts");
+    const regular = path.join(fontsDir, "Montserrat-Regular.ttf");
+    const italic = path.join(fontsDir, "Montserrat-Italic.ttf");
+
+    if (fs.existsSync(regular)) {
+      registerFont(regular, { family: "Montserrat", weight: "normal", style: "normal" });
+      console.log("Registered font: Montserrat-Regular");
+    }
+    if (fs.existsSync(italic)) {
+      registerFont(italic, { family: "Montserrat", weight: "normal", style: "italic" });
+      console.log("Registered font: Montserrat-Italic");
+    }
+
+    if (!fs.existsSync(regular) && !fs.existsSync(italic)) {
+      console.warn(
+        "Montserrat font files not found.",
+      );
+    }
+  } catch (err) {
+    console.warn("Canvas font registration failed!", err?.message || err);
+  }
 
   const resetDay = 6;
   const resetHour = 10;
@@ -516,7 +544,7 @@ module.exports = async (client) => {
         });
       }
 
-      ctx.font = "italic 60px Montserrat";
+      ctx.font = "italic 60px \"Montserrat\", sans-serif";
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
 

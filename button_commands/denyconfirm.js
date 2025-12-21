@@ -11,12 +11,13 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { Verification, ServerConfig } = require("../dbObjects.js");
+const { Verification, Application } = require("../dbObjects.js");
 
-module.exports = async ({ interaction, client, userid, context }) => {
+module.exports = async ({ interaction, client, userid, context, appName }) => {
   await interaction.deferUpdate();
 
-  const originaluserid = context[0]?.toString();
+  // context[0] is appName, context[1] is the original user ID who initiated the denial
+  const originaluserid = context[1]?.toString();
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
@@ -56,19 +57,19 @@ module.exports = async ({ interaction, client, userid, context }) => {
   //     .setDisabled(true),
   // );
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
+  const application = await Application.findOne({
+    where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return await interaction.followUp({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -90,15 +91,15 @@ module.exports = async ({ interaction, client, userid, context }) => {
   // }
 
   if (
-    serverConfig.verifylogs &&
+    application?.verifylogs &&
     messageids &&
-    serverConfig.reviewchannel !== serverConfig.verifylogs
+    application.reviewchannel !== application.verifylogs
   ) {
     const reviewChannel = interaction.guild.channels.cache.get(
-      serverConfig.reviewchannel,
+      application.reviewchannel,
     );
     const logChannel = interaction.guild.channels.cache.get(
-      serverConfig.verifylogs,
+      application.verifylogs,
     );
 
     if (logChannel && reviewChannel && messageids) {
