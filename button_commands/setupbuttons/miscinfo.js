@@ -19,10 +19,10 @@ module.exports = async ({ interaction, context, appName }) => {
 
   const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
-  const useThreads =
-    tempApp.usethreads !== null
-      ? tempApp.usethreads
-      : applicationSetup?.usethreads || false;
+  // Display threads state: prefer explicit temp setting, otherwise fall back to existing app, then false
+  const useThreads = (tempApp.usethreads !== null && tempApp.usethreads !== undefined)
+    ? tempApp.usethreads
+    : (applicationSetup?.usethreads ?? false);
 
   const miscEmbed = new EmbedBuilder()
     .setColor("#3f7ff1")

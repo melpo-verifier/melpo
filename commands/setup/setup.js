@@ -60,6 +60,21 @@ module.exports = {
         .setName('server')
         .setDescription('Edit server-wide configuration')
     ),
+
+  async autocomplete(interaction) {
+    const applications = await Application.findAll({
+      where: { server_id: interaction.guild.id },
+    });
+
+    const focusedValue = interaction.options.getFocused().toLowerCase();
+    const filtered = applications
+      .map((app) => app.name)
+      .filter((name) => name.toLowerCase().includes(focusedValue))
+      .slice(0, 25);
+
+    await interaction.respond(filtered.map((name) => ({ name, value: name })));
+  },
+
   async execute({ interaction, client }) {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
       return interaction.reply({
@@ -111,11 +126,11 @@ module.exports = {
         // );
       const continuebuttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("generalinfo_false_" + tempApp.name)
+          .setCustomId("generalinfo_" + tempApp.name + "_false")
           .setLabel("Continue previous setup")
           .setStyle("Success"),
         new ButtonBuilder()
-          .setCustomId("generalinfo_true_" + tempApp.name)
+          .setCustomId("generalinfo_" + tempApp.name + "_true")
           .setLabel("Start New Setup")
           .setStyle("Primary"),
       );
@@ -182,11 +197,11 @@ module.exports = {
         // );
         const continuebuttons = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId("generalinfo_false_" + tempApp.name)
+            .setCustomId("generalinfo_" + tempApp.name + "_false")
             .setLabel("Continue previous setup")
             .setStyle("Success"),
           new ButtonBuilder()
-            .setCustomId("generalinfo_true_" + tempApp.name)
+            .setCustomId("generalinfo_" + tempApp.name + "_true")
             .setLabel("Start New Setup")
             .setStyle("Primary"),
         );

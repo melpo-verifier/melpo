@@ -17,28 +17,25 @@ class CommandLoader {
     const startTime = Date.now();
     console.log("Starting to load all commands...");
 
-    try {
-      Promise.all([
-        this.loadCommands(),
-        this.loadButtonCommands(),
-        this.loadMenus(),
-        this.loadModals(),
-      ])
-        .then(() => {
-          const loadTime = Date.now() - startTime;
-          console.log(`All commands loaded successfully in ${loadTime}ms`);
-          console.log(
-            `Loaded: ${this.client.commands.size} commands, ${this.client.buttonCommands.size} button commands, ${this.client.menus.size} menus, ${this.client.modals.size} modals`,
-          );
+    (async () => {
+      try {
+        await Promise.all([
+          this.loadCommands(),
+          this.loadButtonCommands(),
+          this.loadMenus(),
+          this.loadModals(),
+        ]);
+        const loadTime = Date.now() - startTime;
+        console.log(`All commands loaded successfully in ${loadTime}ms`);
+        console.log(
+          `Loaded: ${this.client.commands.size} commands, ${this.client.buttonCommands.size} button commands, ${this.client.menus.size} menus, ${this.client.modals.size} modals`,
+        );
 
-          this.client.commandLoader = this;
-        })
-        .catch((error) => {
-          console.error("Failed to load commands:", error);
-        });
-    } catch (error) {
-      console.error("Failed to load commands:", error);
-    }
+        this.client.commandLoader = this;
+      } catch (error) {
+        console.error("Failed to load commands:", error);
+      }
+    })();
   }
 
   loadCommands() {

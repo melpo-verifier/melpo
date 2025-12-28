@@ -1,6 +1,4 @@
 const {
-  // ButtonBuilder,
-  // ActionRowBuilder,
   EmbedBuilder,
   PermissionsBitField,
   MessageFlags,
@@ -29,34 +27,6 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
   if (!userid) {
     throw new Error("Could not fetch user ID from the embed");
   }
-
-  // const disverify = new ActionRowBuilder().addComponents(
-  //   new ButtonBuilder()
-  //     .setCustomId("verify")
-  //     .setLabel("Verify")
-  //     .setStyle("Success")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("deny")
-  //     .setLabel("Deny")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("reasondeny")
-  //     .setLabel("Deny with reason")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("question")
-  //     .setLabel("Question")
-  //     .setStyle("Primary")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("action")
-  //     .setLabel("Kick")
-  //     .setStyle("Secondary")
-  //     .setDisabled(true),
-  // );
 
   const application = await Application.findOne({
     where: { server_id: interaction.guild.id, name: appName },

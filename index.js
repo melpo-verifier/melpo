@@ -7,6 +7,7 @@ const {
   QuestionId,
   Verification,
   Status,
+  TempApplication,
 } = require("./dbObjects.js");
 const { Op, Sequelize } = require("sequelize");
 const fs = require("fs");
@@ -53,6 +54,20 @@ async function cleanupTempConfig() {
     console.log(`Cleaned up ${deleted} temporary configurations`);
   } catch (error) {
     console.error("Failed to cleanup temp configs:", error);
+  }
+}
+
+async function cleanupOldTempApplications() {
+  try {
+    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const deleted = await TempApplication.destroy({
+      where: {
+        createdAt: { [Op.lt]: fourteenDaysAgo },
+      },
+    });
+    console.log(`Cleaned up ${deleted} temporary applications`);
+  } catch (error) {
+    console.error("Failed to cleanup temp applications:", error);
   }
 }
 
@@ -176,6 +191,7 @@ const customisationFields = [
 Promise.all([
   // cleanupOldInvites(),
   // cleanupTempConfig(),
+  // cleanupOldTempApplications(),
   // cleanupQuestionIds(),
   // cleanupEmptyVerifications(),
   // ...(Array.isArray(customisationFields)
@@ -195,6 +211,7 @@ cron.schedule("30 3 * * *", async () => {
   // return Promise.all([
   //   cleanupOldInvites(),
   //   cleanupTempConfig(),
+  //   cleanupOldTempApplications(),
   //   cleanupQuestionIds(),
   //   cleanupEmptyVerifications(),
   // ]);

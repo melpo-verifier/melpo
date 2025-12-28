@@ -73,7 +73,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     usethreads: {
       type: DataTypes.BOOLEAN,
-      defaultValue: false,
+      defaultValue: null,
+      allowNull: true,
     },
   }, {
     indexes: [

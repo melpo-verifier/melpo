@@ -1,17 +1,12 @@
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const {
-  // createTemporarySetup,
-  // updateTemporarySetup,
   updateTempApplication,
 } = require("../js/tempconfigfuncs.js");
 const { TempApplication } = require("../dbObjects.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context[0]);
-  // Try to get appName from context[1], fallback to context[0]
   let appName = context?.[1] ?? context?.[0];
-  console.log('appName:', appName);
-  console.log('context:', context);
 
   if (!appName) {
     return interaction.reply({
@@ -50,14 +45,6 @@ module.exports = async ({ interaction, client, context }) => {
       return q;
     })
     .filter((q) => q !== null);
-
-  // await updateTemporarySetup(interaction.guild.id, {
-  //   questions: temporarySetup.questions,
-  // });
-
-  // await updateTempApplication(interaction.guild.id, {
-  //   questions: temporarySetup.questions,
-  // }, { id: appName });
 
   await updateTempApplication(interaction.guild.id, {
     questions: temporarySetup.questions,

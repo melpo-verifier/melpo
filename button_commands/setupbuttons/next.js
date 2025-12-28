@@ -5,7 +5,6 @@ const {
   ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder,
 } = require("discord.js");
-// const { createTemporarySetup, createTempApplication } = require("../../js/tempconfigfuncs.js");
 const { TempApplication } = require("../../dbObjects.js");
 
 module.exports = async ({ interaction, context }) => {

@@ -85,24 +85,16 @@ module.exports = {
       
       const data = { interaction, client, context, userid, appName };
 
-      console.time(`Interaction handled: ${interaction.customId}`);
+      if(interaction.customId) {
+        console.time(`Interaction handled: ${interaction.customId}`);
+      }
+      
       if (interaction.isButton()) {
         await handleButton(command, data, client, interaction);
       } else if (isSelectMenu(interaction)) {
         await handleMenu(command, data, client, interaction);
       } else if (interaction.isModalSubmit()) {
         await handleModal(command, data, client, interaction);
-      }
-      
-      // This should be replaced by an autocompelte function in the setup command file!!! (So it can be called with the autocomplete handler at the chatinput handler above)
-      else if (interaction.isAutocomplete() && interaction.commandName === 'setup' && interaction.options.getSubcommand() === 'edit') {
-        const focusedValue = interaction.options.getFocused();
-        const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
-        const filtered = applications
-          .filter(app => app.name.toLowerCase().includes(focusedValue.toLowerCase()))
-          .slice(0, 25)
-          .map(app => ({ name: app.name, value: app.name }));
-        await interaction.respond(filtered);
       }
 
       // Update usage stats
@@ -114,7 +106,7 @@ module.exports = {
         // console.log(`Interaction received: ${interaction.customId}`);
       }
     } catch (error) {
-      console.log(error);
+      console.error(`Error processing interaction ${interaction.customId}:`, error);
       await ErrorHandler.handle(client, error, interaction);
     }
   },

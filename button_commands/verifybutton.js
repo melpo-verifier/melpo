@@ -1,5 +1,4 @@
 const {
-  ServerConfig,
   Verification,
   InviteTracker,
   Application
@@ -136,8 +135,6 @@ module.exports = async ({ interaction, client, context }) => {
       pingrole: pingStaffRoleId,
     } = application;
 
-    console.log(botQuestions)
-
     let parsedQuestions;
     try {
       if (
@@ -155,7 +152,12 @@ module.exports = async ({ interaction, client, context }) => {
         let parsed;
         if (typeof question === "string") {
           try {
+          try {
             parsed = JSON.parse(question);
+          } catch (parseError) {
+            console.error(`Failed to parse question: ${parseError.message}`);
+            parsed = question;
+          }
           } catch (error) {
             throw new Error(`Invalid question ${index + 1}: ${error.message}`);
           }
@@ -1071,7 +1073,6 @@ async function constructApplicationEmbed(
       }
 
       totalCharacterCount += formattedField.length;
-      console.log(totalCharacterCount);
 
       container.addTextDisplayComponents(
         new TextDisplayBuilder({

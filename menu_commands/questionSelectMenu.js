@@ -9,16 +9,12 @@ const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const { createTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, client, context }) => {
-  const isfirsttime = parseInt(context);
-  const qnumber = parseInt(interaction.values[0]) - 1;
+  const isfirsttime = parseInt(context, 10);
+  const qnumber = parseInt(interaction.values[0], 10) - 1;
   const appName = context?.[1] ?? context?.[0];
 
-  // const serverConfig = await ServerConfig.findOne({
-  //   where: { server_id: interaction.guild.id },
-  // });
   const applicationSetup = await Application.findOne({ where: { name: appName } });
 
-  // const { tempApp } = await createtempApp(interaction.guild.id);
   const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
   var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;

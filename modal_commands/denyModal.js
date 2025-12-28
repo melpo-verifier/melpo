@@ -1,6 +1,4 @@
 const {
-  // ButtonBuilder,
-  // ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
   ContainerBuilder,
@@ -14,34 +12,6 @@ const {
 const { Verification, Application } = require("../dbObjects.js");
 
 module.exports = async ({ interaction, client, userid, appName }) => {
-  // const disverify = new ActionRowBuilder().addComponents(
-  //   new ButtonBuilder()
-  //     .setCustomId("verify")
-  //     .setLabel("Verify")
-  //     .setStyle("Success")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("deny")
-  //     .setLabel("Deny")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("reasondeny")
-  //     .setLabel("Deny with reason")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("question")
-  //     .setLabel("Question")
-  //     .setStyle("Primary")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("action")
-  //     .setLabel("Kick")
-  //     .setStyle("Secondary")
-  //     .setDisabled(true),
-  // );
-
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
       content: `Oop! It seems this user has already been handled by someone else!`,
@@ -53,13 +23,6 @@ module.exports = async ({ interaction, client, userid, appName }) => {
   const user = await client.users.fetch(userid);
 
   await interaction.deferUpdate();
-  //disable buttons without changing the other components
-  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-  //   const originalContainer = interaction.message.components[0];
-  //   interaction.editReply({ components: [originalContainer, disverify] });
-  // } else {
-  //   await interaction.editReply({ components: [disverify] });
-  // }
 
   const verification = await Verification.findOne({
     where: { userId: userid },
@@ -203,7 +166,6 @@ module.exports = async ({ interaction, client, userid, appName }) => {
         interaction.message,
         reason,
       );
-      console.log(verifiedContainer);
 
       await interaction.editReply({
         flags: [MessageFlags.IsComponentsV2],
@@ -356,7 +318,6 @@ async function handleV2edit(interaction, message, reason) {
           }),
         );
       } else if (component.type === 12) {
-        console.log(component.items);
         if (component.items?.length > 0) {
           const mappedurls = component.items?.map((item) => ({
             media: {

@@ -1,22 +1,18 @@
+const { MessageFlags, EmbedBuilder } = require("discord.js");
+const { Application, Verification } = require("../dbObjects.js");
 const {
-  // ButtonBuilder,
-  // ActionRowBuilder,
-  EmbedBuilder,
-  MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
-  MediaGalleryBuilder,
-  SectionBuilder,
-  ThumbnailBuilder,
-} = require("discord.js");
-const { Verification, Application } = require("../dbObjects.js");
+  checkManagerPermission,
+  handleV2Edit,
+  VerificationStatus,
+  processLogMessages,
+  cleanupVerificationData,
+  sendDenyDM,
+} = require("../js/verificationHandler.js");
 
 module.exports = async ({ interaction, client, userid, context, appName }) => {
   await interaction.deferUpdate();
 
-  // context[0] is appName, context[1] is the original user ID who initiated the denial
+  // Check if another user is handling this verification
   const originaluserid = context[1]?.toString();
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
@@ -29,200 +25,51 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  // const disverify = new ActionRowBuilder().addComponents(
-  //   new ButtonBuilder()
-  //     .setCustomId("verify")
-  //     .setLabel("Verify")
-  //     .setStyle("Success")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("deny")
-  //     .setLabel("Deny")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("reasondeny")
-  //     .setLabel("Deny with reason")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("question")
-  //     .setLabel("Question")
-  //     .setStyle("Primary")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("action")
-  //     .setLabel("Kick")
-  //     .setStyle("Secondary")
-  //     .setDisabled(true),
-  // );
-
   const application = await Application.findOne({
     where: { server_id: interaction.guild.id, name: appName },
   });
 
-  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
-    const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = application.managerrole.some((role) =>
-      member.roles.cache.has(role),
-    );
-
-    if (!hasManagerRole) {
-      return await interaction.followUp({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+  // Check manager permissions
+  const permCheck = await checkManagerPermission(interaction, application);
+  if (!permCheck.allowed) {
+    return await interaction.followUp({
+      content: permCheck.message,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const user = await client.users.fetch(userid);
 
-  const verification = await Verification.findOne({
-    where: { userId: userid },
-  });
+  // Get verification data
+  const verification = await Verification.findOne({ where: { userId: userid } });
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
 
-  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-  //   const originalContainer = interaction.message.components[0];
-  //   console.log('editing v2 container');
-  //   await interaction.editReply({ components: [originalContainer, disverify] });
-  // } else {
-  //   await interaction.editReply({ components: [disverify] });
-  // }
+  // Try to get member for processLogMessages
+  let member;
+  try {
+    member = await interaction.guild.members.fetch(userid);
+  } catch {
+    member = { user, id: userid };
+  }
 
-  if (
-    application?.verifylogs &&
-    messageids &&
-    application.reviewchannel !== application.verifylogs
-  ) {
-    const reviewChannel = interaction.guild.channels.cache.get(
-      application.reviewchannel,
-    );
-    const logChannel = interaction.guild.channels.cache.get(
-      application.verifylogs,
-    );
+  // Process log messages
+  await processLogMessages({
+    interaction,
+    client,
+    application,
+    messageids,
+    user: member,
+    status: VerificationStatus.DENIED,
+    useRateLimiting: false,
+  });
 
-    if (logChannel && reviewChannel && messageids) {
-      const messages = [];
-      for (const messageId of messageids) {
-        try {
-          await new Promise((resolve) => setTimeout(resolve, 300));
-          const message = await reviewChannel.messages.fetch(messageId);
-          if (message) messages.push(message);
-        } catch (error) {
-          if (error.code === 10008) {
-            console.log(`Message ${messageId} not found - skipping`);
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      // Sort by timestamp
-      messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-      // Send modified embeds to logs and delete from review
-      for (const message of messages) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-
-        if (message.flags.has(MessageFlags.IsComponentsV2)) {
-          const verifiedContainer = await handleV2edit(interaction, message);
-
-          let threadEmbed;
-
-          if (message.thread) {
-            threadEmbed = new EmbedBuilder()
-              .setTitle(`Thread Summary`)
-              .setColor("#EB2121");
-
-            try {
-              const threadMessages = await message.thread.messages.fetch();
-
-              if (threadMessages.size > 1) {
-                const messagesArray = Array.from(threadMessages.values())
-                  .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-                  .slice(1);
-
-                const formattedMessages = messagesArray?.map((msg) => {
-                  let content;
-
-                  if (msg.flags.has(MessageFlags.IsComponentsV2)) {
-                    content =
-                      msg.components?.[0]?.components?.[0]?.content ||
-                      "No content";
-                  } else {
-                    content = msg.content || "No content";
-                  }
-
-                  if (msg.author.id === client.user.id) {
-                    content = content?.replace(
-                      /### Question answered by[^\n]*\n?/g,
-                      "\n",
-                    );
-                  }
-
-                  return `\`${msg.author.username}:\` ${content}`;
-                });
-
-                const finalContent = formattedMessages
-                  .join("\n")
-                  .slice(0, 4096);
-                threadEmbed.setDescription(
-                  finalContent || "No messages in thread",
-                );
-              } else {
-                threadEmbed.setDescription("No additional messages in thread");
-              }
-            } catch (error) {
-              console.error("Error fetching thread messages:", error);
-              threadEmbed.setDescription("Error loading thread messages");
-            }
-          }
-
-          let sendmessage = await logChannel.send({
-            flags: [MessageFlags.IsComponentsV2],
-            components: [verifiedContainer],
-          });
-
-          let threadchannel = await sendmessage.startThread({
-            name: `${user.username}'s log`,
-          });
-
-          if (threadEmbed) {
-            await threadchannel.send({ embeds: [threadEmbed] });
-          }
-          await threadchannel.setArchived(true);
-          if (interaction.message.thread) {
-            await interaction.message.thread.delete();
-          }
-
-          await message.delete().catch(console.error);
-        } else {
-          let originalembed = message.embeds[0];
-
-          let Embed = new EmbedBuilder(originalembed)
-            .setColor("#EB2121")
-            .setTitle(originalembed.title + " (DENIED)")
-            .setFooter({
-              text: `Denied by ${interaction.user.username} | ${originalembed?.footer?.text || userid}`,
-            });
-
-          await logChannel.send({ content: `<@${userid}>`, embeds: [Embed] });
-          await message.delete().catch(console.error);
-        }
-      }
-    }
-  } else {
+  // If no separate log channel, edit the current message
+  if (!application.verifylogs || application.reviewchannel === application.verifylogs) {
     if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-      const verifiedContainer = await handleV2edit(
-        interaction,
-        interaction.message,
-      );
-
-      console.log('editing v2 container');
+      const deniedContainer = handleV2Edit(interaction, interaction.message, VerificationStatus.DENIED);
       await interaction.editReply({
         flags: [MessageFlags.IsComponentsV2],
-        components: [verifiedContainer],
+        components: [deniedContainer],
       });
 
       if (interaction.message.thread) {
@@ -232,10 +79,7 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
       const originalEmbed = interaction.message.embeds[0];
       let fields = originalEmbed.fields || [];
 
-      if (
-        fields.length > 0 &&
-        fields[fields.length - 1].name.includes("Are you sure")
-      ) {
+      if (fields.length > 0 && fields[fields.length - 1].name.includes("Are you sure")) {
         fields.pop();
       }
 
@@ -249,138 +93,20 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
 
       await interaction.editReply({ embeds: [embed], components: [] });
     }
-
-    if (messageids && messageids.length > 0) {
-      for (const messageId of messageids) {
-        if (messageId === interaction.message.id) {
-          continue;
-        }
-
-        try {
-          const message = await interaction.channel.messages.fetch(messageId);
-          // Add a 1-second delay
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          if (message && message.author.id === client.user.id) {
-            if (message.flags.has(MessageFlags.IsComponentsV2)) {
-              const editedContainer = await handleV2edit(interaction, message);
-              await message.edit({
-                flags: [MessageFlags.IsComponentsV2],
-                components: [editedContainer],
-              });
-            } else if (!message?.embeds[0]?.footer?.text?.includes("Denied")) {
-              var originalembed = message.embeds[0];
-
-              let Embed = new EmbedBuilder(originalembed)
-                .setColor("#EB2121")
-                .setTitle(originalembed.title + " (DENIED)")
-                .setFooter({
-                  text: `Denied by ${interaction.user.username} | ${originalembed?.footer?.text || userid}`,
-                });
-
-              await message.edit({ embeds: [Embed], components: [] });
-            }
-          }
-        } catch (error) {
-          console.error(
-            `Failed to process message with ID ${messageId}: ${error}`,
-          );
-        }
-      }
-    }
   }
 
+  // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    delete verification.guildVerifications[interaction.guild.id];
-    verification.changed("guildVerifications", true);
-    await verification.save();
+    await cleanupVerificationData(verification, interaction.guild.id);
   }
 
-  const denyEmbed = new EmbedBuilder()
-    .setColor("#EB2121")
-    .setTitle("Application Denied")
-    .setDescription(
-      `Your application into **${interaction.guild.name}** has been denied!\n**Reason:** none given`,
-    );
+  // Send denial DM
+  const dmResult = await sendDenyDM(user, interaction.guild.name);
 
-  try {
-    await user.send({ embeds: [denyEmbed] });
-  } catch (error) {
-    if (error.code === 50007) {
-      await interaction.followUp({
-        content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    } else {
-      throw error;
-    }
+  if (dmResult.dmDisabled) {
+    await interaction.followUp({
+      content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 };
-
-async function handleV2edit(interaction, message) {
-  const editedContainer = new ContainerBuilder({
-    accent_color: 0xeb2121,
-  });
-
-  const originalContainer = message.components[0];
-
-  if (originalContainer?.components) {
-    for (const component of originalContainer.components) {
-      if (component.type === 9) {
-        let content = component.components[0].content;
-
-        content = content.replace(/<@&\d+>/g, "").trim();
-
-        editedContainer.addSectionComponents(
-          new SectionBuilder()
-            .addTextDisplayComponents(
-              new TextDisplayBuilder({
-                content:
-                  content +
-                  `\n**Status:** \`Denied by ${interaction.user.username}\``,
-              }),
-            )
-            .setThumbnailAccessory(
-              new ThumbnailBuilder({
-                media: { url: component.accessory.media.url },
-              }),
-            ),
-        );
-      }
-      if (component.type === 10) {
-        editedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder({
-            content: component.content,
-          }),
-        );
-      } else if (component.type === 14) {
-        editedContainer.addSeparatorComponents(
-          new SeparatorBuilder({
-            spacing: component.spacing || SeparatorSpacingSize.Small,
-          }),
-        );
-      } else if (component.type === 12) {
-        if (component.items?.length > 0) {
-          const mappedurls = component.items?.map((item) => ({
-            media: {
-              url: item.media.url,
-            },
-          }));
-          editedContainer.addMediaGalleryComponents(
-            new MediaGalleryBuilder({
-              items: mappedurls,
-            }),
-          );
-        }
-      }
-    }
-  }
-
-  editedContainer.addTextDisplayComponents(
-    new TextDisplayBuilder({
-      content: `-# Denied by ${interaction.user.username} (${interaction.user.id})`,
-    }),
-  );
-
-  return editedContainer;
-}

@@ -11,7 +11,7 @@ const { createCategoryButtons } = require("../../js/constants.js");
 
 module.exports = async ({ interaction, context, whichdefault, appName }) => {
   // Try to get appName from appName, context[1], or context[0]
-  appName = appName ?? context?.[1] ?? context?.[0];
+  // appName = appName ?? context?.[1] ?? context?.[0];
   if (!appName) {
     return interaction.reply({
       content: 'Application name is missing. Please try again.',
@@ -19,14 +19,16 @@ module.exports = async ({ interaction, context, whichdefault, appName }) => {
     });
   }
 
-  if (context && context[0] === "true") {
+  if (context && context[1] === "true") {
     await deleteTempApplication(interaction.guild.id, { name: appName });
   }
 
   const applicationSetup = await Application.findOne({ where: { name: appName } });
 
-  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
-
+    const { tempApp } = await createTempApplication(interaction.guild.id, { 
+    name: appName,
+    usethreads: applicationSetup?.usethreads
+  });
   const reviewChannel =
     tempApp.reviewchannel === "deleted"
       ? null

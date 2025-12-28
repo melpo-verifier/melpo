@@ -2,7 +2,7 @@ const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, context }) => {
   console.log(context);
-  const number = parseInt(context[0]);
+  const number = parseInt(context[0], 10);
   const appName = context[1];
   const embed = interaction.message.embeds[0];
   var ivalues = interaction.values;

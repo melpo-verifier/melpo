@@ -196,7 +196,7 @@ module.exports = async ({ interaction, client, context }) => {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`verifybutton_${existingApp.name}`)
-        .setLabel("Verify")
+        .setLabel("Apply")
         .setStyle("Success"),
     );
 

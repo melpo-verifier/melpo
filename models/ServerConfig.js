@@ -53,7 +53,7 @@ module.exports = (sequelize, DataTypes) => {
     //   type: DataTypes.JSONB,
     //   defaultValue: {
     //     title: "How to verify",
-    //     description: `After clicking the "Verify" button below the bot will DM you some questions in order for you to access the server. You'll have to fill out the complete form in order for the moderators to see your application. \n\nClick the "Verify" button below to start verification`,
+    //     description: `After clicking the "Verify" button below the bot will DM you some questions in order for you to access the server. You'll have to fill out the complete form in order for the moderators to see your application. \n\nClick the "Apply" button below to start verification`,
     //     color: "#3f7ff1",
     //     // image: null
     //   },

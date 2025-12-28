@@ -1,13 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const {
-  // createTemporarySetup,
-  // deleteTemporarySetup,
   deleteTempApplication,
-  // createTempApplication,
 } = require("../../js/tempconfigfuncs.js");
 const { TempApplication } = require("../../dbObjects.js");
-// const fs = require("fs");
-// const path = require("path");
 const {
   deleteImage,
   purgeOldImages,
@@ -15,7 +10,6 @@ const {
 } = require("../../js/customizationImages.js");
 
 module.exports = async ({ interaction, context }) => {
-  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
   await interaction.deferUpdate();
   const appName = context[0]
   const temporarySetup = await TempApplication.findOne({ where: { name: appName } });

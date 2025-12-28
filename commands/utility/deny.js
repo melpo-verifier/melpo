@@ -1,55 +1,18 @@
 const {
   SlashCommandBuilder,
-  EmbedBuilder,
   MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
-  MediaGalleryBuilder,
-  SectionBuilder,
-  ThumbnailBuilder,
 } = require("discord.js");
+const { Application, Verification, InviteTracker } = require("../../dbObjects.js");
 const {
-  Application,
-  Verification,
-  InviteTracker,
-} = require("../../dbObjects.js");
-
-async function rateLimitedOperation(operation, maxRetries = 3) {
-  let retries = 0;
-
-  while (retries < maxRetries) {
-    try {
-      return await operation();
-    } catch (error) {
-      if (error.name === "RateLimitError" || error.code === 429) {
-        const waitTime = (error.retryAfter || 2000) + retries * 1000;
-        console.log(
-          `Rate limited, waiting ${waitTime}ms (attempt ${retries + 1}/${maxRetries})`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, waitTime));
-        retries++;
-      } else if (error.code === 10008) {
-        // Message not found - don't retry
-        throw error;
-      } else if (error.code === 50001 || error.code === 50013) {
-        // Missing permissions - don't retry
-        throw error;
-      } else {
-        // Other errors - retry once
-        if (retries === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          retries++;
-        } else {
-          throw error;
-        }
-      }
-    }
-  }
-
-  throw new Error(`Operation failed after ${maxRetries} retries`);
-}
+  rateLimitedOperation,
+  checkManagerPermission,
+  isInReviewChannel,
+  VerificationStatus,
+  processLogMessages,
+  cleanupVerificationData,
+  sendDenyDM,
+  createNoApplicationEmbed,
+} = require("../../js/verificationHandler.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -65,12 +28,11 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName("application")
-        .setDescription(
-          "The application to use for denial (required if multiple exist)",
-        )
+        .setDescription("The application to use for denial (required if multiple exist)")
         .setAutocomplete(true)
         .setRequired(false),
     ),
+
   async autocomplete(interaction) {
     const applications = await Application.findAll({
       where: { server_id: interaction.guild.id },
@@ -82,10 +44,9 @@ module.exports = {
       .filter((name) => name.toLowerCase().includes(focusedValue))
       .slice(0, 25);
 
-    await interaction.respond(
-      filtered.map((name) => ({ name, value: name })),
-    );
+    await interaction.respond(filtered.map((name) => ({ name, value: name })));
   },
+
   async execute({ interaction, client }) {
     // Fetch all applications for this guild
     const applications = await Application.findAll({
@@ -120,47 +81,35 @@ module.exports = {
       });
     }
 
-    if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
-      const member = await interaction.guild.members.fetch(interaction.user.id);
-      const hasManagerRole = application.managerrole.some((role) =>
-        member.roles.cache.has(role),
-      );
-
-      if (!hasManagerRole) {
-        return interaction.reply({
-          content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
-          flags: MessageFlags.Ephemeral,
-        });
-      }
-    } else if (
-      application &&
-      application.reviewchannel &&
-      interaction.channel.id !== application.reviewchannel
-    ) {
+    // Check manager permissions
+    const permCheck = await checkManagerPermission(interaction, application);
+    if (!permCheck.allowed) {
       return interaction.reply({
-        content: `Please use this command in <#${application.reviewchannel}> or set up a manager role in \`/setup\` to use this command everywhere.`,
+        content: permCheck.message,
         flags: MessageFlags.Ephemeral,
       });
     }
-
+    if (application.reviewchannel && !isInReviewChannel(interaction, application.reviewchannel)) {
+      return interaction.reply({
+        content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a manager role in \`/setup\` to use this command everywhere.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
     if (!application?.verifiedrole || application.verifiedrole.length === 0) {
       return interaction.reply({
-        content:
-          "Please set a verified role in the server configuration by using the `/setup` command",
+        content: "Please set a verified role in the server configuration by using the `/setup` command",
         flags: MessageFlags.Ephemeral,
       });
     }
 
+    // Parse user IDs
     const usersString = interaction.options.getString("users");
     const userMentions = usersString.match(/<@!?(\d+)>/g) || [];
     const userIds = usersString.match(/\b\d{17,19}\b/g) || [];
 
-    // Combine both mentions and IDs
     const allUserIds = [
       ...new Set([
-        ...(userMentions
-          ? userMentions.map((mention) => mention.replace(/[<@!>]/g, ""))
-          : []),
+        ...(userMentions ? userMentions.map((mention) => mention.replace(/[<@!>]/g, "")) : []),
         ...userIds,
       ]),
     ];
@@ -189,7 +138,6 @@ module.exports = {
       });
     }
 
-    //check if there is a bot among the mentioned users
     if (users.some((user) => user.user.bot)) {
       return interaction.reply({
         content: "You cannot deny a bot.",
@@ -199,391 +147,78 @@ module.exports = {
 
     await interaction.reply(`Denying ${users.length} user(s)...`);
 
-    const results = {
-      success: [],
-      notFound: [],
-    };
+    const results = { success: [], notFound: [] };
 
     for (const userID of allUserIds) {
       try {
         const user = await interaction.guild.members.fetch(userID);
+        if (!user) throw new Error("User not found");
 
-        if (!user) {
-          throw new Error("User not found");
-        }
-
-        const verification = await Verification.findOne({
-          where: { userId: userID },
-        });
-        const messageids =
-          verification?.guildVerifications?.[interaction.guild.id] || [];
+        // Get verification data
+        const verification = await Verification.findOne({ where: { userId: userID } });
+        const messageids = verification?.guildVerifications?.[interaction.guild.id] || [];
         const invitetracker = await InviteTracker.findOne({
           where: { unique_id: `${userID}_${interaction.guild.id}` },
         });
 
-        // Handle separate log channel case
+        // Process log messages
+        await processLogMessages({
+          interaction,
+          client,
+          application,
+          messageids,
+          user,
+          status: VerificationStatus.DENIED,
+          useRateLimiting: true,
+        });
+
+        // If no messages and separate log channel, send "no application" embed
         if (
           application.verifylogs &&
-          application.reviewchannel !== application.verifylogs
+          application.reviewchannel !== application.verifylogs &&
+          (!messageids || messageids.length === 0)
         ) {
-          const reviewChannel = interaction.guild.channels.cache.get(
-            application.reviewchannel,
-          );
-          const logChannel = interaction.guild.channels.cache.get(
-            application.verifylogs,
-          );
-
-          if (!messageids || messageids.length === 0) {
-            const noapplicationdeny = new EmbedBuilder()
-              .setColor("#EB2121")
-              .setTitle(`${user.user.username} (DENIED)`)
-              .setThumbnail(
-                user.displayAvatarURL({ size: 2048, format: "png" }),
-              )
-              .addFields({
-                name: "Member info",
-                value: `[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.globalName ?? user.user.username}\`\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
-              })
-              .setFooter({ text: `Denied by ${interaction.user.username}` });
-
+          const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
+          if (logChannel) {
+            const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.DENIED);
             await rateLimitedOperation(async () => {
-              await logChannel.send({
-                content: `<@${userID}>`,
-                embeds: [noapplicationdeny],
-              });
+              await logChannel.send({ content: `<@${userID}>`, embeds: [embed] });
             });
           }
-
-          if (
-            logChannel &&
-            reviewChannel &&
-            messageids &&
-            messageids.length > 0
-          ) {
-            const messages = [];
-            for (const messageId of messageids) {
-              try {
-                const message = await rateLimitedOperation(async () => {
-                  return await reviewChannel.messages.fetch(messageId);
-                });
-                if (message) messages.push(message);
-              } catch (error) {
-                if (error.code === 10008) {
-                  console.log(`Message ${messageId} not found - skipping`);
-                  continue;
-                }
-                console.error(`Error fetching message ${messageId}:`, error);
-                continue;
-              }
-            }
-
-            // Sort by timestamp
-            messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-            // Send modified embeds to logs and delete from review
-            for (const message of messages) {
-              try {
-                if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-                  const deniedContainer = await handleV2edit(
-                    interaction,
-                    message,
-                  );
-
-                  let threadEmbed;
-
-                  if (message.thread) {
-                    threadEmbed = new EmbedBuilder()
-                      .setTitle(`Thread Summary`)
-                      .setColor("#EB2121");
-
-                    try {
-                      const threadMessages = await rateLimitedOperation(
-                        async () => {
-                          return await message.thread.messages.fetch();
-                        },
-                      );
-
-                      if (threadMessages.size > 1) {
-                        const messagesArray = Array.from(
-                          threadMessages.values(),
-                        )
-                          .sort(
-                            (a, b) => a.createdTimestamp - b.createdTimestamp,
-                          )
-                          .slice(1);
-
-                        const formattedMessages = messagesArray?.map((msg) => {
-                          let content;
-
-                          if (msg.flags?.has(MessageFlags.IsComponentsV2)) {
-                            content =
-                              msg.components?.[0]?.components?.[0]?.content ||
-                              "No content";
-                          } else {
-                            content = msg.content || "No content";
-                          }
-
-                          if (msg.author.id === client.user.id) {
-                            content = content.replace(
-                              /### Question answered by[^\n]*\n?/g,
-                              "\n",
-                            );
-                          }
-
-                          return `\`${msg.author.username}:\` ${content}`;
-                        });
-
-                        const finalContent = formattedMessages
-                          .join("\n")
-                          .slice(0, 4096);
-                        threadEmbed.setDescription(
-                          finalContent || "No messages in thread",
-                        );
-                      } else {
-                        threadEmbed.setDescription(
-                          "No additional messages in thread",
-                        );
-                      }
-                    } catch (error) {
-                      console.error("Error fetching thread messages:", error);
-                      threadEmbed.setDescription(
-                        "Error loading thread messages",
-                      );
-                    }
-                  }
-
-                  const sendmessage = await rateLimitedOperation(async () => {
-                    return await logChannel.send({
-                      flags: [MessageFlags.IsComponentsV2],
-                      components: [deniedContainer],
-                    });
-                  });
-
-                  const threadchannel = await rateLimitedOperation(async () => {
-                    return await sendmessage.startThread({
-                      name: `${user.user.username}'s log`,
-                    });
-                  });
-
-                  if (threadEmbed) {
-                    await rateLimitedOperation(async () => {
-                      await threadchannel.send({ embeds: [threadEmbed] });
-                    });
-                  }
-
-                  await rateLimitedOperation(async () => {
-                    await threadchannel.setArchived(true);
-                  });
-
-                  if (message.thread) {
-                    await rateLimitedOperation(async () => {
-                      await message.thread.delete();
-                    }).catch(console.error);
-                  }
-
-                  await rateLimitedOperation(async () => {
-                    await message.delete();
-                  }).catch(console.error);
-                } else if (message.embeds && message.embeds[0]) {
-                  const originalembed = message.embeds[0];
-
-                  const Embed = new EmbedBuilder(originalembed)
-                    .setColor("#EB2121")
-                    .setTitle(
-                      (originalembed.title || "Verification") + " (DENIED)",
-                    )
-                    .setFooter({
-                      text: `Denied by ${interaction.user.username} | ${originalembed?.footer?.text || userID}`,
-                    });
-
-                  await rateLimitedOperation(async () => {
-                    await logChannel.send({
-                      content: `<@${userID}>`,
-                      embeds: [Embed],
-                    });
-                  });
-
-                  await rateLimitedOperation(async () => {
-                    await message.delete();
-                  }).catch(console.error);
-                }
-              } catch (error) {
-                console.error(`Error processing log message:`, error);
-              }
-            }
-          }
-        } else {
-          if (messageids && messageids.length > 0) {
-            for (const messageId of messageids) {
-              try {
-                const message = await rateLimitedOperation(async () => {
-                  return await interaction.channel.messages.fetch(messageId);
-                });
-
-                if (
-                  message &&
-                  message.author.id === client.user.id &&
-                  !message.embeds[0]?.footer?.text?.includes("Denied")
-                ) {
-                  if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-                    const deniedContainer = await handleV2edit(
-                      interaction,
-                      message,
-                    );
-                    await rateLimitedOperation(async () => {
-                      await message.edit({
-                        flags: [MessageFlags.IsComponentsV2],
-                        components: [deniedContainer],
-                      });
-                    });
-                  } else if (message.embeds && message.embeds[0]) {
-                    const originalembed = message.embeds[0];
-
-                    const Embed = new EmbedBuilder(originalembed)
-                      .setColor("#EB2121")
-                      .setTitle(
-                        (originalembed.title || "Verification") + " (DENIED)",
-                      )
-                      .setFooter({
-                        text: `Denied by ${interaction.user.username} | ${originalembed?.footer?.text || userID}`,
-                      });
-
-                    await rateLimitedOperation(async () => {
-                      await message.edit({ embeds: [Embed], components: [] });
-                    });
-                  }
-                }
-              } catch (error) {
-                if (error.code === 10008) {
-                  console.log(`Message ${messageId} not found - skipping`);
-                  continue;
-                }
-                console.error(
-                  `Failed to process message with ID ${messageId}: ${error}`,
-                );
-              }
-            }
-          } else {
-            const noapplicationverify = new EmbedBuilder()
-              .setColor("#EB2121")
-              .setTitle(`${user.user.username} (DENIED)`)
-              .setThumbnail(
-                user.displayAvatarURL({ size: 2048, format: "png" }),
-              )
-              .addFields({
-                name: "Member info",
-                value: `[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.globalName ?? user.user.username}\`\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
-              })
-              .setFooter({ text: `Denied by ${interaction.user.username}` });
-
-            await rateLimitedOperation(async () => {
-              await interaction.channel.send({ embeds: [noapplicationverify] });
-            });
-          }
+        } else if (
+          !application.verifylogs &&
+          (!messageids || messageids.length === 0)
+        ) {
+          // No log channel, no messages - create embed in current channel
+          const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.DENIED);
+          await rateLimitedOperation(async () => {
+            await interaction.channel.send({ embeds: [embed] });
+          });
         }
 
+        // Cleanup verification data
         if (messageids && messageids.length > 0) {
-          delete verification.guildVerifications[interaction.guild.id];
-          verification.changed("guildVerifications", true);
-          await verification.save();
+          await cleanupVerificationData(verification, interaction.guild.id);
         }
 
-        const denyEmbed = new EmbedBuilder()
-          .setColor("#EB2121")
-          .setTitle("Application Denied")
-          .setDescription(
-            `Your application into **${interaction.guild.name}** has been denied!\n**Reason:** none given`,
-          );
-
-        await user.send({ embeds: [denyEmbed] }).catch(() => {});
+        // Send denial DM
+        await sendDenyDM(user.user, interaction.guild.name);
 
         results.success.push(userID);
       } catch (error) {
         console.error(`Error processing user ${userID}: ${error.message}`);
         results.notFound.push(userID);
-        continue;
       }
     }
 
     let replyMessage = "";
     if (results.success.length > 0) {
-      replyMessage += `**Successfully denied:** ${results.success?.map((id) => `<@${id}>`).join(", ")}`;
+      replyMessage += `**Successfully denied:** ${results.success.map((id) => `<@${id}>`).join(", ")}`;
     }
     if (results.notFound.length > 0) {
-      replyMessage += `\n**Users not found:** ${results.notFound?.map((id) => `<@${id}>`).join(", ")}`;
+      replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`;
     }
 
     await interaction.editReply(replyMessage);
   },
 };
-
-async function handleV2edit(interaction, message) {
-  const deniedContainer = new ContainerBuilder({
-    accent_color: 0xeb2121,
-  });
-
-  const originalContainer = message.components[0];
-
-  if (originalContainer?.components) {
-    for (const component of originalContainer.components) {
-      if (component.type === 9) {
-        // Section component
-        let content = component.components[0].content;
-
-        content = content.replace(/<@&\d+>/g, "").trim();
-
-        deniedContainer.addSectionComponents(
-          new SectionBuilder()
-            .addTextDisplayComponents(
-              new TextDisplayBuilder({
-                content:
-                  content +
-                  `\n**Status:** \`Denied by ${interaction.user.username}\``,
-              }),
-            )
-            .setThumbnailAccessory(
-              new ThumbnailBuilder({
-                media: { url: component.accessory.media.url },
-              }),
-            ),
-        );
-      } else if (component.type === 10) {
-        // Text display component
-        deniedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder({
-            content: component.content,
-          }),
-        );
-      } else if (component.type === 14) {
-        // Separator component
-        deniedContainer.addSeparatorComponents(
-          new SeparatorBuilder({
-            spacing: component.spacing || SeparatorSpacingSize.Small,
-          }),
-        );
-      } else if (component.type === 12) {
-        // Media gallery component
-        if (component.items?.length > 0) {
-          const mappedurls = component.items?.map((item) => ({
-            media: {
-              url: item.media.url,
-            },
-          }));
-          deniedContainer.addMediaGalleryComponents(
-            new MediaGalleryBuilder({
-              items: mappedurls,
-            }),
-          );
-        }
-      }
-    }
-  }
-
-  deniedContainer.addTextDisplayComponents(
-    new TextDisplayBuilder({
-      content: `-# Denied by ${interaction.user.username} (${interaction.user.id})`,
-    }),
-  );
-
-  return deniedContainer;
-}

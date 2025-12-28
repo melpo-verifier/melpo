@@ -3,16 +3,12 @@ const { updateTemporarySetup, updateTempApplication } = require("../js/tempconfi
 
 module.exports = async ({ interaction, context }) => {
   await interaction.deferUpdate();
-  const channelnumber = parseInt(context[0]);
+  const channelnumber = parseInt(context[0], 10);
   const appName = context[1]
-  console.log(context)
 
   if (channelnumber === 0) {
     const channel = interaction.values[0];
 
-    // await updateTemporarySetup(interaction.guild.id, {
-    //   verifychannel: channel,
-    // });
     await updateTempApplication(interaction.guild.id, {
       verifychannel: channel,
     }, { name: appName });
@@ -39,15 +35,10 @@ module.exports = async ({ interaction, context }) => {
   } else if (channelnumber === 1) {
     const channel = interaction.values[0];
 
-    // await updateTemporarySetup(interaction.guild.id, {
-    //   reviewchannel: channel,
-    // });
     await updateTempApplication(interaction.guild.id, {
       reviewchannel: channel,
     }, { name: appName });
 
-
-    //edit embed to show the channel and enable the next button from the interaction components
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = `<#${channel}>`;
 
@@ -69,8 +60,6 @@ module.exports = async ({ interaction, context }) => {
     });
   } else if (channelnumber === 2) {
     const role = interaction.values;
-
-    // await updateTemporarySetup(interaction.guild.id, { verifiedrole: role });
 
     await updateTempApplication(interaction.guild.id, {
       verifiedrole: role,

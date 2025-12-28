@@ -23,27 +23,6 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
 
   const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
 
-  // const verifiedRole =
-  //   (tempApp.verifiedrole || applicationSetup.verifiedrole)?.length > 0
-  //     ? tempApp.verifiedrole || applicationSetup.verifiedrole
-  //     : null;
-  // const unverifiedRole =
-  //   (tempApp.unverifiedrole || applicationSetup.unverifiedrole)?.length > 0
-  //     ? tempApp.unverifiedrole || applicationSetup.unverifiedrole
-  //     : null;
-  // const autoRole =
-  //   (tempApp.autorole || applicationSetup.autorole)?.length > 0
-  //     ? tempApp.autorole || applicationSetup.autorole
-  //     : null;
-  // const pingRole =
-  //   (tempApp.pingrole || applicationSetup.pingrole)?.length > 0
-  //     ? tempApp.pingrole || applicationSetup.pingrole
-  //     : null;
-  // const managerRole =
-  //   (tempApp.managerrole || applicationSetup.managerrole)?.length > 0
-  //     ? tempApp.managerrole || applicationSetup.managerrole
-  //     : null;
-
   const verifiedRole = tempApp.verifiedrole?.length > 0 ? tempApp.verifiedrole : applicationSetup.verifiedrole;
   const unverifiedRole = tempApp.unverifiedrole?.length > 0 ? tempApp.unverifiedrole : applicationSetup.unverifiedrole;
   const pingRole = tempApp.pingrole?.length > 0 ? tempApp.pingrole : applicationSetup.pingrole;
