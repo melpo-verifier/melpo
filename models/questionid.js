@@ -24,10 +24,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    appName: {
-      type: DataTypes.STRING,
+    applicationId: {
+      type: DataTypes.INTEGER,
       allowNull: true,
-      defaultValue: "verification",
+      defaultValue: null,
     },
   });
 };

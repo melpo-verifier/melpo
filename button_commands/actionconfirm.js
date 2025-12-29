@@ -10,12 +10,13 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { Verification, Application } = require("../dbObjects.js");
+const { Verification } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, client, userid, context, appName }) => {
+module.exports = async ({ interaction, client, userid, context, applicationId }) => {
   await interaction.deferUpdate();
 
-  // context[0] is appName, context[1] is the original user ID who initiated the action
+  // context[0] is applicationId, context[1] is the user ID who pressed the button
   const originaluserid = context[1]?.toString();
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
@@ -28,9 +29,13 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+  if (error) {
+    return interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
@@ -113,13 +118,6 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
     where: { userId: userid },
   });
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
-
-  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-  //   const originalContainer = interaction.message.components[0];
-  //   interaction.editReply({ components: [originalContainer, disverify] });
-  // } else {
-  //   await interaction.editReply({ components: [disverify] });
-  // }
 
   if (
     application?.verifylogs &&
@@ -289,7 +287,7 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
 
         try {
           const message = await interaction.channel.messages.fetch(messageId);
-          // Add a 1-second delay
+          // 1 second delay
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           if (message && message.author.id === client.user.id) {
@@ -300,7 +298,7 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
                 components: [editedContainer],
               });
             } else if (!message?.embeds[0]?.footer?.text?.includes("Kicked")) {
-              var originalembed = message.embeds[0];
+              const originalembed = message.embeds[0];
 
               let Embed = new EmbedBuilder(originalembed)
                 .setColor("#EB2121")

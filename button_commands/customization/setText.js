@@ -7,17 +7,26 @@ const {
   ComponentType,
 } = require("discord.js");
 const activeCollectors = new Map();
-const { updateTempApplication } = require("../../js/tempconfigfuncs.js");
+const { updateTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0];
-  const appName = context[1];
+  const tempApplicationId = parseInt(context[1], 10);
+
+  // Validate tempApplicationId
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !tempApp) {
+    return interaction.reply({
+      content: error || "Application not found or does not belong to this server.",
+      flags: 64,
+    });
+  }
 
   if (customIdValue === "verificationwelcomemessage") {
-    messageCollecting(interaction, customIdValue, appName);
+    messageCollecting(interaction, customIdValue, tempApplicationId);
   } else {
     const modal = new ModalBuilder()
-      .setCustomId(`setTextModal_${customIdValue}_${appName}`)
+      .setCustomId(`setTextModal_${customIdValue}_${tempApplicationId}`)
       .setTitle("Edit Embed Text");
 
     // Get existing values or set defaults
@@ -50,7 +59,7 @@ module.exports = async ({ interaction, context }) => {
   }
 };
 
-async function messageCollecting(interaction, customIdValue, appName) {
+async function messageCollecting(interaction, customIdValue, tempApplicationId) {
   const channelId = interaction.channel.id;
   const userId = interaction.user.id;
 
@@ -128,7 +137,7 @@ async function messageCollecting(interaction, customIdValue, appName) {
 
 
   const sendMessage = async (type, content, cancel) => {
-    var message;
+    let message;
 
     if (type === "interactionreply") {
       if (cancel) {
@@ -162,8 +171,8 @@ async function messageCollecting(interaction, customIdValue, appName) {
     true,
   );
 
-  var title;
-  var description;
+  let title;
+  let description;
 
   cancelCollector.on("collect", async (buttonInteraction) => {
     console.log(buttonInteraction.customId);
@@ -184,11 +193,6 @@ async function messageCollecting(interaction, customIdValue, appName) {
         true,
       );
     }
-    // .then(() => {
-    //     setTimeout(() => {
-    //         buttonInteraction.message.delete();
-    //     }, 2500);
-    // });
   });
 
   messageCollector.on("collect", async (collected) => {
@@ -252,7 +256,7 @@ async function messageCollecting(interaction, customIdValue, appName) {
           description: description,
           text: "deleted",
         },
-      }, { name: appName });
+      }, { id: tempApplicationId });
       const endmessage = await interaction.message.reply({
         content:
           "Verification welcome message succesfully set! Now returning to the setup embed...",
@@ -274,7 +278,7 @@ async function messageCollecting(interaction, customIdValue, appName) {
         botMessages.length = 0;
 
         const customizationMenu = require("../../menu_commands/selectcustomizationMenu.js");
-        customizationMenu({ interaction, customIdValue, appName });
+        customizationMenu({ interaction, customIdValue, tempApplicationId });
       }, 2500);
     } else if (reason === "cancelled") {
       setTimeout(async () => {

@@ -1,30 +1,36 @@
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const {
   updateTempApplication,
+  getTempApplicationById,
 } = require("../js/tempconfigfuncs.js");
-const { TempApplication } = require("../dbObjects.js");
+const { MessageFlags } = require("discord.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context[0]);
-  let appName = context?.[1] ?? context?.[0];
+  let tempApplicationId = parseInt(context?.[1] ?? context?.[0], 10);
 
-  if (!appName) {
+  if (!tempApplicationId || isNaN(tempApplicationId)) {
     return interaction.reply({
-      content: 'Application name is missing. Please try again.',
-      ephemeral: true,
+      content: 'Temp Application ID is missing. Please try again.',
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   const question = interaction.fields.getTextInputValue(`question`);
   const mcq = interaction.fields.getTextInputValue(`mcq`);
-  var mcqArray = mcq ? mcq.split("\n") : [];
+  let mcqArray = mcq ? mcq.split("\n") : [];
 
   if (mcqArray.length > 9) {
     mcqArray = mcqArray.slice(0, 9);
   }
 
-  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
-  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
+  const { tempApp: temporarySetup, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !temporarySetup) {
+    return interaction.reply({
+      content: error || 'Temporary setup not found. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   if (!temporarySetup.questions) {
     temporarySetup.questions = [];
@@ -48,13 +54,13 @@ module.exports = async ({ interaction, client, context }) => {
 
   await updateTempApplication(interaction.guild.id, {
     questions: temporarySetup.questions,
-  }, { name: appName });
+  }, { id: tempApplicationId });
 
   if (isfirsttime === 0) {
-    questioninfo({ interaction, client, appName });
+    questioninfo({ interaction, client, tempApplicationId });
   } else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction, appName });
+    firsttimequestions({ interaction, tempApplicationId });
   }
 };

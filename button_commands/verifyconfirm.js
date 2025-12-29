@@ -1,5 +1,5 @@
 const { MessageFlags, EmbedBuilder } = require("discord.js");
-const { Application, Verification } = require("../dbObjects.js");
+const { Verification } = require("../dbObjects.js");
 const {
   checkManagerPermission,
   validateRoles,
@@ -11,8 +11,9 @@ const {
   sendVerifyDM,
   applyRoles,
 } = require("../js/verificationHandler.js");
+const { getApplicationById } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, client, userid, context, appName }) => {
+module.exports = async ({ interaction, client, userid, context, applicationId }) => {
   await interaction.deferUpdate();
 
   // Check if another user is handling this verification
@@ -28,9 +29,14 @@ module.exports = async ({ interaction, client, userid, context, appName }) => {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+  const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
+
+  if (error) {
+    return await interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   // Check manager permissions
   const permCheck = await checkManagerPermission(interaction, application);

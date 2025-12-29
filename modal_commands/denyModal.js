@@ -9,9 +9,10 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { Verification, Application } = require("../dbObjects.js");
+const { Verification } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, client, userid, appName }) => {
+module.exports = async ({ interaction, client, userid, applicationId }) => {
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
       content: `Oop! It seems this user has already been handled by someone else!`,
@@ -27,9 +28,13 @@ module.exports = async ({ interaction, client, userid, appName }) => {
   const verification = await Verification.findOne({
     where: { userId: userid },
   });
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+  if (error) {
+    return interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
   const reason = interaction.fields.getTextInputValue("denyInput");
 
@@ -221,7 +226,7 @@ module.exports = async ({ interaction, client, userid, appName }) => {
                 components: [editedContainer],
               });
             } else if (!message?.embeds[0]?.footer?.text?.includes("Denied")) {
-              var originalembed = message.embeds[0];
+              const originalembed = message.embeds[0];
 
               let Embed = new EmbedBuilder(originalembed)
                 .setColor("#EB2121")

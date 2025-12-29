@@ -1,12 +1,12 @@
 const { ServerConfig } = require("../dbObjects.js");
-const { updateTemporarySetup, updateTempApplication } = require("../js/tempconfigfuncs.js");
+const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0];
-  const appName = context[1];
+  const tempApplicationId = parseInt(context[1], 10);
 
-  var title = interaction.fields.getTextInputValue("title");
-  var description = interaction.fields.getTextInputValue("description");
+  let title = interaction.fields.getTextInputValue("title");
+  let description = interaction.fields.getTextInputValue("description");
 
   if (title.length < 1) {
     title = "deleted";
@@ -17,10 +17,10 @@ module.exports = async ({ interaction, context }) => {
 
   await updateTempApplication(interaction.guild.id, {
     [customIdValue]: { title: title, description: description },
-  }, { name: appName });
+  }, { id: tempApplicationId });
 
   const customizationMenu = require("../menu_commands/selectcustomizationMenu.js");
-  customizationMenu({ interaction, customIdValue, appName });
+  customizationMenu({ interaction, customIdValue, tempApplicationId });
 };
 
 const getDefaultValue = (fieldName) => {

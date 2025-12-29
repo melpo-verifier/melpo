@@ -2,9 +2,9 @@ const rolesinfo = require("../button_commands/setupbuttons/rolesinfo.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const ivalue = interaction.values[0];
-  const appName = context[0];
+  const tempApplicationId = parseInt(context[0], 10);
 
-  var whichdefault;
+  let whichdefault;
 
   if (ivalue === "verifiedRole") {
     whichdefault = 0;
@@ -18,5 +18,5 @@ module.exports = async ({ interaction, client, context }) => {
     whichdefault = 4;
   }
 
-  await rolesinfo({ interaction, client, whichdefault, context: [appName] });
+  await rolesinfo({ interaction, client, whichdefault, tempApplicationId });
 };

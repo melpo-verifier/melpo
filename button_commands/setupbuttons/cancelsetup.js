@@ -1,8 +1,8 @@
 const { EmbedBuilder } = require("discord.js");
 const {
   deleteTempApplication,
+  getTempApplicationById,
 } = require("../../js/tempconfigfuncs.js");
-const { TempApplication } = require("../../dbObjects.js");
 const {
   deleteImage,
   purgeOldImages,
@@ -11,10 +11,11 @@ const {
 
 module.exports = async ({ interaction, context }) => {
   await interaction.deferUpdate();
-  const appName = context[0]
-  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
+  const tempApplicationId = parseInt(context[0], 10);
+  const { tempApp: temporarySetup } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
 
   if (temporarySetup) {
+    const appName = temporarySetup.name;
     const tempverifychannelembed = temporarySetup?.verifychannelembed;
     const tempstartmessage = temporarySetup?.startmessage;
     const tempfinishmessage = temporarySetup?.finishmessage;
@@ -59,11 +60,9 @@ module.exports = async ({ interaction, context }) => {
         appName,
         "verificationwelcomemessage",
         tempverificationwelcomemessage.image,
-        "images/verificationwelcomemessage",
       );
 
-    // await deleteTemporarySetup(interaction.guild.id);
-    await deleteTempApplication(interaction.guild.id, { name: appName });
+    await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
   }
 
   const cancelembed = new EmbedBuilder()
@@ -81,7 +80,7 @@ module.exports = async ({ interaction, context }) => {
   });
 };
 
-async function deleteNewImage(serverId, appName, section, newImagePath, imageDir) {
+async function deleteNewImage(serverId, appName, section, newImagePath) {
   if (isR2ImageResource(newImagePath)) {
     try {
       await deleteImage(newImagePath);
@@ -102,37 +101,4 @@ async function deleteNewImage(serverId, appName, section, newImagePath, imageDir
     }
     return;
   }
-
-  // fs.readdir(imageDir, (err, files) => {
-  //   if (err) {
-  //     console.error("Failed to list directory contents", err);
-  //     return;
-  //   }
-
-  //   files.forEach((file) => {
-  //     const fileSuffix = path.extname(file);
-  //     const fileNameWithoutSuffix = path.basename(file, fileSuffix);
-  //     const relativeFilePath = path.join(imageDir, file);
-  //     const absoluteFilePath = path.join(
-  //       __dirname,
-  //       "..",
-  //       "..",
-  //       relativeFilePath,
-  //     );
-
-  //     // Delete files that include _temp in their name
-  //     if (fileNameWithoutSuffix.includes("_temp")) {
-  //       fs.unlink(absoluteFilePath, (err) => {
-  //         if (err) {
-  //           console.error(
-  //             `Failed to delete temp file ${absoluteFilePath}`,
-  //             err,
-  //           );
-  //         } else {
-  //           console.log(`Deleted temp file: ${absoluteFilePath}`);
-  //         }
-  //       });
-  //     }
-  //   });
-  // });
 }

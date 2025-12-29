@@ -4,15 +4,19 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
 } = require("discord.js");
-// const { createTemporarySetup } = require("./tempconfigfuncs.js");
-const { TempApplication } = require("../dbObjects.js");
+const { getTempApplicationById } = require("./tempconfigfuncs.js");
 
-async function firsttimequestions({ interaction, appName }) {
+async function firsttimequestions({ interaction, applicationId, tempApplicationId }) {
+  tempApplicationId = tempApplicationId ?? applicationId;
+  
   if (!interaction.id) return;
-  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
-  const temporarySetup = await TempApplication.findOne({ where: { name: appName } });
 
-  var questions = temporarySetup.questions;
+  const { tempApp: temporarySetup, error } = await getTempApplicationById(parseInt(tempApplicationId), interaction.guild.id);
+  if (error) {
+    return interaction.reply({ content: `Error: ${error}`, flags: require("discord.js").MessageFlags.Ephemeral });
+  }
+
+  let questions = temporarySetup.questions;
   const reviewChannel = temporarySetup.reviewchannel;
   const verifyChannel = temporarySetup.verifychannel;
   const verifiedRole = temporarySetup.verifiedrole;
@@ -54,18 +58,18 @@ async function firsttimequestions({ interaction, appName }) {
 
   const questionbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`addquestion_1_${appName}`)
+      .setCustomId(`addquestion_1_${tempApplicationId}`)
       .setLabel("Add Question")
       .setStyle("Primary"),
   );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`finishsetup_firsttime_${appName}`)
+      .setCustomId(`finishsetup_firsttime_${tempApplicationId}`)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId(`cancelsetup_${appName}`)
+      .setCustomId(`cancelsetup_${tempApplicationId}`)
       .setLabel("Cancel")
       .setStyle("Danger"),
   );
@@ -78,7 +82,7 @@ async function firsttimequestions({ interaction, appName }) {
     });
 
     const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(`questionSelectMenu_1_${appName}`)
+      .setCustomId(`questionSelectMenu_1_${tempApplicationId}`)
       .setPlaceholder("Select a question to edit or delete")
       .setMinValues(1)
       .setMaxValues(1);

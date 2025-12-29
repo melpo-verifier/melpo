@@ -6,8 +6,8 @@ const {
 } = require("discord.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, context }) => {
-  const appName = context?.[0] ?? context?.[1];
+module.exports = async ({ interaction, context, applicationId, tempApplicationId }) => {
+  tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
 
   const customizationEmbed = new EmbedBuilder()
     .setColor("#3f7ff1")
@@ -18,11 +18,11 @@ module.exports = async ({ interaction, context }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup_" + appName)
+      .setCustomId("finishsetup_" + tempApplicationId)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup_" + appName)
+      .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -35,7 +35,7 @@ module.exports = async ({ interaction, context }) => {
 
   const selectcustomizationMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId("selectcustomizationMenu_" + appName)
+      .setCustomId("selectcustomizationMenu_" + tempApplicationId)
       .setPlaceholder("Select what message you want to customize")
       .addOptions(
         {
@@ -66,7 +66,7 @@ module.exports = async ({ interaction, context }) => {
       ),
   );
 
-  const categoryButtons = createCategoryButtons(appName, 3); // 3 = Customization is disabled
+  const categoryButtons = createCategoryButtons(tempApplicationId, 3); // 3 = Customization is disabled
 
   if (interaction.replied || interaction.deferred) {
     await interaction.message.edit({

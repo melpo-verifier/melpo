@@ -3,17 +3,20 @@ const {
   ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
-  // ContainerBuilder,
-  // TextDisplayBuilder,
 } = require("discord.js");
-const { Application } = require("../dbObjects.js");
+const { getApplicationById } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, appName }) => {
+module.exports = async ({ interaction, applicationId }) => {
   await interaction.deferUpdate();
 
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+  const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
+
+  if (error) {
+    return interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   // Permission check
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
@@ -56,25 +59,16 @@ module.exports = async ({ interaction, appName }) => {
   // Create confirm buttons
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`verifyconfirm_${appName}_${interaction.user.id}`)
+      .setCustomId(`verifyconfirm_${applicationId}_${interaction.user.id}`)
       .setLabel("Confirm Verification")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId(`returntomenu_${appName}`)
+      .setCustomId(`returntomenu_${applicationId}`)
       .setLabel("Cancel")
       .setStyle("Danger"),
   );
 
   if (hasComponents) {
-    // const confirmContainer = new ContainerBuilder({
-    //   accent_color: 4161521,
-    // }).addTextDisplayComponents(
-    //   new TextDisplayBuilder({
-    //     content:
-    //       '**Are you sure you want to verify this user?**',
-    //   }),
-    // );
-
     await interaction.message.edit({
       flags: [MessageFlags.IsComponentsV2],
       components: [originalComponents[0], verifyRow],

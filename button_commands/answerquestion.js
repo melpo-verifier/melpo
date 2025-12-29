@@ -9,7 +9,8 @@ const {
   SeparatorSpacingSize,
   MediaGalleryBuilder,
 } = require("discord.js");
-const { QuestionId, Application } = require("../dbObjects.js");
+const { QuestionId } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 // MAYBE EASIER TO CHANGE DATABASE TO A USER RELATED DATABASE, NOT MESSAGE ID RELATED DATABASE IN CASE IF THE USER LEAVES THE SERVER (USER -> GUILD1: {...}, gUILD2: {...})
 
 module.exports = async ({ interaction, client }) => {
@@ -30,7 +31,15 @@ module.exports = async ({ interaction, client }) => {
   const dmChannel = await user.createDM();
   const message = await dmChannel.messages.fetch(info.interactionMessageId);
 
-  const appName = info.appName || "verification";
+  const applicationId = info.applicationId;
+
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   const confirmrow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -58,7 +67,7 @@ module.exports = async ({ interaction, client }) => {
 
   const replybutton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`question_${appName}_${user.id}`)
+      .setCustomId(`question_${applicationId}_${user.id}`)
       .setLabel("Reply")
       .setStyle("Primary"),
   );
@@ -113,13 +122,10 @@ module.exports = async ({ interaction, client }) => {
     messageCollector.stop("cancelled");
   });
 
-  const application = await Application.findOne({
-    where: { server_id: guildId, name: appName },
-  });
   const verificationChannelId = application.reviewchannel;
 
   messageCollector.on("collect", async (m) => {
-    var totalcontent = m.content;
+    let totalcontent = m.content;
     let attachmentUrls = [];
 
     // Truncate if too long
@@ -265,7 +271,7 @@ module.exports = async ({ interaction, client }) => {
         },
       );
     } else {
-      var threadchannelid = null;
+      let threadchannelid = null;
       const verificationChannel = client.channels.cache.get(
         verificationChannelId,
       );

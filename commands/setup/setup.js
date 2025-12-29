@@ -120,17 +120,13 @@ module.exports = {
           .setTitle("Ongoing Application Setup")
           .setDescription(`Setup for "${name}" is already in progress. Continue or start a new one?`)
           .setColor("#3f7ff1");
-        // const buttons = new ActionRowBuilder().addComponents(
-        //   new ButtonBuilder().setCustomId(`continue_app_${tempApp.name}`).setLabel("Continue").setStyle("Primary"),
-        //   new ButtonBuilder().setCustomId(`cancelsetup_${tempApp.name}`).setLabel("Cancel").setStyle("Danger"),
-        // );
       const continuebuttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId("generalinfo_" + tempApp.name + "_false")
+          .setCustomId("generalinfo_" + tempApp.id + "_false")
           .setLabel("Continue previous setup")
           .setStyle("Success"),
         new ButtonBuilder()
-          .setCustomId("generalinfo_" + tempApp.name + "_true")
+          .setCustomId("generalinfo_" + tempApp.id + "_true")
           .setLabel("Start New Setup")
           .setStyle("Primary"),
       );
@@ -139,12 +135,12 @@ module.exports = {
 
       const nextbuttons = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
-          .setCustomId(`next_0_${tempApp.name}`)
+          .setCustomId(`next_0_${tempApp.id}`)
           .setLabel("Next")
           .setStyle("Primary")
           .setDisabled(true),
         new ButtonBuilder()
-          .setCustomId(`cancelsetup_${tempApp.name}`)
+          .setCustomId(`cancelsetup_${tempApp.id}`)
           .setLabel("Cancel")
           .setStyle("Danger"),
       );
@@ -162,7 +158,7 @@ module.exports = {
         });
 
       const channelmenu = new ChannelSelectMenuBuilder()
-        .setCustomId(`firstTimeMenu_0_${tempApp.name}`)
+        .setCustomId(`firstTimeMenu_0_${tempApp.id}`)
         .addChannelTypes("GuildText")
         .setPlaceholder("Select the channel users will start verification in")
         .setMinValues(1)
@@ -185,23 +181,19 @@ module.exports = {
           flags: MessageFlags.Ephemeral,
         });
       }
-      const { tempApp, created } = await createTempApplication(interaction.guild.id, { name: app.name });
+      const { tempApp, created } = await createTempApplication(interaction.guild.id, { applicationId: app.id, name: app.name });
       if (!created) {
         const embed = new EmbedBuilder()
           .setTitle("Ongoing Application Edit")
           .setDescription(`Edit for "${app.name}" is already in progress. Continue or start a new one?`)
           .setColor("#3f7ff1");
-        // const buttons = new ActionRowBuilder().addComponents(
-        //   new ButtonBuilder().setCustomId(`continue_app_${tempApp.name}`).setLabel("Continue").setStyle("Primary"),
-        //   new ButtonBuilder().setCustomId(`cancelsetup_${tempApp.name}`).setLabel("Cancel").setStyle("Danger"),
-        // );
         const continuebuttons = new ActionRowBuilder().addComponents(
           new ButtonBuilder()
-            .setCustomId("generalinfo_" + tempApp.name + "_false")
+            .setCustomId("generalinfo_" + tempApp.id + "_false")
             .setLabel("Continue previous setup")
             .setStyle("Success"),
           new ButtonBuilder()
-            .setCustomId("generalinfo_" + tempApp.name + "_true")
+            .setCustomId("generalinfo_" + tempApp.id + "_true")
             .setLabel("Start New Setup")
             .setStyle("Primary"),
         );
@@ -209,7 +201,7 @@ module.exports = {
       }
 
       // First time edit for this app
-      generalinfo({ interaction, client, appName: tempApp.name });
+      generalinfo({ interaction, client, tempApplicationId: tempApp.id });
     }
 
 
@@ -239,12 +231,11 @@ module.exports = {
 
       const applicationlistEmbed = new EmbedBuilder()
         .setTitle("Applications List")
-        .setDescription(`You currently have ${applications.length} applications set up, you can configure them using these commands:\nEdit: \`/setup edit <name>\`\nDelete: \`/setup delete <name>\`\n${appList}`)
+        .setDescription(`You currently have ${applications.length} applications set up, you can configure them using these commands:\nEdit: \`/setup edit\`\nDelete: \`/setup delete\`\n${appList}`)
         .setColor("#3f7ff1");
 
 
       return interaction.reply({
-        // content: `Applications for this server:\n${appList}`,
         embeds: [applicationlistEmbed],
       });
     }

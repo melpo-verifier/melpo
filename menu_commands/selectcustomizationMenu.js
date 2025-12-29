@@ -5,31 +5,41 @@ const {
   StringSelectMenuBuilder,
   ButtonStyle,
   AttachmentBuilder,
+  MessageFlags,
 } = require("discord.js");
-const { createTempApplication } = require("../js/tempconfigfuncs.js");
-const { Application } = require("../dbObjects.js");
+const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
 
-module.exports = async ({ interaction, customIdValue, appName, context }) => {
-  var chosenvalue;
+module.exports = async ({ interaction, customIdValue, tempApplicationId, context }) => {
+  let chosenvalue;
   if (customIdValue) {
     chosenvalue = customIdValue;
   } else {
     chosenvalue = interaction.values[0];
   }
 
-  appName = appName || context[0];
+  tempApplicationId = tempApplicationId || parseInt(context[0], 10);
 
-  const applicationSetup = await Application.findOne({
-    where: { name: appName },
-  });
-  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  // If editing an existing application, get the application for default values
+  let applicationSetup = null;
+  if (tempApp.applicationId) {
+    const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
+    applicationSetup = application;
+  }
 
   const title =
     tempApp[chosenvalue]?.title === "deleted"
       ? null
       : (
-          tempApp[chosenvalue]?.title || applicationSetup[chosenvalue]?.title
+          tempApp[chosenvalue]?.title || applicationSetup?.[chosenvalue]?.title
         )?.replace("${interaction.guild.name}", interaction.guild.name) || null;
 
   const description =
@@ -37,50 +47,50 @@ module.exports = async ({ interaction, customIdValue, appName, context }) => {
       ? null
       : (
           tempApp[chosenvalue]?.description ||
-          applicationSetup[chosenvalue]?.description
+          applicationSetup?.[chosenvalue]?.description
         )?.replace("${interaction.guild.name}", interaction.guild.name) || null;
 
   const color =
     tempApp[chosenvalue]?.color === "deleted"
       ? null
-      : tempApp[chosenvalue]?.color || applicationSetup[chosenvalue]?.color;
+      : tempApp[chosenvalue]?.color || applicationSetup?.[chosenvalue]?.color;
 
   const image =
     tempApp[chosenvalue]?.image === "deleted"
       ? null
       : tempApp[chosenvalue]?.image ||
-        applicationSetup[chosenvalue]?.image ||
+        applicationSetup?.[chosenvalue]?.image ||
         null;
 
   const text =
     tempApp[chosenvalue]?.text === "deleted"
       ? null
       : tempApp[chosenvalue]?.text ||
-        applicationSetup[chosenvalue]?.text ||
+        applicationSetup?.[chosenvalue]?.text ||
         null;
 
   const setImage = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`setText_${chosenvalue}_${appName}`)
+      .setCustomId(`setText_${chosenvalue}_${tempApplicationId}`)
       .setLabel("Set Text")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`setImage_${chosenvalue}_${appName}`)
+      .setCustomId(`setImage_${chosenvalue}_${tempApplicationId}`)
       .setLabel("Set Image")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
-      .setCustomId(`removeImage_${chosenvalue}_${appName}`)
+      .setCustomId(`removeImage_${chosenvalue}_${tempApplicationId}`)
       .setLabel("Remove Image")
       .setStyle(ButtonStyle.Danger),
     new ButtonBuilder()
-      .setCustomId(`resetText_${chosenvalue}_${appName}`)
+      .setCustomId(`resetText_${chosenvalue}_${tempApplicationId}`)
       .setLabel("Reset Text")
       .setStyle(ButtonStyle.Danger),
   );
 
   const colourmenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId(`colorMenu_${chosenvalue}_${appName}`)
+      .setCustomId(`colorMenu_${chosenvalue}_${tempApplicationId}`)
       .setPlaceholder("Select color")
       .setOptions(
         { label: "Custom hex color", value: "custom", emoji: "🎨" },
@@ -95,7 +105,7 @@ module.exports = async ({ interaction, customIdValue, appName, context }) => {
       ),
   );
 
-  var embed;
+  let embed;
 
   if (!text) {
     embed = new EmbedBuilder()
@@ -104,7 +114,7 @@ module.exports = async ({ interaction, customIdValue, appName, context }) => {
       .setColor(color || "#3f7ff1");
   }
 
-  var infoembed = null;
+  let infoembed = null;
 
   if (chosenvalue === "verificationwelcomemessage") {
     if (!text) {
@@ -182,7 +192,7 @@ module.exports = async ({ interaction, customIdValue, appName, context }) => {
   // Rebuild the customization select menu with the correct default
   const selectcustomizationMenu = new ActionRowBuilder().addComponents(
     new StringSelectMenuBuilder()
-      .setCustomId("selectcustomizationMenu_" + appName)
+      .setCustomId("selectcustomizationMenu_" + tempApplicationId)
       .setPlaceholder("Select what message you want to customize")
       .addOptions(
         {

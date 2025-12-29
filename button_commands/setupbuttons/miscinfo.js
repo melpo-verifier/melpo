@@ -1,25 +1,30 @@
-const { ButtonBuilder, ActionRowBuilder, EmbedBuilder } = require("discord.js");
-const { Application } = require("../../dbObjects.js");
-const { createTempApplication } = require("../../js/tempconfigfuncs.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, MessageFlags } = require("discord.js");
+const { getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, context, appName }) => {
-  // Try to get appName from context[0], fallback to context[1]
-  appName = appName ?? context?.[1] ?? context?.[0];
-  if (!appName) {
+module.exports = async ({ interaction, context, applicationId, tempApplicationId }) => {
+  tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[1] ? parseInt(context[1], 10) : null) ?? (context?.[0] ? parseInt(context[0], 10) : null);
+  if (!tempApplicationId) {
     return interaction.reply({
-      content: 'Application name is missing. Please try again.',
-      ephemeral: true,
+      content: 'Temp Application ID is missing. Please try again.',
+      flags: MessageFlags.Ephemeral,
     });
   }
 
-  const applicationSetup = await Application.findOne({
-    where: { name: appName },
-  });
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
+  let applicationSetup = null;
+  if (tempApp.applicationId) {
+    const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
+    applicationSetup = application;
+  }
 
-  // Display threads state: prefer explicit temp setting, otherwise fall back to existing app, then false
   const useThreads = (tempApp.usethreads !== null && tempApp.usethreads !== undefined)
     ? tempApp.usethreads
     : (applicationSetup?.usethreads ?? false);
@@ -36,17 +41,15 @@ module.exports = async ({ interaction, context, appName }) => {
         value: `**${useThreads ? "Enabled" : "Disabled"}**\n*When enabled, a thread will be attached to verification applications for a more organised review and logs channel. Any answers to questions will be sent in the thread. **Recommended if you have a log channel setup and/or receive many applications.***`,
         inline: false,
       },
-      // { name: 'Verify Filter', value: 'This is a filter that will be applied to the bot. If the bot detects a message that contains any of the words in the filter during verification, it will automatically deny that user.', inline: false },
-      // { name: 'Action button', value: 'Change what the "Kick" button does. By default, it kicks the user. You can change it to ban the user instead.', inline: false },
     );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup_" + appName)
+      .setCustomId("finishsetup_" + tempApplicationId)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup_" + appName)
+      .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -59,20 +62,12 @@ module.exports = async ({ interaction, context, appName }) => {
 
   const miscButtons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`toggleusethreads_${useThreads}_${appName}`)
+      .setCustomId(`toggleusethreads_${useThreads}_${tempApplicationId}`)
       .setLabel(`${useThreads ? "Disable" : "Enable"} Threads`)
       .setStyle(useThreads ? "Danger" : "Success"),
-    // new ButtonBuilder()
-    //     .setCustomId('setverifyfilter')
-    //     .setLabel('Verify Filter')
-    //     .setStyle('Primary'),
-    // new ButtonBuilder()
-    //     .setCustomId('setactionbutton')
-    //     .setLabel('Action Button')
-    //     .setStyle('Primary'),
   );
 
-  const categoryButtons = createCategoryButtons(appName, 4); // 4 = Misc is disabled
+  const categoryButtons = createCategoryButtons(tempApplicationId, 4); // 4 = Misc is disabled
 
   if (interaction.replied || interaction.deferred) {
     await interaction.message.edit({

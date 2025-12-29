@@ -3,21 +3,32 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } = require("discord.js");
-const { Application } = require("../dbObjects.js");
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
-const { createTempApplication } = require("../js/tempconfigfuncs.js");
+const { getTempApplicationById, getApplicationById } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, client, context }) => {
-  const isfirsttime = parseInt(context, 10);
+  const isfirsttime = parseInt(context[0], 10);
   const qnumber = parseInt(interaction.values[0], 10) - 1;
-  const appName = context?.[1] ?? context?.[0];
+  const tempApplicationId = parseInt(context?.[1] ?? context?.[0], 10);
 
-  const applicationSetup = await Application.findOne({ where: { name: appName } });
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !tempApp) {
+    return interaction.reply({
+      content: error || "Application not found.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
+  // If editing an existing application, get the original application for default questions
+  let applicationSetup = null;
+  if (tempApp.applicationId) {
+    const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
+    applicationSetup = application;
+  }
 
-  var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;
+  let questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions;
 
   // Check if questions is an array of strings and parse
   if (
@@ -35,8 +46,7 @@ module.exports = async ({ interaction, client, context }) => {
   const question = questions[qnumber];
 
   const modal = new ModalBuilder()
-
-    .setCustomId(`editQuestionModal_${qnumber}_${isfirsttime}_${appName}`)
+    .setCustomId(`editQuestionModal_${qnumber}_${isfirsttime}_${tempApplicationId}`)
     .setTitle("Edit or delete question");
 
   const Question = new TextInputBuilder()
@@ -63,10 +73,10 @@ module.exports = async ({ interaction, client, context }) => {
 
   await interaction.showModal(modal);
   if (isfirsttime === 0) {
-    questioninfo({ interaction, client, appName });
+    questioninfo({ interaction, client, tempApplicationId });
   } else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction, client, appName });
+    firsttimequestions({ interaction, client, tempApplicationId });
   }
 };

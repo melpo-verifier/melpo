@@ -1,45 +1,28 @@
 const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 
+const CHANNEL_FIELDS = {
+  0: "verifychannel",
+  1: "reviewchannel",
+  2: "verifylogs",
+  3: "verificationwelcomechannel",
+};
+
 module.exports = async ({ interaction, context }) => {
-  console.log(context);
   const number = parseInt(context[0], 10);
-  const appName = context[1];
+  const tempApplicationId = parseInt(context[1], 10);
   const embed = interaction.message.embeds[0];
-  var ivalues = interaction.values;
+  const values = interaction.values;
+  const selectedValue = values[0] ?? "deleted";
 
-  if (ivalues[0] === undefined) {
-    ivalues[0] = "deleted";
-  }
-
-  console.log(ivalues[0]);
-
-  console.log(number);
-
-  if (number === 0) {
-    await updateTempApplication(interaction.guild.id, {
-      verifychannel: ivalues[0],
-    }, { name: appName });
+  const fieldName = CHANNEL_FIELDS[number];
+  if (fieldName) {
+    await updateTempApplication(
+      interaction.guild.id,
+      { [fieldName]: selectedValue },
+      { id: tempApplicationId }
+    );
     embed.fields[number].value =
-      ivalues[0] !== "deleted" ? `<#${ivalues[0]}>` : `**Not set up**`;
-  } else if (number === 1) {
-    console.log(ivalues[0]);
-    await updateTempApplication(interaction.guild.id, {
-      reviewchannel: ivalues[0],
-    }, { name: appName });
-    embed.fields[number].value =
-      ivalues[0] !== "deleted" ? `<#${ivalues[0]}>` : `**Not set up**`;
-  } else if (number === 2) {
-    await updateTempApplication(interaction.guild.id, {
-      verifylogs: ivalues[0],
-    }, { name: appName });
-    embed.fields[number].value =
-      ivalues[0] !== "deleted" ? `<#${ivalues[0]}>` : `**Not set up**`;
-  } else if (number === 3) {
-    await updateTempApplication(interaction.guild.id, {
-      verificationwelcomechannel: ivalues[0],
-    }, { name: appName });
-    embed.fields[number].value =
-      ivalues[0] !== "deleted" ? `<#${ivalues[0]}>` : `**Not set up**`;
+      selectedValue !== "deleted" ? `<#${selectedValue}>` : `**Not set up**`;
   }
 
   await interaction.update({ embeds: [embed] });

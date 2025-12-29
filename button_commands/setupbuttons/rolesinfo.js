@@ -4,29 +4,38 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
   RoleSelectMenuBuilder,
+  MessageFlags,
 } = require("discord.js");
-const { createTempApplication } = require("../../js/tempconfigfuncs.js");
-const { Application } = require("../../dbObjects.js");
+const { getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, whichdefault, context, appName }) => {
-  // Try to get appName from context[0], fallback to context[1]
-  appName = appName ?? context?.[1] ?? context?.[0];
-  if (!appName) {
+module.exports = async ({ interaction, whichdefault, context, applicationId, tempApplicationId }) => {
+  tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[1] ? parseInt(context[1], 10) : null) ?? (context?.[0] ? parseInt(context[0], 10) : null);
+  if (!tempApplicationId) {
     return interaction.reply({
-      content: 'Application name is missing. Please try again.',
-      ephemeral: true,
+      content: 'Temp Application ID is missing. Please try again.',
+      flags: MessageFlags.Ephemeral,
     });
   }
 
-  const applicationSetup = await Application.findOne({ where: { name: appName } });
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
+  let applicationSetup = null;
+  if (tempApp.applicationId) {
+    const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
+    applicationSetup = application;
+  }
 
-  const verifiedRole = tempApp.verifiedrole?.length > 0 ? tempApp.verifiedrole : applicationSetup.verifiedrole;
-  const unverifiedRole = tempApp.unverifiedrole?.length > 0 ? tempApp.unverifiedrole : applicationSetup.unverifiedrole;
-  const pingRole = tempApp.pingrole?.length > 0 ? tempApp.pingrole : applicationSetup.pingrole;
-  const managerRole = tempApp.managerrole?.length > 0 ? tempApp.managerrole : applicationSetup.managerrole;
+  const verifiedRole = tempApp.verifiedrole?.length > 0 ? tempApp.verifiedrole : applicationSetup?.verifiedrole;
+  const unverifiedRole = tempApp.unverifiedrole?.length > 0 ? tempApp.unverifiedrole : applicationSetup?.unverifiedrole;
+  const pingRole = tempApp.pingrole?.length > 0 ? tempApp.pingrole : applicationSetup?.pingrole;
+  const managerRole = tempApp.managerrole?.length > 0 ? tempApp.managerrole : applicationSetup?.managerrole;
 
   const generalembed = new EmbedBuilder()
     .setColor("#3f7ff1")
@@ -59,11 +68,11 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup_" + appName)
+      .setCustomId("finishsetup_" + tempApplicationId)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup_" + appName)
+      .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -75,7 +84,7 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
   );
 
   const selectRoleMenu = new StringSelectMenuBuilder()
-    .setCustomId("selectRoleMenu_" + appName)
+    .setCustomId("selectRoleMenu_" + tempApplicationId)
     .setPlaceholder("Select what role you want to edit")
     .addOptions(
       {
@@ -84,12 +93,6 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
         value: "verifiedRole",
         default: whichdefault === 0 ? true : false,
       },
-      // {
-      //   label: "Auto Role",
-      //   description: "Role(s) added to users on join",
-      //   value: "autoRole",
-      //   default: whichdefault === 4 ? true : false,
-      // },
       {
         label: "Unverified Role",
         description: "Role(s) to remove from users upon verification",
@@ -111,7 +114,7 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
     );
 
   const verifiedRoleMenu = new RoleSelectMenuBuilder()
-    .setCustomId(`roleMenu_${whichdefault}_${appName}`)
+    .setCustomId(`roleMenu_${whichdefault}_${tempApplicationId}`)
     .setPlaceholder("Select role to add/edit")
     .setMinValues(0)
     .setMaxValues(10)
@@ -124,8 +127,6 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
             ? (pingRole ?? [])
             : whichdefault === 3
               ? (managerRole ?? [])
-              // : whichdefault === 4
-              //   ? (autoRole ?? [])
                 : []
       ).slice(0, 10),
     );
@@ -135,7 +136,7 @@ module.exports = async ({ interaction, whichdefault, context, appName }) => {
     new ActionRowBuilder().setComponents(verifiedRoleMenu),
   ];
 
-  const categoryButtons = createCategoryButtons(appName, 1); // 1 = Roles is disabled
+  const categoryButtons = createCategoryButtons(tempApplicationId, 1); // 1 = Roles is disabled
 
   await interaction.update({
     content: "",

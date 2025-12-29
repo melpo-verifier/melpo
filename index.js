@@ -1,18 +1,15 @@
 const { ShardingManager } = require("discord.js");
 const cron = require("node-cron");
 const {
-  ServerConfig,
   InviteTracker,
   TempConfig,
   QuestionId,
   Verification,
   Status,
-  TempApplication,
 } = require("./dbObjects.js");
-const { Op, Sequelize } = require("sequelize");
-const fs = require("fs");
-const path = require("path");
-const { isRemoteImage } = require("./js/imageUtils.js");
+const { Op } = require("sequelize");
+// const fs = require("fs");
+// const path = require("path");
 require("dotenv").config();
 
 try {
@@ -57,20 +54,6 @@ async function cleanupTempConfig() {
   }
 }
 
-async function cleanupOldTempApplications() {
-  try {
-    const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-    const deleted = await TempApplication.destroy({
-      where: {
-        createdAt: { [Op.lt]: fourteenDaysAgo },
-      },
-    });
-    console.log(`Cleaned up ${deleted} temporary applications`);
-  } catch (error) {
-    console.error("Failed to cleanup temp applications:", error);
-  }
-}
-
 async function cleanupQuestionIds() {
   try {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -109,112 +92,88 @@ async function cleanupEmptyVerifications() {
   }
 }
 
-async function checkImageExists(imagePath) {
-  if (!imagePath) {
-    return false;
-  }
+// async function checkImageExists(imagePath) {
+//   if (!imagePath) return false;
 
-  if (isRemoteImage(imagePath)) {
-    return true;
-  }
+//   if (isRemoteImage(imagePath)) {
+//     return true;
+//   }
 
-  const resolvedPath = path.isAbsolute(imagePath)
-    ? imagePath
-    : path.join(process.cwd(), imagePath);
+//   const resolvedPath = path.isAbsolute(imagePath)
+//     ? imagePath
+//     : path.join(process.cwd(), imagePath);
 
-  try {
-    await fs.promises.access(resolvedPath, fs.constants.F_OK);
-    return true;
-  } catch (error) {
-    console.error(`Error checking image: ${error}`);
-    return false;
-  }
+//   try {
+//     await fs.promises.access(resolvedPath, fs.constants.F_OK);
+//     return true;
+//   } catch {
+//     return false;
+//   }
+// }
+
+// async function cleanupImages(customisationField) {
+//   try {
+//     console.log(`Cleaning up images in ${customisationField}`);
+
+//     const serverConfigs = await ServerConfig.findAll({
+//       where: Sequelize.literal(`${customisationField}::jsonb ? 'image'`),
+//     });
+
+//     console.log(
+//       `Found ${serverConfigs.length} server configurations with images in ${customisationField}`,
+//     );
+
+//     for (const config of serverConfigs) {
+//       const fieldData = config[customisationField];
+//       if (fieldData && (fieldData.image || fieldData.image === null)) {
+//         const imageExists = await checkImageExists(fieldData.image);
+//         if (!imageExists) {
+//           console.log(
+//             `Image ${fieldData.image} does not exist, removing from config`,
+//           );
+
+//           const updatedFieldData = { ...fieldData };
+//           delete updatedFieldData.image;
+
+//           const updateResult = await ServerConfig.update(
+//             { [customisationField]: updatedFieldData },
+//             {
+//               where: { server_id: config.server_id },
+//               returning: true,
+//             },
+//           );
+
+//           if (updateResult[0] > 0) {
+//             console.log(`Successfully updated record ID ${config.server_id}`);
+//           } else {
+//             console.log(`No changes made to record ID ${config.server_id}`);
+//           }
+//         } else {
+//           console.log(`Image ${fieldData.image} exists`);
+//         }
+//       }
+//     }
+//     return serverConfigs;
+//   } catch (error) {
+//     console.error(`Error cleaning up images in ${customisationField}:`, error);
+//   }
+// }
+
+async function runAllCleanupTasks() {
+  console.log("Running cleanup tasks...");
+  await Promise.all([
+    cleanupOldInvites(),
+    cleanupTempConfig(),
+    cleanupQuestionIds(),
+    cleanupEmptyVerifications(),
+  ]);
+  console.log("All cleanup tasks completed.");
 }
 
-async function cleanupImages(customisationField) {
-  try {
-    console.log(`Cleaning up images in ${customisationField}`);
-
-    const serverConfigs = await ServerConfig.findAll({
-      where: Sequelize.literal(`${customisationField}::jsonb ? 'image'`),
-    });
-
-    console.log(
-      `Found ${serverConfigs.length} server configurations with images in ${customisationField}`,
-    );
-
-    for (const config of serverConfigs) {
-      const fieldData = config[customisationField];
-      if (fieldData && (fieldData.image || fieldData.image === null)) {
-        //check if image from config exists, otherwise delete it
-        const imageExists = await checkImageExists(fieldData.image);
-        if (!imageExists) {
-          console.log(
-            `Image ${fieldData.image} does not exist, removing from config`,
-          );
-
-          const updatedFieldData = { ...fieldData };
-          delete updatedFieldData.image;
-
-          const updateResult = await ServerConfig.update(
-            { [customisationField]: updatedFieldData },
-            {
-              where: { server_id: config.server_id },
-              returning: true,
-            },
-          );
-
-          if (updateResult[0] > 0) {
-            console.log(`Successfully updated record ID ${config.server_id}`);
-          } else {
-            console.log(`No changes made to record ID ${config.server_id}`);
-          }
-        } else {
-          console.log(`Image ${fieldData.image} exists`);
-        }
-      }
-    }
-    return serverConfigs;
-  } catch (error) {
-    console.error(`Error cleaning up images in ${customisationField}:`, error);
-  }
-}
-
-const customisationFields = [
-  "verificationwelcomemessage",
-  "verifychannelembed",
-  "verifymessage",
-  "startmessage",
-  "finishmessage",
-];
-
-Promise.all([
-  // cleanupOldInvites(),
-  // cleanupTempConfig(),
-  // cleanupOldTempApplications(),
-  // cleanupQuestionIds(),
-  // cleanupEmptyVerifications(),
-  // ...(Array.isArray(customisationFields)
-  //   ? customisationFields.map((field) => cleanupImages(field))
-  //   : []),
-])
-  .then(() => {
-    console.log("All initial cleanup tasks completed.");
-  })
-  .catch((error) => {
-    console.error("Error in cleanup tasks:", error);
-  });
-
-// Run at 03:30 every day
+// Run cleanup at 03:30 every day
 cron.schedule("30 3 * * *", async () => {
   console.log("Cron triggered at:", new Date().toISOString());
-  // return Promise.all([
-  //   cleanupOldInvites(),
-  //   cleanupTempConfig(),
-  //   cleanupOldTempApplications(),
-  //   cleanupQuestionIds(),
-  //   cleanupEmptyVerifications(),
-  // ]);
+  await runAllCleanupTasks();
 });
 
 const manager = new ShardingManager("./bot.js", {

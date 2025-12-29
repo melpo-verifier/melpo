@@ -4,32 +4,37 @@ const {
   EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
-const { Application } = require("../dbObjects.js");
+const { getApplicationById } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, appName }) => {
+module.exports = async ({ interaction, applicationId }) => {
   const verify = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`verify_${appName}`)
+      .setCustomId(`verify_${applicationId}`)
       .setLabel("Verify")
       .setStyle("Success"),
-    new ButtonBuilder().setCustomId(`deny_${appName}`).setLabel("Deny").setStyle("Danger"),
+    new ButtonBuilder().setCustomId(`deny_${applicationId}`).setLabel("Deny").setStyle("Danger"),
     new ButtonBuilder()
-      .setCustomId(`reasondeny_${appName}`)
+      .setCustomId(`reasondeny_${applicationId}`)
       .setLabel("Deny with reason")
       .setStyle("Danger"),
     new ButtonBuilder()
-      .setCustomId(`question_${appName}`)
+      .setCustomId(`question_${applicationId}`)
       .setLabel("Question")
       .setStyle("Primary"),
     new ButtonBuilder()
-      .setCustomId(`action_${appName}`)
+      .setCustomId(`action_${applicationId}`)
       .setLabel("Kick")
       .setStyle("Secondary"),
   );
 
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+  const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
+
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);

@@ -13,6 +13,14 @@ module.exports = (sequelize, DataTypes) => {
         key: 'server_id',
       },
     },
+    applicationId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'applications',
+        key: 'id',
+      },
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -81,6 +89,10 @@ module.exports = (sequelize, DataTypes) => {
       {
         unique: true,
         fields: ['server_id', 'name'],
+      },
+      {
+        unique: true,
+        fields: ['server_id', 'applicationId'],
       },
     ],
   });

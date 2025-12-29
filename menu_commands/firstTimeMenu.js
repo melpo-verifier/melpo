@@ -1,17 +1,17 @@
 const { ButtonBuilder, ActionRowBuilder } = require("discord.js");
-const { updateTemporarySetup, updateTempApplication } = require("../js/tempconfigfuncs.js");
+const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, context }) => {
   await interaction.deferUpdate();
   const channelnumber = parseInt(context[0], 10);
-  const appName = context[1]
+  const tempApplicationId = parseInt(context[1], 10);
 
   if (channelnumber === 0) {
     const channel = interaction.values[0];
 
     await updateTempApplication(interaction.guild.id, {
       verifychannel: channel,
-    }, { name: appName });
+    }, { id: tempApplicationId });
 
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = `<#${channel}>`;
@@ -37,7 +37,7 @@ module.exports = async ({ interaction, context }) => {
 
     await updateTempApplication(interaction.guild.id, {
       reviewchannel: channel,
-    }, { name: appName });
+    }, { id: tempApplicationId });
 
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = `<#${channel}>`;
@@ -47,7 +47,7 @@ module.exports = async ({ interaction, context }) => {
     const originalButtons = actionRow.components;
 
     const nextButton = ButtonBuilder.from(originalButtons[0]);
-    nextButton.setDisabled(false).setCustomId(`next_1_${appName}`);
+    nextButton.setDisabled(false).setCustomId(`next_1_${tempApplicationId}`);
 
     const updatedActionRow = new ActionRowBuilder().addComponents(
       nextButton,
@@ -63,7 +63,7 @@ module.exports = async ({ interaction, context }) => {
 
     await updateTempApplication(interaction.guild.id, {
       verifiedrole: role,
-    }, { name: appName });
+    }, { id: tempApplicationId });
 
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = role
@@ -75,7 +75,7 @@ module.exports = async ({ interaction, context }) => {
     const originalButtons = actionRow.components;
 
     const nextButton = ButtonBuilder.from(originalButtons[0]);
-    nextButton.setDisabled(false).setCustomId(`next_2_${appName}`);
+    nextButton.setDisabled(false).setCustomId(`next_2_${tempApplicationId}`);
 
     const updatedActionRow = new ActionRowBuilder().addComponents(
       nextButton,

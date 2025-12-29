@@ -3,17 +3,20 @@ const {
   ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
-  // ContainerBuilder,
-  // TextDisplayBuilder,
 } = require("discord.js");
-const { Application } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, appName }) => {
+module.exports = async ({ interaction, applicationId }) => {
   await interaction.deferUpdate();
 
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+
+  if (error) {
+    return interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
@@ -51,25 +54,16 @@ module.exports = async ({ interaction, appName }) => {
 
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`denyconfirm_${appName}_${interaction.user.id}`)
+      .setCustomId(`denyconfirm_${applicationId}_${interaction.user.id}`)
       .setLabel("Confirm Denial")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId(`returntomenu_${appName}`)
+      .setCustomId(`returntomenu_${applicationId}`)
       .setLabel("Cancel")
       .setStyle("Danger"),
   );
 
   if (hasComponents) {
-    // const confirmContainer = new ContainerBuilder({
-    //   accent_color: 4161521,
-    // }).addTextDisplayComponents(
-    //   new TextDisplayBuilder({
-    //     content:
-    //       '**Are you sure you want to Deny this user?**\nClick "Confirm Denial" to deny or "Cancel" to return.',
-    //   }),
-    // );
-
     await interaction.message.edit({
       flags: [MessageFlags.IsComponentsV2],
       components: [originalComponents[0], verifyRow],

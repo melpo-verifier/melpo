@@ -13,7 +13,6 @@ const {
 const { Verification, InviteTracker } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
 
-// Constants for verification status
 const VerificationStatus = {
   VERIFIED: "verified",
   DENIED: "denied",
@@ -24,9 +23,6 @@ const StatusColors = {
   [VerificationStatus.DENIED]: 0xeb2121,
 };
 
-/**
- * Rate-limited operation wrapper with retry logic
- */
 async function rateLimitedOperation(operation, maxRetries = 3) {
   let retries = 0;
 
@@ -59,9 +55,7 @@ async function rateLimitedOperation(operation, maxRetries = 3) {
   throw new Error(`Operation failed after ${maxRetries} retries`);
 }
 
-/**
- * Check if user has permission to manage verifications
- */
+// Check if user has permission to manage verifications
 async function checkManagerPermission(interaction, application) {
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
@@ -80,9 +74,8 @@ async function checkManagerPermission(interaction, application) {
   return { allowed: true };
 }
 
-/**
- * Check if interaction is in the review channel or a thread under it
- */
+
+// Check if interaction is in the review channel or a thread under it
 function isInReviewChannel(interaction, reviewChannelId) {
   if (!reviewChannelId) return true;
   
@@ -97,9 +90,7 @@ function isInReviewChannel(interaction, reviewChannelId) {
   return false;
 }
 
-/**
- * Validate roles exist and bot can manage them
- */
+// Validate roles exist and bot can manage them
 async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
   const errors = [];
 
@@ -130,9 +121,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
   return errors;
 }
 
-/**
- * Apply roles to user (add verified, remove unverified)
- */
+// Apply roles to user (add verified, remove unverified)
 async function applyRoles(user, verifiedRoles, unverifiedRoles) {
   if (unverifiedRoles && unverifiedRoles.length > 0) {
     for (const roleId of unverifiedRoles) {
@@ -147,9 +136,7 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles) {
   }
 }
 
-/**
- * Handle V2 container edit for verification/denial
- */
+// Handle V2 container edit for verification/denial
 function handleV2Edit(interaction, message, status) {
   const color = StatusColors[status];
   const statusText = status === VerificationStatus.VERIFIED ? "Verified" : "Denied";
@@ -215,9 +202,7 @@ function handleV2Edit(interaction, message, status) {
   return editedContainer;
 }
 
-/**
- * Process text placeholders for welcome messages
- */
+// Process text placeholders for welcome messages
 async function processText(text, user, interaction, originalEmbed, verifiedRoles) {
   if (!text) return null;
 
@@ -266,7 +251,7 @@ async function processText(text, user, interaction, originalEmbed, verifiedRoles
   text = text.replace(/{usermention}/gi, `<@${user.id}>`);
   text = text.replace(/{members}/gi, interaction.guild.memberCount);
 
-  // Handle verified members count (expensive operation)
+  // Count verified members
   if (text.toLowerCase().includes("{verifiedmembers}")) {
     const verifiedMembers = await interaction.guild.members
       .fetch()
@@ -288,9 +273,7 @@ async function processText(text, user, interaction, originalEmbed, verifiedRoles
   return text && text.trim() ? text : null;
 }
 
-/**
- * Get mentions from content for pinging
- */
+// Get mentions from content for pinging
 function getMentions(content) {
   if (!content) return "";
   const userMentions = content.match(/<@!?(\d+)>/g) || [];
@@ -300,9 +283,7 @@ function getMentions(content) {
   return `${Array.from(uniqueUserMentions).join(" ")} ${Array.from(uniqueRoleMentions).join(" ")}`.trim();
 }
 
-/**
- * Send welcome message to channel
- */
+// Send welcome message to channel
 async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, originalEmbed, verifiedRoles) {
   if (!welcomeChannel || !welcomeMessage) return;
 
@@ -369,9 +350,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
   }
 }
 
-/**
- * Send verification DM to user
- */
+// Send verification DM to user
 async function sendVerifyDM(user, application, interaction, verifiedRoles) {
   if (!application.verifymessage) return;
 
@@ -395,9 +374,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
   }).catch(() => {});
 }
 
-/**
- * Send denial DM to user
- */
+// Send denial DM to user
 async function sendDenyDM(user, guildName, reason = null) {
   const denyEmbed = new EmbedBuilder()
     .setColor("#EB2121")
@@ -417,9 +394,7 @@ async function sendDenyDM(user, guildName, reason = null) {
   }
 }
 
-/**
- * Create thread summary embed from thread messages
- */
+// Create thread summary embed from thread messages
 async function createThreadSummary(thread, client, status) {
   const color = StatusColors[status];
   const threadEmbed = new EmbedBuilder()
@@ -463,9 +438,7 @@ async function createThreadSummary(thread, client, status) {
   return threadEmbed;
 }
 
-/**
- * Process log messages - move to log channel or edit in place
- */
+// Process log messages
 async function processLogMessages(options) {
   const {
     interaction,
@@ -586,7 +559,6 @@ async function processLogMessages(options) {
       }
     }
   } else {
-    // Edit in place
     if (messageids && messageids.length > 0) {
       for (const messageId of messageids) {
         // Skip the current message if being handled separately
@@ -641,9 +613,7 @@ async function processLogMessages(options) {
   }
 }
 
-/**
- * Clean up verification data from database
- */
+// Clean up verification data from database
 async function cleanupVerificationData(verification, guildId) {
   if (verification?.guildVerifications?.[guildId]) {
     delete verification.guildVerifications[guildId];
@@ -652,9 +622,7 @@ async function cleanupVerificationData(verification, guildId) {
   }
 }
 
-/**
- * Create "no application" embed for users verified/denied without application
- */
+// Create "no application" embed for users verified/denied without application
 function createNoApplicationEmbed(user, interaction, invitetracker, status) {
   const statusText = status === VerificationStatus.VERIFIED ? "VERIFIED" : "DENIED";
   const actionText = status === VerificationStatus.VERIFIED ? "Verified" : "Denied";
@@ -671,9 +639,7 @@ function createNoApplicationEmbed(user, interaction, invitetracker, status) {
     .setFooter({ text: `${actionText} by ${interaction.user.username}` });
 }
 
-/**
- * Main verification handler - processes a single user verification
- */
+// Main verification handler
 async function verifyUser(options) {
   const {
     interaction,
@@ -747,9 +713,7 @@ async function verifyUser(options) {
   return { success: true, user };
 }
 
-/**
- * Main denial handler - processes a single user denial
- */
+// Main denial handler
 async function denyUser(options) {
   const {
     interaction,
@@ -765,7 +729,7 @@ async function denyUser(options) {
     throw new Error("User not found");
   }
 
-  // Try to get member (might not be in server)
+  // Get member
   let member;
   try {
     member = await interaction.guild.members.fetch(userId);

@@ -5,10 +5,9 @@ const {
   serializeImage,
 } = require("../../js/customizationImages.js");
 const {
-  createTempApplication,
+  getTempApplicationById,
   updateTempApplication,
 } = require("../../js/tempconfigfuncs.js");
-const { Application } = require("../../dbObjects.js");
 const activeCollectors = new Map();
 
 module.exports = async ({ interaction, context }) => {
@@ -20,10 +19,19 @@ module.exports = async ({ interaction, context }) => {
   }
 
   const customIdValue = context[0];
-  const appName = context[1];
+  const tempApplicationId = parseInt(context[1], 10);
 
-  if (!customIdValue || !appName) {
+  if (!customIdValue || isNaN(tempApplicationId)) {
     throw new Error("Missing customization context for image setup.");
+  }
+
+  // Validate tempApplicationId and get tempApp
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !tempApp) {
+    return interaction.reply({
+      content: error || "Application not found or does not belong to this server.",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const imageaskembed = new EmbedBuilder()
@@ -54,7 +62,7 @@ module.exports = async ({ interaction, context }) => {
       const imageAsset = await fetchImage(collectedimage);
       const uploadedImage = await uploadCustomizationImage({
         serverId: interaction.guild.id,
-        appName,
+        appName: tempApp.name,
         section: customIdValue,
         buffer: imageAsset.buffer,
         contentType: imageAsset.contentType,
@@ -63,36 +71,22 @@ module.exports = async ({ interaction, context }) => {
 
       await purgeOldImages({
         serverId: interaction.guild.id,
-        appName,
+        appName: tempApp.name,
         section: customIdValue,
         keepKey: uploadedImage.key,
         filter: "temp",
       });
 
-      const [{ tempApp }, applicationSetup] = await Promise.all([
-        createTempApplication(interaction.guild.id, { name: appName }),
-        Application.findOne({
-          where: { server_id: interaction.guild.id, name: appName },
-        }),
-      ]);
-
-      const currentSection = normalizeSection(tempApp?.[customIdValue]);
-      const baseSection = normalizeSection(
-        currentSection && Object.keys(currentSection).length > 0
-          ? currentSection
-          : applicationSetup?.[customIdValue],
-      );
       const storedImage = serializeImage(uploadedImage);
 
       await updateTempApplication(
         interaction.guild.id,
         {
           [customIdValue]: {
-            ...baseSection,
             image: storedImage,
           },
         },
-        { name: appName },
+        { id: tempApplicationId },
       );
 
       await refreshCustomizationEmbed({ interaction, image: uploadedImage });
@@ -177,11 +171,4 @@ async function fetchImage(url) {
     contentType,
     extension: ALLOWED_TYPES[contentType],
   };
-}
-
-function normalizeSection(section) {
-  if (!section || section === "deleted" || typeof section !== "object") {
-    return {};
-  }
-  return section;
 }

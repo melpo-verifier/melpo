@@ -3,16 +3,24 @@ const {
   ActionRowBuilder,
   EmbedBuilder,
   StringSelectMenuBuilder,
+  MessageFlags,
 } = require("discord.js");
-const { Application } = require("../../dbObjects.js");
 const {
-  createTempApplication,
   updateTempApplication,
+  getApplicationById,
+  getTempApplicationById,
 } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, context, appName }) => {
-  appName = appName ?? context?.[0];
+module.exports = async ({ interaction, context, applicationId, tempApplicationId }) => {
+  tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
+
+  if (!tempApplicationId) {
+    return interaction.reply({
+      content: 'Temp Application ID is missing. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   const questionembed = new EmbedBuilder()
     .setTitle("Questions setup")
@@ -22,15 +30,22 @@ module.exports = async ({ interaction, context, appName }) => {
     .setColor("#0099ff");
 
 
-  const applicationSetup = await Application.findOne({ where: { name: appName } });
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-  // const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
-  const { tempApp } = await createTempApplication(interaction.guild.id, { name: appName });
+  let applicationSetup = null;
+  if (tempApp.applicationId) {
+    const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
+    applicationSetup = application;
+  }
 
-  // var questions = nonEmptyArray(tempApp.questions, applicationSetup.questions);
-  var questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup.questions;
-  // await updateTemporarySetup(interaction.guild.id, { questions: questions });
-  await updateTempApplication(interaction.guild.id, { questions: questions }, { name: appName });
+  let questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions;
+  await updateTempApplication(interaction.guild.id, { questions: questions }, { id: tempApplicationId });
 
   if (
     Array.isArray(questions) &&
@@ -46,18 +61,18 @@ module.exports = async ({ interaction, context, appName }) => {
 
   const questionbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`addquestion_0`)
+      .setCustomId(`addquestion_0_${tempApplicationId}`)
       .setLabel("Add Question")
       .setStyle("Primary"),
   );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup_" + appName)
+      .setCustomId("finishsetup_" + tempApplicationId)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup_" + appName)
+      .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -76,7 +91,7 @@ module.exports = async ({ interaction, context, appName }) => {
     });
 
     const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId("questionSelectMenu_0_" + appName)
+      .setCustomId("questionSelectMenu_0_" + tempApplicationId)
       .setPlaceholder("Select a question to edit or delete")
       .setMinValues(1)
       .setMaxValues(1);
@@ -109,7 +124,7 @@ module.exports = async ({ interaction, context, appName }) => {
       }),
     );
 
-    const categoryButtons = createCategoryButtons(appName, 2); // 2 = Questions is disabled
+    const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
 
     if (interaction.replied || interaction.deferred) {
       interaction.message.edit({
@@ -127,7 +142,7 @@ module.exports = async ({ interaction, context, appName }) => {
       });
     }
   } else {
-    const categoryButtons = createCategoryButtons(appName, 2); // 2 = Questions is disabled
+    const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
     
     interaction.update({
       content: "",

@@ -82,7 +82,7 @@ module.exports = async (client) => {
     if (!channels || !channels.includes(reaction.message.channel.id)) return;
     if (reaction.message.attachments.size < 0) return;
 
-    var reactedemoji;
+    let reactedemoji;
 
     if (reaction.emoji.id === null) {
       reactedemoji = reaction.emoji.name;
@@ -94,10 +94,10 @@ module.exports = async (client) => {
 
     if (reactedemoji !== config.emoji) return;
 
-    var date = new Date();
-    var dayOfWeek = date.getDay();
-    var daysSinceLastSaturday = (dayOfWeek + 1) % 7;
-    var lastSaturday = new Date(
+    const date = new Date();
+    const dayOfWeek = date.getDay();
+    const daysSinceLastSaturday = (dayOfWeek + 1) % 7;
+    const lastSaturday = new Date(
       date.getTime() - daysSinceLastSaturday * 24 * 60 * 60 * 1000,
     );
     lastSaturday.setUTCHours(10, 0, 0, 0);
@@ -367,66 +367,66 @@ module.exports = async (client) => {
 
       ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-      var pixlinks = 600;
-      var verklein = 5;
-      var verhouding = 1.35;
-      var medalx = -15;
-      var medaly = -2;
-      var medalverklein = 3.5;
-      var omhoog = 150;
+      const pixlinks = 600;
+      const verklein = 5;
+      const verhouding = 1.35;
+      const medalx = -15;
+      const medaly = -2;
+      const medalverklein = 3.5;
+      const omhoog = 150;
 
-      var wrh1 = n1.width / n1.height;
-      var wrh2 = n2.width / n2.height;
-      var wrh3 = n3.width / n3.height;
+      const wrh1 = n1.width / n1.height;
+      const wrh2 = n2.width / n2.height;
+      const wrh3 = n3.width / n3.height;
 
-      var newWidth1 = canvas.width / verklein;
-      var newHeight1 = newWidth1 / wrh1;
+      let newWidth1 = canvas.width / verklein;
+      let newHeight1 = newWidth1 / wrh1;
       if (newHeight1 > canvas.height) {
         newHeight1 = canvas.height;
         newWidth1 = newHeight1 * wrh1;
       }
 
-      var newWidth2 = canvas.width / verklein;
-      var newHeight2 = newWidth2 / wrh2;
+      let newWidth2 = canvas.width / verklein;
+      let newHeight2 = newWidth2 / wrh2;
       if (newHeight2 > canvas.height) {
         newHeight2 = canvas.height;
         newWidth2 = newHeight2 * wrh2;
       }
 
-      var newWidth3 = canvas.width / verklein;
-      var newHeight3 = newWidth3 / wrh3;
+      let newWidth3 = canvas.width / verklein;
+      let newHeight3 = newWidth3 / wrh3;
       if (newHeight3 > canvas.height) {
         newHeight3 = canvas.height;
         newWidth3 = newHeight3 * wrh3;
       }
 
-      var xOffset1 =
+      const xOffset1 =
         newWidth1 < canvas.width
           ? (canvas.width - newWidth1) / 2 - pixlinks
           : 0;
-      var yOffset1 =
+      const yOffset1 =
         newHeight1 < canvas.height
           ? (canvas.height - newHeight1) / 2 - omhoog
           : 0;
 
-      var xOffset2 =
+      const xOffset2 =
         newWidth2 < canvas.width ? (canvas.width - newWidth2) / 2 : 0;
-      var yOffset2 =
+      const yOffset2 =
         newHeight2 < canvas.height
           ? (canvas.height - newHeight2) / 2 - omhoog
           : 0;
 
-      var xOffset3 =
+      const xOffset3 =
         newWidth3 < canvas.width
           ? (canvas.width - newWidth3) / 2 + pixlinks
           : 0;
-      var yOffset3 =
+      const yOffset3 =
         newHeight3 < canvas.height
           ? (canvas.height - newHeight3) / 2 - omhoog
           : 0;
 
-      var test1 = (newWidth1 * verhouding - newWidth1) / 2;
-      var test2 = (newHeight1 * verhouding - newHeight1) / 2;
+      let test1 = (newWidth1 * verhouding - newWidth1) / 2;
+      let test2 = (newHeight1 * verhouding - newHeight1) / 2;
 
       ctx.fillStyle = "#FFFFFF";
 

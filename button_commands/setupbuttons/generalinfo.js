@@ -4,48 +4,67 @@ const {
   EmbedBuilder,
   ChannelSelectMenuBuilder,
   StringSelectMenuBuilder,
+  MessageFlags,
 } = require("discord.js");
-const { createTempApplication, deleteTempApplication } = require("../../js/tempconfigfuncs.js");
-const { Application } = require("../../dbObjects.js");
+const { createTempApplication, deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, context, whichdefault, appName }) => {
-  // Try to get appName from appName, context[1], or context[0]
-  // appName = appName ?? context?.[1] ?? context?.[0];
-  if (!appName) {
+module.exports = async ({ interaction, context, whichdefault, applicationId, tempApplicationId }) => {
+  tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
+  
+  if (!tempApplicationId) {
     return interaction.reply({
-      content: 'Application name is missing. Please try again.',
-      ephemeral: true,
+      content: 'Temp Application ID is missing. Please try again.',
+      flags: MessageFlags.Ephemeral,
     });
   }
 
-  if (context && context[1] === "true") {
-    await deleteTempApplication(interaction.guild.id, { name: appName });
+  const { tempApp, error } = await getTempApplicationById(parseInt(tempApplicationId), interaction.guild.id);
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
-  const applicationSetup = await Application.findOne({ where: { name: appName } });
+  // Context[1] means to create a new temp application and delete the old one
+  if (context && context[1] === "true") {
+    await deleteTempApplication(interaction.guild.id, { id: parseInt(tempApplicationId) });
+    const { tempApp: newTempApp } = await createTempApplication(interaction.guild.id, { 
+      applicationId: tempApp.applicationId,
+      name: tempApp.name 
+    });
+    tempApplicationId = newTempApp.id;
+  }
 
-    const { tempApp } = await createTempApplication(interaction.guild.id, { 
-    name: appName,
-    usethreads: applicationSetup?.usethreads
-  });
+  const { tempApp: finalTempApp } = tempApplicationId !== tempApp?.id 
+    ? await getTempApplicationById(parseInt(tempApplicationId), interaction.guild.id)
+    : { tempApp };
+
+  // If editing an existing application, get the application for default values
+  let applicationSetup = null;
+  if (finalTempApp.applicationId) {
+    const { application } = await getApplicationById(finalTempApp.applicationId, interaction.guild.id);
+    applicationSetup = application;
+  }
+
   const reviewChannel =
-    tempApp.reviewchannel === "deleted"
+    finalTempApp.reviewchannel === "deleted"
       ? null
-      : tempApp.reviewchannel || applicationSetup.reviewchannel;
+      : finalTempApp.reviewchannel || applicationSetup?.reviewchannel;
   const verifyLogsChannel =
-    tempApp.verifylogs === "deleted"
+    finalTempApp.verifylogs === "deleted"
       ? null
-      : tempApp.verifylogs || applicationSetup.verifylogs;
+      : finalTempApp.verifylogs || applicationSetup?.verifylogs;
   const verifyChannel =
-    tempApp.verifychannel === "deleted"
+    finalTempApp.verifychannel === "deleted"
       ? null
-      : tempApp.verifychannel || applicationSetup.verifychannel;
+      : finalTempApp.verifychannel || applicationSetup?.verifychannel;
   const verificationwelcomechannel =
-    tempApp.verificationwelcomechannel === "deleted"
+    finalTempApp.verificationwelcomechannel === "deleted"
       ? null
-      : tempApp.verificationwelcomechannel ||
-        applicationSetup.verificationwelcomechannel;
+      : finalTempApp.verificationwelcomechannel ||
+        applicationSetup?.verificationwelcomechannel;
 
 
   const generalembed = new EmbedBuilder()
@@ -85,11 +104,11 @@ module.exports = async ({ interaction, context, whichdefault, appName }) => {
 
   const finishbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("finishsetup_" + appName)
+      .setCustomId("finishsetup_" + tempApplicationId)
       .setLabel("Finish Setup")
       .setStyle("Success"),
     new ButtonBuilder()
-      .setCustomId("cancelsetup_" + appName)
+      .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
     new ButtonBuilder()
@@ -101,7 +120,7 @@ module.exports = async ({ interaction, context, whichdefault, appName }) => {
   );
 
   const selectChannelMenu = new StringSelectMenuBuilder()
-    .setCustomId("selectChannelMenu_" + appName)
+    .setCustomId("selectChannelMenu_" + tempApplicationId)
     .setPlaceholder("Select which channel you want to setup")
     .addOptions(
       {
@@ -131,7 +150,7 @@ module.exports = async ({ interaction, context, whichdefault, appName }) => {
     );
 
   const channelMenu = new ChannelSelectMenuBuilder()
-    .setCustomId(`channelMenu_${whichdefault}_${appName}`)
+    .setCustomId(`channelMenu_${whichdefault}_${tempApplicationId}`)
     .setChannelTypes("GuildText")
     .setPlaceholder("Select channel")
     .setMinValues(0)
@@ -161,7 +180,7 @@ module.exports = async ({ interaction, context, whichdefault, appName }) => {
     new ActionRowBuilder().setComponents(channelMenu),
   ];
 
-  const categoryButtons = createCategoryButtons(appName, 0); // 0 = Channels is disabled
+  const categoryButtons = createCategoryButtons(tempApplicationId, 0); // 0 = Channels is disabled
 
   if (interaction.isCommand()) {
     await interaction.reply({

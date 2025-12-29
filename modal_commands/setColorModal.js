@@ -4,7 +4,7 @@ const customizationMenu = require("../menu_commands/selectcustomizationMenu.js")
 
 module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0]
-  const appName = context[1];
+  const tempApplicationId = parseInt(context[1], 10);
   const value = interaction.fields.getTextInputValue("color");
 
   const hexColorRegex = /^#?[0-9A-Fa-f]{6}$/;
@@ -20,6 +20,6 @@ module.exports = async ({ interaction, context }) => {
 
   await updateTempApplication(interaction.guild.id, {
     [customIdValue]: { color: formattedValue },
-  }, { name: appName });
-  customizationMenu({ interaction, customIdValue, appName });
+  }, { id: tempApplicationId });
+  customizationMenu({ interaction, customIdValue, tempApplicationId });
 };

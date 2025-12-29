@@ -5,11 +5,18 @@ const {
   TextInputStyle,
   MessageFlags,
 } = require("discord.js");
-const { OptOut, Application } = require("../dbObjects.js");
-module.exports = async ({ interaction, client, userid, appName }) => {
-  const application = await Application.findOne({
-    where: { server_id: interaction.guild.id, name: appName },
-  });
+const { OptOut } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
+
+module.exports = async ({ interaction, client, userid, applicationId }) => {
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
@@ -38,7 +45,7 @@ module.exports = async ({ interaction, client, userid, appName }) => {
   }
 
   const modal = new ModalBuilder()
-    .setCustomId(`questionModal_${appName}_${userid}`)
+    .setCustomId(`questionModal_${applicationId}_${userid}`)
     .setTitle(`Question ${user.tag}`);
 
   const questioninput = new TextInputBuilder()

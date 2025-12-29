@@ -293,6 +293,8 @@ async function purgeOldImages({
     chunks.push(keysToDelete.slice(i, i + 1000));
   }
 
+  console.log(`Purging ${keysToDelete.length} images from section ${section} (server: ${serverId}, app: ${appName})`);
+
   for (const chunk of chunks) {
     await r2Client.send(
       new DeleteObjectsCommand({

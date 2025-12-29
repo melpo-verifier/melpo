@@ -1,25 +1,25 @@
 const { ActionRowBuilder, ButtonBuilder } = require("discord.js");
 
-function createCategoryButtons(appName, disabledIndex = -1) {
+function createCategoryButtons(tempApplicationId, disabledIndex = -1) {
   const buttons = [
     new ButtonBuilder()
-      .setCustomId(`generalinfo_${appName}`)
+      .setCustomId(`generalinfo_${tempApplicationId}`)
       .setLabel("Channels")
       .setStyle("Secondary"),
     new ButtonBuilder()
-      .setCustomId(`rolesinfo_${appName}`)
+      .setCustomId(`rolesinfo_${tempApplicationId}`)
       .setLabel("Roles")
       .setStyle("Secondary"),
     new ButtonBuilder()
-      .setCustomId(`questioninfo_${appName}`)
+      .setCustomId(`questioninfo_${tempApplicationId}`)
       .setLabel("Questions")
       .setStyle("Secondary"),
     new ButtonBuilder()
-      .setCustomId(`customizationinfo_${appName}`)
+      .setCustomId(`customizationinfo_${tempApplicationId}`)
       .setLabel("Customization")
       .setStyle("Secondary"),
     new ButtonBuilder()
-      .setCustomId(`miscinfo_${appName}`)
+      .setCustomId(`miscinfo_${tempApplicationId}`)
       .setLabel("Misc")
       .setStyle("Secondary"),
   ];

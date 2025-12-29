@@ -2,9 +2,9 @@ const { Events, MessageFlags } = require("discord.js");
 const {
   updateCommandUsage,
   updateComponentUsage,
+  getApplicationByIdWithFallback,
 } = require("../js/tempconfigfuncs.js");
 const ErrorHandler = require("../js/ErrorHandling.js");
-const { Application } = require("../dbObjects.js");
 
 const interactionCache = new Map();
 const CACHE_TTL = 15000;
@@ -16,17 +16,7 @@ module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction, client) {
     try {
-      if (
-        !interaction //||
-        // (!interaction.isCommand() &&
-        //   !interaction.isButton() &&
-        //   !interaction.isStringSelectMenu() &&
-        //   !interaction.isChannelSelectMenu() &&
-        //   !interaction.isRoleSelectMenu() &&
-        //   !interaction.isMentionableSelectMenu() &&
-        //   !interaction.isUserSelectMenu() &&
-        //   !interaction.isModalSubmit())
-      ) {
+      if (!interaction) {
         return;
       }
 
@@ -52,7 +42,6 @@ module.exports = {
       if (checkDuplicatesFor.includes(command)) {
         const cached = interactionCache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-          console.log(`Ignoring duplicate interaction: ${cacheKey}`);
           return interaction
             .reply({
               content: "⏳ Please wait 15 seconds before trying again.",
@@ -74,27 +63,39 @@ module.exports = {
 
       const userid = await extractUserId(interaction);
       
-      // Extract appName from context for button commands that use it
-      // Button customIds follow patterns like: command_appName_userId or command_appName
-      let appName = null;
-      if (context.length > 0) {
-        // For commands like verify_appName, deny_appName, etc.
-        // The first context part is typically the appName
-        appName = context[0];
+      let applicationId = null;
+      let tempApplicationId = null;
+      
+      if (context.length > 0 && context[0]) {
+        const parsed = parseInt(context[0], 10);
+        if (!isNaN(parsed)) {
+          if (command.includes("info") || command === "next" || command === "cancelsetup" || command === "finishsetup" || command === "toggleusethreads" || command === "setverifyfilter") {
+            tempApplicationId = parsed;
+          } else {
+            applicationId = parsed;
+          }
+        }
+      }
+
+      if (!applicationId && !tempApplicationId && interaction.guild) {
+        const { application } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+        if (application) {
+          applicationId = application.id;
+        }
       }
       
-      const data = { interaction, client, context, userid, appName };
+      const data = { interaction, client, context, userid, applicationId, tempApplicationId };
 
       if(interaction.customId) {
         console.time(`Interaction handled: ${interaction.customId}`);
       }
       
       if (interaction.isButton()) {
-        await handleButton(command, data, client, interaction);
+        await handleInteraction(command, data, client, interaction, "buttonCommands", true);
       } else if (isSelectMenu(interaction)) {
-        await handleMenu(command, data, client, interaction);
+        await handleInteraction(command, data, client, interaction, "menus", true);
       } else if (interaction.isModalSubmit()) {
-        await handleModal(command, data, client, interaction);
+        await handleInteraction(command, data, client, interaction, "modals", false);
       }
 
       // Update usage stats
@@ -103,7 +104,6 @@ module.exports = {
         updateComponentUsage(command).catch((err) =>
           console.error("Failed to update component usage:", err),
         );
-        // console.log(`Interaction received: ${interaction.customId}`);
       }
     } catch (error) {
       console.error(`Error processing interaction ${interaction.customId}:`, error);
@@ -115,15 +115,10 @@ module.exports = {
 // Cleanup cache every minute
 setInterval(() => {
   const now = Date.now();
-  let cleaned = 0;
   for (const [key, value] of interactionCache.entries()) {
     if (now - value.timestamp > CACHE_TTL) {
       interactionCache.delete(key);
-      cleaned++;
     }
-  }
-  if (cleaned > 0) {
-    console.log(`Cleaned ${cleaned} expired interaction cache entries`);
   }
 }, 60000);
 
@@ -145,9 +140,7 @@ async function handleSlashCommand(interaction, client) {
       });
     }
 
-    console.time(`Command executed: ${command.data.name}`)
     await command.execute({ interaction, client });
-    console.timeEnd(`Command executed: ${command.data.name}`);
     await updateCommandUsage(command.data.name);
   } catch (error) {
     await ErrorHandler.handle(client, error, interaction);
@@ -162,10 +155,11 @@ function isSelectMenu(interaction) {
   );
 }
 
-async function handleButton(command, data, client, interaction) {
+async function handleInteraction(command, data, client, interaction, collectionName, checkOwnership = true) {
   try {
     if (
-      interaction.message.interaction !== null &&
+      checkOwnership &&
+      interaction.message?.interaction !== null &&
       interaction.user.id !== interaction.message.interaction?.user?.id
     ) {
       return interaction.reply({
@@ -174,46 +168,8 @@ async function handleButton(command, data, client, interaction) {
       });
     }
 
-    const handler = data.client.buttonCommands.get(command);
+    const handler = data.client[collectionName].get(command);
     if (!handler) {
-      return;
-    }
-
-    await handler(data);
-  } catch (error) {
-    await ErrorHandler.handle(client, error, interaction);
-  }
-}
-
-async function handleMenu(command, data, client, interaction) {
-  try {
-    if (
-      interaction.message.interaction !== null &&
-      interaction.user.id !== interaction.message.interaction?.user?.id
-    ) {
-      return interaction.reply({
-        content: `Hey! That's someone else's business!`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    const handler = data.client.menus.get(command);
-    if (!handler) {
-      console.warn(`No menu handler found for: ${command}`);
-      return;
-    }
-
-    await handler(data);
-  } catch (error) {
-    await ErrorHandler.handle(client, error, interaction);
-  }
-}
-
-async function handleModal(command, data, client, interaction) {
-  try {
-    const handler = data.client.modals.get(command);
-    if (!handler) {
-      console.warn(`No modal handler found for: ${command}`);
       return;
     }
 
@@ -224,50 +180,40 @@ async function handleModal(command, data, client, interaction) {
 }
 
 async function extractUserId(interaction) {
-  if (interaction.message?.embeds[0]) {
-    if (!interaction.message?.embeds[0]?.footer) return null;
+  if (interaction.message?.embeds[0]?.footer) {
     const footerText = interaction.message.embeds[0].footer.text;
     if (footerText.startsWith("DM | ")) return footerText.slice(5);
     if (footerText.startsWith("DMTimeout | ")) return footerText.slice(12);
     if (footerText.startsWith("Denied | ")) return footerText.slice(9);
     return footerText;
-  } else if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
-    let userId;
-
+  }
+  
+  if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
     if (
       interaction.customId.includes("question_") ||
       interaction.customId.includes("questionModal_")
     ) {
-      // Extract userId from interaction ID
-      const userIdMatch = await interaction.customId.match(/_(\d+)$/);
-      if (userIdMatch && userIdMatch[1]) {
-        userId = await userIdMatch[1];
-        console.log(`Extracted User ID from interaction ID: ${userId}`);
-        return userId;
+      const userIdMatch = interaction.customId.match(/_(\d+)$/);
+      if (userIdMatch?.[1]) {
+        return userIdMatch[1];
       }
     }
 
     const containerContent =
-      interaction.message.components?.[0]?.components?.[0]?.components?.[0]
-        ?.content;
+      interaction.message.components?.[0]?.components?.[0]?.components?.[0]?.content;
 
     if (containerContent) {
-      // Extract userId using regex
       const userIdMatch = containerContent.match(/\*\*User ID:\*\* `(\d+)`/);
-      if (userIdMatch && userIdMatch[1]) {
-        userId = userIdMatch[1];
-        console.log(`Extracted User ID: ${userId}`);
-      } else {
-        // Fallback to footer text if available
-        const footerText = interaction.message.embeds?.[0]?.footer?.text;
-        if (footerText && /^\d+$/.test(footerText)) {
-          userId = footerText;
-          console.log(`Using User ID from footer: ${userId}`);
-        }
+      if (userIdMatch?.[1]) {
+        return userIdMatch[1];
       }
     }
-    return userId;
-  } else {
-    return null;
+    
+    const footerText = interaction.message.embeds?.[0]?.footer?.text;
+    if (footerText && /^\d+$/.test(footerText)) {
+      return footerText;
+    }
   }
+  
+  return null;
 }
