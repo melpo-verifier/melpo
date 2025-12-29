@@ -187,7 +187,7 @@ class ErrorHandler {
     errorId,
     interaction,
   ) {
-    if (error.code === 50001 || error.code === 50013) return;
+    if (error.code === 50001 || error.code === 50013 || error.code === 10062) return;
 
     const interactionInfo = interaction
       ? {

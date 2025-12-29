@@ -5,14 +5,14 @@ const {
   TextInputStyle,
   MessageFlags,
 } = require("discord.js");
-const { getApplicationById } = require("../js/tempconfigfuncs.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, client, userid, applicationId }) => {
   if (!userid) {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
 
   if (error) {
     return interaction.reply({
