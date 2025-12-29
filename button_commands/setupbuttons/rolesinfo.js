@@ -32,10 +32,27 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
     applicationSetup = application;
   }
 
-  const verifiedRole = tempApp.verifiedrole?.length > 0 ? tempApp.verifiedrole : applicationSetup?.verifiedrole;
-  const unverifiedRole = tempApp.unverifiedrole?.length > 0 ? tempApp.unverifiedrole : applicationSetup?.unverifiedrole;
-  const pingRole = tempApp.pingrole?.length > 0 ? tempApp.pingrole : applicationSetup?.pingrole;
-  const managerRole = tempApp.managerrole?.length > 0 ? tempApp.managerrole : applicationSetup?.managerrole;
+  // const verifiedRole = tempApp.verifiedrole?.length > 0 ? tempApp.verifiedrole : applicationSetup?.verifiedrole;
+  // const unverifiedRole = tempApp.unverifiedrole?.length > 0 ? tempApp.unverifiedrole : applicationSetup?.unverifiedrole;
+  // const pingRole = tempApp.pingrole?.length > 0 ? tempApp.pingrole : applicationSetup?.pingrole;
+  // const managerRole = tempApp.managerrole?.length > 0 ? tempApp.managerrole : applicationSetup?.managerrole;
+    const verifiedRole =
+    (tempApp.verifiedrole || applicationSetup.verifiedrole)?.length > 0
+      ? tempApp.verifiedrole || applicationSetup.verifiedrole
+      : null;
+  const unverifiedRole =
+    (tempApp.unverifiedrole || applicationSetup.unverifiedrole)?.length > 0
+      ? tempApp.unverifiedrole || applicationSetup.unverifiedrole
+      : null;
+  const pingRole =
+    (tempApp.pingrole || applicationSetup.pingrole)?.length > 0
+      ? tempApp.pingrole || applicationSetup.pingrole
+      : null;
+  const managerRole =
+    (tempApp.managerrole || applicationSetup.managerrole)?.length > 0
+      ? tempApp.managerrole || applicationSetup.managerrole
+      : null;
+
 
   const generalembed = new EmbedBuilder()
     .setColor("#3f7ff1")
