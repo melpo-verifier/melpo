@@ -46,10 +46,10 @@ module.exports = async ({ interaction, client }) => {
       .setCustomId("answerquestion")
       .setLabel("Answer")
       .setStyle("Success"),
-    new ButtonBuilder()
-      .setCustomId("opt-out")
-      .setLabel("Opt-out")
-      .setStyle("Danger"),
+    // new ButtonBuilder()
+    //   .setCustomId("opt-out")
+    //   .setLabel("Opt-out")
+    //   .setStyle("Danger"),
   );
 
   const disabledconfirmrow = new ActionRowBuilder().addComponents(
@@ -58,11 +58,11 @@ module.exports = async ({ interaction, client }) => {
       .setLabel("Answer")
       .setStyle("Success")
       .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("opt-out")
-      .setLabel("Opt-out")
-      .setStyle("Danger")
-      .setDisabled(true),
+    // new ButtonBuilder()
+    //   .setCustomId("opt-out")
+    //   .setLabel("Opt-out")
+    //   .setStyle("Danger")
+    //   .setDisabled(true),
   );
 
   const replybutton = new ActionRowBuilder().addComponents(
