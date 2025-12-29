@@ -1,10 +1,16 @@
-const { EmbedBuilder, AttachmentBuilder, MessageFlags } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
-const { updateTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { EmbedBuilder, MessageFlags } = require("discord.js");
+const {
+  uploadCustomizationImage,
+  purgeOldImages,
+  serializeImage,
+} = require("../../js/customizationImages.js");
+const {
+  getTempApplicationById,
+  updateTempApplication,
+} = require("../../js/tempconfigfuncs.js");
 const activeCollectors = new Map();
 
-module.exports = async ({ interaction }) => {
+module.exports = async ({ interaction, context }) => {
   const channelId = interaction.channel.id;
   // Check if a collector is already active in the channel
   if (activeCollectors.has(channelId)) {
@@ -12,12 +18,26 @@ module.exports = async ({ interaction }) => {
     existingCollector.stop("newCollectorStarted");
   }
 
-  const customIdValue = interaction.customId.split("_")[1];
+  const customIdValue = context[0];
+  const tempApplicationId = parseInt(context[1], 10);
+
+  if (!customIdValue || isNaN(tempApplicationId)) {
+    throw new Error("Missing customization context for image setup.");
+  }
+
+  // Validate tempApplicationId and get tempApp
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !tempApp) {
+    return interaction.reply({
+      content: error || "Application not found or does not belong to this server.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   const imageaskembed = new EmbedBuilder()
     .setTitle("Set Image")
     .setDescription(
-      "Please send an image url or upload and send an image that you would like to set as the embed image. You have 30 seconds to do so.",
+      "Please upload an image or paste an image URL within 30 seconds to update the image.",
     )
     .setColor("#3f7ff1");
 
@@ -30,143 +50,125 @@ module.exports = async ({ interaction }) => {
 
   activeCollectors.set(channelId, collector);
 
-  interaction.reply({ embeds: [imageaskembed], flags: MessageFlags.Ephemeral });
+  await interaction.reply({ embeds: [imageaskembed], flags: MessageFlags.Ephemeral });
 
   collector.on("collect", async (collected) => {
     try {
-      var imagePath;
-      if (collected.attachments.first()) {
-        const imageUrl = collected.attachments.first().url;
-        imagePath = await downloadImage(
-          imageUrl,
-          interaction.guild.id,
-          customIdValue,
-        ).catch((err) => {
-          interaction.followUp({
-            content: `Error downloading image: ${err.message}`,
-            flags: MessageFlags.Ephemeral,
-          });
-          collector.stop("invalid"); // Stop the collector
-          return null; // Explicitly return null to prevent further execution
-        });
-        await updateTemporarySetup(interaction.guild.id, {
-          [customIdValue]: { image: imagePath },
-        });
-        collector.stop("collected");
-        collected.delete();
-        interaction.deleteReply();
-      } else if (collected.content) {
-        const imageUrl = collected.content;
-        imagePath = await downloadImage(
-          imageUrl,
-          interaction.guild.id,
-          customIdValue,
-        );
-        await updateTemporarySetup(interaction.guild.id, {
-          [customIdValue]: { image: imagePath },
-        }).catch((err) => {
-          interaction.followUp({
-            content: `Error downloading image: ${err.message}`,
-            flags: MessageFlags.Ephemeral,
-          });
-          collector.stop("invalid"); // Stop the collector
-          return null; // Explicitly return null to prevent further execution
-        });
-        collector.stop("collected");
-        collected.delete();
-        interaction.deleteReply();
+      const collectedimage = collected.attachments.first()?.url || collected.content;
+      if (!collectedimage) {
+        return;
       }
 
-      if (!imagePath) return; // Stop execution if imagePath is invalid
+      const imageAsset = await fetchImage(collectedimage);
+      const uploadedImage = await uploadCustomizationImage({
+        serverId: interaction.guild.id,
+        appName: tempApp.name,
+        section: customIdValue,
+        buffer: imageAsset.buffer,
+        contentType: imageAsset.contentType,
+        extension: imageAsset.extension,
+      });
 
-      const attachment = new AttachmentBuilder(imagePath).setName(
-        `${customIdValue}.${imagePath.split(".").pop()}`,
+      await purgeOldImages({
+        serverId: interaction.guild.id,
+        appName: tempApp.name,
+        section: customIdValue,
+        keepKey: uploadedImage.key,
+        filter: "temp",
+      });
+
+      const storedImage = serializeImage(uploadedImage);
+
+      await updateTempApplication(
+        interaction.guild.id,
+        {
+          [customIdValue]: {
+            image: storedImage,
+          },
+        },
+        { id: tempApplicationId },
       );
 
-      const embed = EmbedBuilder.from(interaction.message.embeds[1])
-        .setImage(`attachment://${customIdValue}.${imagePath.split(".").pop()}`)
-        .setFooter({ text: `This is the ${customIdValue}.` });
+      await refreshCustomizationEmbed({ interaction, image: uploadedImage });
 
-      try {
-        await interaction.message.edit({
-          embeds:
-            interaction.message.embeds.length > 1
-              ? [interaction.message.embeds[0], embed]
-              : [embed],
-          files: [attachment],
-        });
-      } catch (error) {
-        if (error.code === "ENOENT") {
-          throw new Error("Oh no! The image file does not seem to exist!");
-        }
-        throw error;
-      }
+      collector.stop("collected");
+      await collected.delete().catch(() => {});
+      await interaction.deleteReply().catch(() => {});
     } catch (error) {
+      console.error("Failed to process image upload:", error);
+      await interaction.followUp({
+        content: `Error processing image: ${error.message}`,
+        flags: MessageFlags.Ephemeral,
+      });
       collector.stop("invalid");
-      throw error;
     }
   });
 
-  collector.on("end", (collected, reason) => {
+  collector.on("end", (_, reason) => {
     activeCollectors.delete(channelId);
     if (reason === "time") {
-      interaction.deleteReply();
+      interaction.deleteReply().catch(() => {});
     }
   });
 };
 
-async function downloadImage(url, serverId, customIdValue) {
+async function refreshCustomizationEmbed({ interaction, image }) {
+  const currentEmbeds = interaction.message.embeds;
+  if (!currentEmbeds || currentEmbeds.length === 0) {
+    return;
+  }
+
+  const targetIndex = currentEmbeds.length > 1 ? 1 : 0;
+  const originalFooter = currentEmbeds[targetIndex]?.footer?.text;
+  const targetEmbed = EmbedBuilder.from(currentEmbeds[targetIndex])
+    .setImage(image.url)
+    .setFooter({ text: targetEmbedFooter(originalFooter) });
+
+  const embedsToSend = [...currentEmbeds];
+  embedsToSend[targetIndex] = targetEmbed;
+
+  await interaction.message.edit({
+    embeds: embedsToSend,
+    files: [],
+  });
+}
+
+function targetEmbedFooter(existingFooter) {
+  if (existingFooter && existingFooter.length > 0) {
+    return existingFooter;
+  }
+  return "Customization preview";
+}
+
+async function fetchImage(url) {
   const ALLOWED_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/gif": ".gif",
-    "image/webp": ".webp",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
   };
 
   const fetch = (await import("node-fetch")).default;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("Failed to fetch image");
+  const response = await fetch(url, { size: 15 * 1024 * 1024 });
+  if (!response.ok) {
+    throw new Error("Failed to fetch image");
+  }
 
-  // Check content type
   const contentType = response.headers.get("content-type");
   if (!contentType || !ALLOWED_TYPES[contentType]) {
-    return Promise.reject(
-      new Error(
-        `Invalid image type: ${contentType}. Allowed types: ${Object.keys(ALLOWED_TYPES).join(", ")}`,
-      ),
+    throw new Error(
+      `Invalid image type: ${contentType || "unknown"}. Allowed types: ${Object.keys(ALLOWED_TYPES).join(", ")}`,
     );
-    // throw new Error('Invalid image type. Allowed types: JPG, PNG, GIF, WEBP');
   }
 
-  try {
-    // Ensure directory exists
-    const dirPath = path.join(__dirname, "..", "..", "images", customIdValue);
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const ext = ALLOWED_TYPES[contentType];
-    const fileName = `${serverId}_temp${ext}`;
-    const relativeFilePath = path.join("images", customIdValue, fileName);
-    const absoluteFilePath = path.join(__dirname, "..", "..", relativeFilePath);
-
-    // Write file
-    fs.writeFileSync(absoluteFilePath, buffer);
-
-    // Verify file exists and is readable
-    if (!fs.existsSync(absoluteFilePath)) {
-      throw new Error("Failed to save image file");
-    }
-
-    console.log(`Image saved successfully:
-            Relative path: ${relativeFilePath}
-            Absolute path: ${absoluteFilePath}
-            Size: ${buffer.length} bytes
-        `);
-
-    return relativeFilePath;
-  } catch (error) {
-    throw new Error(`Failed to save image: ${error.message}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.length === 0) {
+    throw new Error("Received empty image data");
   }
+
+  return {
+    buffer,
+    contentType,
+    extension: ALLOWED_TYPES[contentType],
+  };
 }

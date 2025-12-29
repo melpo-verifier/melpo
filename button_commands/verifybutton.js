@@ -1,5 +1,4 @@
 const {
-  ServerConfig,
   Verification,
   InviteTracker,
 } = require("../dbObjects.js");
@@ -19,7 +18,8 @@ const {
   SectionBuilder,
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
-const { updateVerifications } = require("../js/tempconfigfuncs.js");
+const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
+const { resolveImage } = require("../js/imageUtils.js");
 
 const activeVerifications = new Map();
 
@@ -56,8 +56,8 @@ setInterval(() => {
   }
 }, 600000);
 
-module.exports = async ({ interaction, client }) => {
-  // const sessionKey = `${interaction.user.id}`;
+module.exports = async ({ interaction, client, applicationId }) => {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const rateLimitKey = `${interaction.user.id}`;
 
   if (rateLimitMap.has(rateLimitKey)) {
@@ -65,7 +65,7 @@ module.exports = async ({ interaction, client }) => {
     const timeLeft = Math.ceil((30000 - timeSinceLastAttempt) / 1000);
 
     if (timeLeft > 0) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: `Please wait ${timeLeft} seconds before starting another verification.`,
         flags: MessageFlags.Ephemeral,
       });
@@ -74,15 +74,9 @@ module.exports = async ({ interaction, client }) => {
     }
   }
 
-  // if (activeVerifications.has(sessionKey)) {
-  //     return await interaction.reply({
-  //         content: `You already have an active verification session. Please complete it before starting a new one.`,
-  //         flags: MessageFlags.Ephemeral
-  //     });
-  // }
   // Check if the user already has an active verification session
   if (activeVerifications.has(interaction.user.id)) {
-    return await interaction.reply({
+    return await interaction.editReply({
       content: `<@${interaction.user.id}>, you already have an active verification session! Please complete or cancel it before starting a new one.`,
       flags: MessageFlags.Ephemeral,
     });
@@ -90,44 +84,27 @@ module.exports = async ({ interaction, client }) => {
 
   rateLimitMap.set(rateLimitKey, Date.now());
 
-  // activeVerifications.set(sessionKey, {
-  //     timestamp: Date.now(),
-  //     userId: interaction.user.id,
-  //     guildId: interaction.guild.id
-  // });
-
   try {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
     const user = interaction.user;
     const guildId = interaction.guild.id;
 
-    const serverConfig = await ServerConfig.findOne({
-      where: { server_id: guildId },
-      attributes: [
-        "verifychannel",
-        "reviewchannel",
-        "questions",
-        "pingrole",
-        "startmessage",
-        "finishmessage",
-        "usethreads",
-      ],
-    });
-
-    if (!serverConfig) {
+    // Find the application by ID and validate guild ownership
+    const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
+    
+    if (error || !application) {
       return await interaction.editReply({
-        content: `Server configuration not found! Please contact the server staff.`,
+        content: `This verification button is not configured correctly. Please contact the server staff. (${error || "Application not found"})`,
         flags: MessageFlags.Ephemeral,
       });
     }
 
+    const appName = application.name;
     const {
       verifychannel: verifyChannelId,
       reviewchannel: verifyLogsChannelId,
       questions: botQuestions,
       pingrole: pingStaffRoleId,
-    } = serverConfig;
+    } = application;
 
     let parsedQuestions;
     try {
@@ -142,28 +119,33 @@ module.exports = async ({ interaction, client }) => {
         });
       }
 
-      parsedQuestions = botQuestions?.map((question, index) => {
-        try {
-          const parsed = JSON.parse(question);
-          if (!parsed.content || parsed.content.trim().length === 0) {
-            throw new Error(`Question ${index + 1} has empty content`);
+      parsedQuestions = botQuestions.map((question, index) => {
+        let parsed;
+        if (typeof question === "string") {
+          try {
+          try {
+            parsed = JSON.parse(question);
+          } catch (parseError) {
+            console.error(`Failed to parse question: ${parseError.message}`);
+            parsed = question;
           }
-          return parsed;
-        } catch (error) {
-          throw new Error(`Invalid question ${index + 1}: ${error.message}`);
+          } catch (error) {
+            throw new Error(`Invalid question ${index + 1}: ${error.message}`);
+          }
+        } else if (typeof question === "object" && question !== null) {
+          parsed = question;
+        } else {
+          throw new Error(`Invalid question ${index + 1}: Not a string or object`);
         }
+        if (!parsed.content || parsed.content.trim().length === 0) {
+          throw new Error(`Question ${index + 1} has empty content`);
+        }
+        return parsed;
       });
     } catch (error) {
       console.error(`Question parsing error for guild ${guildId}:`, error);
       return await interaction.editReply({
         content: `Question configuration error: ${error.message}. Please contact the server staff.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    }
-
-    if (interaction.channel.id !== verifyChannelId) {
-      return await interaction.editReply({
-        content: `This command can only be used in the verification channel.`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -214,9 +196,6 @@ module.exports = async ({ interaction, client }) => {
     // Generate a unique identifier for this verification session
     const sessionId = uuidv4();
 
-    // // Mark the verification session as active
-    // activeVerifications.set(user.id, { sessionId: sessionId, startTime: Date.now() });
-
     const numberToEmoji = [
       "1️⃣",
       "2️⃣",
@@ -240,18 +219,17 @@ module.exports = async ({ interaction, client }) => {
       );
 
       const startEmbedTitle = replaceplaceholder(
-        serverConfig.startmessage.title,
+        application.startmessage?.title,
         interaction.user.globalName ?? interaction.user.username,
         interaction.guild.name,
       );
       const startEmbedDescription = replaceplaceholder(
-        serverConfig.startmessage.description,
-        interaction.user.globalName ??
-          interaction.user.username ??
-          interaction.user.username,
+        application.startmessage?.description,
+        interaction.user.globalName ?? interaction.user.username,
         interaction.guild.name,
       );
-      const startEmbedimage = serverConfig.startmessage.image;
+      const startEmbedimage = application.startmessage?.image;
+      const startImageAsset = resolveImage(startEmbedimage, "startImage");
 
       const startDMEmbed = new EmbedBuilder()
         .setTitle(
@@ -259,24 +237,24 @@ module.exports = async ({ interaction, client }) => {
         )
         .setDescription(startEmbedDescription ?? null)
         .setColor("#3f7ff1")
-        .setFooter({ text: 'Click "cancel" to cancel the verification.' })
-        .setImage(
-          startEmbedimage
-            ? `attachment://startImage.${startEmbedimage.split(".").pop()}`
-            : null,
-        );
+        .setFooter({ 
+          text: `Application: ${appName} | Click "cancel" to cancel the verification.`
+        })
+        .setImage(startImageAsset.embedUrl);
 
-      var firstQuestionEmbed = new EmbedBuilder()
+      let firstQuestionEmbed = new EmbedBuilder()
         .setColor("#3f7ff1")
-        .setFooter({ text: 'Click "cancel" to cancel the verification.' });
+        .setFooter({ 
+          text: `Application: ${appName} | Click "cancel" to cancel the verification.`
+        });
 
       try {
         await dmChannel.send({
           embeds: [startDMEmbed],
-          files: startEmbedimage
+          files: startImageAsset.filePath
             ? [
-                new AttachmentBuilder(startEmbedimage).setName(
-                  `startImage.${startEmbedimage.split(".").pop()}`,
+                new AttachmentBuilder(startImageAsset.filePath).setName(
+                  startImageAsset.attachmentName,
                 ),
               ]
             : [],
@@ -288,13 +266,13 @@ module.exports = async ({ interaction, client }) => {
             content: `<@${user.id}>, I cannot send you DMs! Please enable DMs from server members and try again.`,
             flags: MessageFlags.Ephemeral,
           });
-          return false; // DMs are closed or the user has blocked the bot
+          return; // DMs are closed or the user has blocked the bot
         } else {
           throw error;
         }
       }
 
-      var startverification;
+      let startverification;
 
       if (parsedQuestions[0].mcq.length > 0) {
         const maxOptions = Math.min(parsedQuestions[0].mcq.length, 10);
@@ -419,9 +397,11 @@ module.exports = async ({ interaction, client }) => {
               pingStaffRoleId,
               guildId,
               verifyLogsChannel,
-              serverConfig.finishmessage,
+              application.finishmessage,
               client,
-              serverConfig.usethreads,
+              application.usethreads,
+              appName,
+              applicationId,
             );
           })
           .catch(async (error) => {
@@ -455,9 +435,11 @@ module.exports = async ({ interaction, client }) => {
             pingStaffRoleId,
             guildId,
             verifyLogsChannel,
-            serverConfig.finishmessage,
+            application.finishmessage,
             client,
-            serverConfig.usethreads,
+            application.usethreads,
+            appName,
+            applicationId,
           );
         } catch (error) {
           if (
@@ -497,7 +479,7 @@ module.exports = async ({ interaction, client }) => {
             try {
               const user = await c.users.fetch(userid);
               const dmChannel = await user.createDM();
-              var startverification =
+              let startverification =
                 await dmChannel.messages.fetch(startverificationid);
 
               const collector = dmChannel.createMessageCollector({
@@ -745,7 +727,7 @@ module.exports = async ({ interaction, client }) => {
                   if (answercontent.length > 1024 - questionLength) {
                     answercontent =
                       answercontent.substring(0, 1020 - questionLength) + "...";
-                    // console.log('Truncated answer in server: ' + interactionguild.name + ' for user: ' + user.id)
+                    console.log('Truncated verification answer')
                     await collected.author.send(
                       "Note: Your answer was shortened to fit Discord's limits.",
                     );
@@ -913,7 +895,7 @@ module.exports = async ({ interaction, client }) => {
   } finally {
     activeVerifications.delete(interaction.user.id);
   }
-};
+};;
 
 async function constructApplicationEmbed(
   user,
@@ -922,6 +904,7 @@ async function constructApplicationEmbed(
   serverId,
   client,
   pingStaffRoleId,
+  appName,
 ) {
   const guild = await client.guilds.fetch(serverId);
   const guildmember = await guild.members.fetch(user.id);
@@ -930,14 +913,6 @@ async function constructApplicationEmbed(
     where: { unique_id: `${user.id}_${serverId}` },
   });
 
-  // const embed = new EmbedBuilder()
-  //     .setTitle(`${user.tag}'s Verification`)
-  //     .setColor('#3f7ff1')
-  //     .setThumbnail(user.displayAvatarURL({ size: 2048, format: "png" }))
-  //     .setTimestamp()
-  //     .setFooter({ text: user.id })
-  //     .addFields({ name: 'Member info', value: `[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.globalName ?? user.username}\`\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${(invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : '')}` })
-
   const container = new ContainerBuilder({
     accent_color: 4161521,
   })
@@ -945,7 +920,7 @@ async function constructApplicationEmbed(
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s verification\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
           }),
         )
         .setThumbnailAccessory(
@@ -961,54 +936,10 @@ async function constructApplicationEmbed(
     );
 
   if (answers.length > 0) {
-    // let index = 1;
     let totalCharacterCount = 0;
     const MAX_TOTAL_CHARACTERS = 3600;
-    const MAX_FIELD_CHARACTERS = 1024; // Reasonable limit per field
+    const MAX_FIELD_CHARACTERS = 1024;
     answers.forEach((answer, index) => {
-      // // const question = questions[index].content;
-      // // const mcqIndicator = questions[index].mcq?.length > 0 ? '(MCQ)' : '';
-      // // const value = `${question}\n**Answer:** ${answer || 'No answer provided'}`;
-
-      // // embed.addFields({
-      // //     name: `Question ${index + 1} ${mcqIndicator}`,
-      // //     value: value.slice(0, 1024)
-      // // });
-      // // index++;
-
-      // const fieldName = `**${index + 1}. ${questions[index].content}**\n${answer}`;
-
-      // embed.addFields({
-      //     name: `_ _`,
-      //     value: fieldName.slice(0, 1024)
-      // });
-
-      // // const fieldName = `${index + 1}. ${questions[index].content} ${questions[index].mcq?.length > 0 ? '(MCQ)' : ''}`;
-      // // embed.addFields({ name: fieldName, value: answer || '_ _' });
-      // // index++;
-
-      // const isMCQ = questions[index].mcq?.length > 0;
-      // const mcqOptions = isMCQ
-      //     ? '\nOptions:\n' + questions[index].mcq?.map((opt, i) => `${i + 1}. ${opt}`).join('\n')
-      //     : '';
-
-      // const formattedField = [
-      //     `**Question ${index + 1}${isMCQ ? ' (MCQ)' : ''}**`,
-      //     questions[index].content,
-      //     // mcqOptions,
-      //     '───────────────',
-      //     `**Answer:**\n${answer || 'No answer provided'}`,
-      //     '━━━━━━━━━━━━━━━'
-      // ].join('\n');
-
-      // embed.addFields({
-      //     name: '\u200b', // Zero-width space for empty name
-      //     value: formattedField.slice(0, 1024)
-      // });
-
-      // const isMCQ = questions[index].mcq?.length > 0;
-
-      // console.log(answer)
 
       if(totalCharacterCount >= MAX_TOTAL_CHARACTERS) {
         return;
@@ -1017,7 +948,7 @@ async function constructApplicationEmbed(
       const questionText = `**${index + 1}.** **${questions[index].content}**`;
       const answertext = answer.content || "No answer provided";
 
-      var formattedField = [
+      let formattedField = [
         questionText,
         `_ _ ${answertext}`,
       ].join("\n");
@@ -1025,12 +956,6 @@ async function constructApplicationEmbed(
       if (formattedField.length > MAX_FIELD_CHARACTERS) {
         formattedField = formattedField.slice(0, MAX_FIELD_CHARACTERS - 3) + "...";
       }
-
-      // if (totalCharacterCount + formattedField.length > 3900) {
-      //   const remainingCharacters = 3900 - totalCharacterCount;
-      //   formattedField =
-      //     formattedField.slice(0, remainingCharacters - 3) + "...";
-      // }
 
       if (totalCharacterCount + formattedField.length > MAX_TOTAL_CHARACTERS) {
         const remainingCharacters = MAX_TOTAL_CHARACTERS - totalCharacterCount;
@@ -1052,7 +977,6 @@ async function constructApplicationEmbed(
       }
 
       totalCharacterCount += formattedField.length;
-      console.log(totalCharacterCount);
 
       container.addTextDisplayComponents(
         new TextDisplayBuilder({
@@ -1061,7 +985,7 @@ async function constructApplicationEmbed(
       );
 
       if (answer.attachments && answer.attachments.length > 0) {
-        var allurls = answer.attachments;
+        const allurls = answer.attachments;
         const mappedurls = allurls?.map((url) => ({
           media: {
             url: url,
@@ -1073,16 +997,10 @@ async function constructApplicationEmbed(
           }),
         );
       }
-
-      // embed.addFields({
-      //     name: '\u200b', // Zero-width space for empty name
-      //     value: formattedField
-      // });
     });
   }
 
   return container;
-  // return embed;
 }
 
 async function processVerificationResult(
@@ -1098,22 +1016,28 @@ async function processVerificationResult(
   finishmessage,
   client,
   useThreads,
+  appName,
+  applicationId,
 ) {
   if (reason === "completed") {
     // Process collected responses and send to verification review channel
     updateVerifications();
 
     const finishEmbedTitle = replaceplaceholder(
-      finishmessage.title,
+      finishmessage?.title,
       interaction.user.globalName ?? interaction.user.username,
       interaction.guild.name,
     );
     const finishEmbedDescription = replaceplaceholder(
-      finishmessage.description,
+      finishmessage?.description,
       interaction.user.globalName ?? interaction.user.username,
       interaction.guild.name,
     );
-    const finishEmbedimage = finishmessage.image;
+      const finishEmbedimage = finishmessage?.image;
+      const finishImageAsset = resolveImage(
+        finishEmbedimage,
+        "finishImage",
+      );
 
     const endEmbed = new EmbedBuilder()
       .setTitle(
@@ -1121,26 +1045,22 @@ async function processVerificationResult(
       )
       .setDescription(finishEmbedDescription)
       .setColor("#008000")
-      .setImage(
-        finishEmbedimage
-          ? `attachment://finishImage.${finishEmbedimage.split(".").pop()}`
-          : null,
-      );
+      .setFooter({ text: `Application: ${appName}` })
+        .setImage(finishImageAsset.embedUrl);
 
     dmChannel.send({
       embeds: [endEmbed],
-      files: finishEmbedimage
-        ? [
-            new AttachmentBuilder(finishEmbedimage).setName(
-              `finishImage.${finishEmbedimage.split(".").pop()}`,
+        files: finishImageAsset.filePath
+          ? [
+            new AttachmentBuilder(finishImageAsset.filePath).setName(
+              finishImageAsset.attachmentName,
             ),
           ]
-        : [],
+          : [],
     });
 
     user = user || interaction.user;
 
-    // const applicationEmbed = await constructApplicationEmbed(user, botQuestions, responses, interaction.guild.id, client);
     const container = await constructApplicationEmbed(
       user,
       botQuestions,
@@ -1148,46 +1068,35 @@ async function processVerificationResult(
       interaction.guild.id,
       client,
       pingStaffRoleId,
+      appName,
     );
 
     //create the buttons
     const verify = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
-        .setCustomId(`verify_${interaction.user.id}`)
+        .setCustomId(`verify_${applicationId}_${interaction.user.id}`)
         .setLabel("Verify")
         .setStyle("Success"),
       new ButtonBuilder()
-        .setCustomId(`deny_${interaction.user.id}`)
+        .setCustomId(`deny_${applicationId}_${interaction.user.id}`)
         .setLabel("Deny")
         .setStyle("Danger"),
       new ButtonBuilder()
-        .setCustomId(`reasondeny_${interaction.user.id}`)
+        .setCustomId(`reasondeny_${applicationId}_${interaction.user.id}`)
         .setLabel("Deny with reason")
         .setStyle("Danger"),
       new ButtonBuilder()
-        .setCustomId(`question_${interaction.user.id}`)
+        .setCustomId(`question_${applicationId}_${interaction.user.id}`)
         .setLabel("Question")
         .setStyle("Primary"),
       new ButtonBuilder()
-        .setCustomId(`action_${interaction.user.id}`)
+        .setCustomId(`action_${applicationId}_${interaction.user.id}`)
         .setLabel("Kick")
         .setStyle("Secondary"),
     );
 
-    var channelsent;
+    let channelsent;
 
-    // console.log(pingStaffRoleId)
-
-    // if (Array.isArray(pingStaffRoleId) && pingStaffRoleId.length > 0) {
-    //     const rolesToPing = pingStaffRoleId?.map(roleId => `<@&${roleId}>`).join(' ');
-    //     channelsent = await verifyLogsChannel.send({ content: `${rolesToPing} ${user}`, embeds: [applicationEmbed], components: [verify], withResponse: true });
-    //     await channelsent.startThread({
-    //         name: `${user.globalName ?? user.username}'s Verification`,
-    //         // autoArchiveDuration: 60,
-    //         // reason: `Verification thread for ${user.id} in ${interaction.guild.name}`
-    //     })
-    // } else {
-    // channelsent = await verifyLogsChannel.send({ content: `${user}`, embeds: [applicationEmbed], components: [verify]});
     channelsent = await verifyLogsChannel.send({
       flags: [MessageFlags.IsComponentsV2],
       components: [container, verify],
@@ -1197,8 +1106,7 @@ async function processVerificationResult(
         name: `${user.globalName ?? user.username}'s Verification`,
       });
     }
-    // }
-
+    
     try {
       const verification = await Verification.findOne({
         where: { userId: user.id },

@@ -1,21 +1,36 @@
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const {
-  createTemporarySetup,
-  updateTemporarySetup,
+  updateTempApplication,
+  getTempApplicationById,
 } = require("../js/tempconfigfuncs.js");
+const { MessageFlags } = require("discord.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context[0]);
+  let tempApplicationId = parseInt(context?.[1] ?? context?.[0], 10);
+
+  if (!tempApplicationId || isNaN(tempApplicationId)) {
+    return interaction.reply({
+      content: 'Temp Application ID is missing. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   const question = interaction.fields.getTextInputValue(`question`);
   const mcq = interaction.fields.getTextInputValue(`mcq`);
-  var mcqArray = mcq ? mcq.split("\n") : [];
+  let mcqArray = mcq ? mcq.split("\n") : [];
 
   if (mcqArray.length > 9) {
     mcqArray = mcqArray.slice(0, 9);
   }
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+  const { tempApp: temporarySetup, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !temporarySetup) {
+    return interaction.reply({
+      content: error || 'Temporary setup not found. Please try again.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   if (!temporarySetup.questions) {
     temporarySetup.questions = [];
@@ -37,15 +52,15 @@ module.exports = async ({ interaction, client, context }) => {
     })
     .filter((q) => q !== null);
 
-  await updateTemporarySetup(interaction.guild.id, {
+  await updateTempApplication(interaction.guild.id, {
     questions: temporarySetup.questions,
-  });
+  }, { id: tempApplicationId });
 
   if (isfirsttime === 0) {
-    questioninfo({ interaction, client });
+    questioninfo({ interaction, client, tempApplicationId });
   } else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction });
+    firsttimequestions({ interaction, tempApplicationId });
   }
 };

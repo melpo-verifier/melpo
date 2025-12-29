@@ -1,6 +1,4 @@
 const {
-  // ButtonBuilder,
-  // ActionRowBuilder,
   EmbedBuilder,
   PermissionsBitField,
   MessageFlags,
@@ -12,12 +10,14 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { Verification, ServerConfig } = require("../dbObjects.js");
+const { Verification } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, client, userid, context }) => {
+module.exports = async ({ interaction, client, userid, context, applicationId }) => {
   await interaction.deferUpdate();
 
-  const originaluserid = context[0]?.toString();
+  // context[0] is applicationId, context[1] is the user ID who pressed the button
+  const originaluserid = context[1]?.toString();
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
@@ -29,47 +29,23 @@ module.exports = async ({ interaction, client, userid, context }) => {
     throw new Error("Could not fetch user ID from the embed");
   }
 
-  // const disverify = new ActionRowBuilder().addComponents(
-  //   new ButtonBuilder()
-  //     .setCustomId("verify")
-  //     .setLabel("Verify")
-  //     .setStyle("Success")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("deny")
-  //     .setLabel("Deny")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("reasondeny")
-  //     .setLabel("Deny with reason")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("question")
-  //     .setLabel("Question")
-  //     .setStyle("Primary")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("action")
-  //     .setLabel("Kick")
-  //     .setStyle("Secondary")
-  //     .setDisabled(true),
-  // );
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+  if (error) {
+    return interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
-
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return interaction.followUp({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -143,23 +119,16 @@ module.exports = async ({ interaction, client, userid, context }) => {
   });
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
 
-  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-  //   const originalContainer = interaction.message.components[0];
-  //   interaction.editReply({ components: [originalContainer, disverify] });
-  // } else {
-  //   await interaction.editReply({ components: [disverify] });
-  // }
-
   if (
-    serverConfig.verifylogs &&
+    application?.verifylogs &&
     messageids &&
-    serverConfig.reviewchannel !== serverConfig.verifylogs
+    application.reviewchannel !== application.verifylogs
   ) {
     const reviewChannel = interaction.guild.channels.cache.get(
-      serverConfig.reviewchannel,
+      application.reviewchannel,
     );
     const logChannel = interaction.guild.channels.cache.get(
-      serverConfig.verifylogs,
+      application.verifylogs,
     );
 
     if (logChannel && reviewChannel && messageids) {
@@ -318,7 +287,7 @@ module.exports = async ({ interaction, client, userid, context }) => {
 
         try {
           const message = await interaction.channel.messages.fetch(messageId);
-          // Add a 1-second delay
+          // 1 second delay
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           if (message && message.author.id === client.user.id) {
@@ -329,7 +298,7 @@ module.exports = async ({ interaction, client, userid, context }) => {
                 components: [editedContainer],
               });
             } else if (!message?.embeds[0]?.footer?.text?.includes("Kicked")) {
-              var originalembed = message.embeds[0];
+              const originalembed = message.embeds[0];
 
               let Embed = new EmbedBuilder(originalembed)
                 .setColor("#EB2121")

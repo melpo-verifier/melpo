@@ -7,7 +7,7 @@ const {
 } = require("discord.js");
 
 module.exports = async ({ interaction, context }) => {
-  const num = parseInt(context[0]);
+  const num = parseInt(context[0], 10);
 
   await interaction.deferUpdate();
 

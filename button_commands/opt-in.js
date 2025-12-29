@@ -10,7 +10,7 @@ module.exports = async ({ interaction }) => {
   const guildId = info.guildId;
   const dmChannel = await user.createDM();
 
-  var allinfo = await QuestionId.findAll({
+  let allinfo = await QuestionId.findAll({
     where: { userId: user.id, guildId: guildId },
   });
 

@@ -1,9 +1,10 @@
 const { MessageFlags } = require("discord.js");
-const { updateTemporarySetup } = require("../js/tempconfigfuncs.js");
+const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 const customizationMenu = require("../menu_commands/selectcustomizationMenu.js");
 
-module.exports = async ({ interaction }) => {
-  const customIdValue = interaction.customId.split("_")[1];
+module.exports = async ({ interaction, context }) => {
+  const customIdValue = context[0]
+  const tempApplicationId = parseInt(context[1], 10);
   const value = interaction.fields.getTextInputValue("color");
 
   const hexColorRegex = /^#?[0-9A-Fa-f]{6}$/;
@@ -17,8 +18,8 @@ module.exports = async ({ interaction }) => {
 
   const formattedValue = value.startsWith("#") ? value : `#${value}`;
 
-  await updateTemporarySetup(interaction.guild.id, {
+  await updateTempApplication(interaction.guild.id, {
     [customIdValue]: { color: formattedValue },
-  });
-  customizationMenu({ interaction, customIdValue });
+  }, { id: tempApplicationId });
+  customizationMenu({ interaction, customIdValue, tempApplicationId });
 };

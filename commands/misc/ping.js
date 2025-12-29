@@ -16,11 +16,6 @@ module.exports = {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = Math.round(totalSeconds % 60);
 
-    const memoryUsage = process.memoryUsage();
-    const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
-    const heapTotalMB = Math.round(memoryUsage.heapTotal / 1024 / 1024);
-    const rssMB = Math.round(memoryUsage.rss / 1024 / 1024);
-
     const systemUptime = os.uptime();
     const sysDays = Math.floor(systemUptime / 86400);
     const sysHours = Math.floor((systemUptime % 86400) / 3600);
@@ -33,9 +28,6 @@ module.exports = {
     await interaction.reply("Pinging...");
     const sent = await interaction.fetchReply();
     const apiLatency = sent.createdTimestamp - interaction.createdTimestamp;
-
-    const cpuUsage = process.cpuUsage();
-    const cpuPercent = ((cpuUsage.user + cpuUsage.system) / 1e6).toFixed(2);
 
     const embed = new EmbedBuilder()
       .setColor("Blue")
@@ -58,11 +50,6 @@ module.exports = {
           inline: true,
         },
         {
-          name: ":desktop: Memory Usage",
-          value: `• Heap Used: ${heapUsedMB}MB\n• Heap Total: ${heapTotalMB}MB\n• RSS: ${rssMB}MB`,
-          inline: false,
-        },
-        {
           name: ":satellite: Shard Info",
           value: `• Shard ID: ${shardId}\n• Total Shards: ${totalShards}`,
           inline: true,
@@ -70,11 +57,6 @@ module.exports = {
         {
           name: ":computer: System Uptime",
           value: `${sysDays}d ${sysHours}h ${sysMinutes}m ${sysSeconds}s`,
-          inline: true,
-        },
-        {
-          name: ":chart_with_upwards_trend: CPU Usage",
-          value: `${cpuPercent}%`,
           inline: true,
         },
       )

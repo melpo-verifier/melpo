@@ -1,6 +1,4 @@
 const {
-  // ButtonBuilder,
-  // ActionRowBuilder,
   EmbedBuilder,
   MessageFlags,
   ContainerBuilder,
@@ -11,37 +9,10 @@ const {
   SectionBuilder,
   ThumbnailBuilder,
 } = require("discord.js");
-const { Verification, ServerConfig } = require("../dbObjects.js");
+const { Verification } = require("../dbObjects.js");
+const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, client, userid }) => {
-  // const disverify = new ActionRowBuilder().addComponents(
-  //   new ButtonBuilder()
-  //     .setCustomId("verify")
-  //     .setLabel("Verify")
-  //     .setStyle("Success")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("deny")
-  //     .setLabel("Deny")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("reasondeny")
-  //     .setLabel("Deny with reason")
-  //     .setStyle("Danger")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("question")
-  //     .setLabel("Question")
-  //     .setStyle("Primary")
-  //     .setDisabled(true),
-  //   new ButtonBuilder()
-  //     .setCustomId("action")
-  //     .setLabel("Kick")
-  //     .setStyle("Secondary")
-  //     .setDisabled(true),
-  // );
-
+module.exports = async ({ interaction, client, userid, applicationId }) => {
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
       content: `Oop! It seems this user has already been handled by someone else!`,
@@ -53,33 +24,30 @@ module.exports = async ({ interaction, client, userid }) => {
   const user = await client.users.fetch(userid);
 
   await interaction.deferUpdate();
-  //disable buttons without changing the other components
-  // if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-  //   const originalContainer = interaction.message.components[0];
-  //   interaction.editReply({ components: [originalContainer, disverify] });
-  // } else {
-  //   await interaction.editReply({ components: [disverify] });
-  // }
 
   const verification = await Verification.findOne({
     where: { userId: userid },
   });
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
+  const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
+  if (error) {
+    return interaction.followUp({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
   const reason = interaction.fields.getTextInputValue("denyInput");
 
   if (
-    serverConfig.verifylogs &&
+    application.verifylogs &&
     messageids &&
-    serverConfig.reviewchannel !== serverConfig.verifylogs
+    application.reviewchannel !== application.verifylogs
   ) {
     const reviewChannel = interaction.guild.channels.cache.get(
-      serverConfig.reviewchannel,
+      application.reviewchannel,
     );
     const logChannel = interaction.guild.channels.cache.get(
-      serverConfig.verifylogs,
+      application.verifylogs,
     );
 
     if (logChannel && reviewChannel && messageids) {
@@ -203,7 +171,6 @@ module.exports = async ({ interaction, client, userid }) => {
         interaction.message,
         reason,
       );
-      console.log(verifiedContainer);
 
       await interaction.editReply({
         flags: [MessageFlags.IsComponentsV2],
@@ -259,7 +226,7 @@ module.exports = async ({ interaction, client, userid }) => {
                 components: [editedContainer],
               });
             } else if (!message?.embeds[0]?.footer?.text?.includes("Denied")) {
-              var originalembed = message.embeds[0];
+              const originalembed = message.embeds[0];
 
               let Embed = new EmbedBuilder(originalembed)
                 .setColor("#EB2121")
@@ -356,7 +323,6 @@ async function handleV2edit(interaction, message, reason) {
           }),
         );
       } else if (component.type === 12) {
-        console.log(component.items);
         if (component.items?.length > 0) {
           const mappedurls = component.items?.map((item) => ({
             media: {

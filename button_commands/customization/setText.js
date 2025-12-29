@@ -7,46 +7,26 @@ const {
   ComponentType,
 } = require("discord.js");
 const activeCollectors = new Map();
-const { updateTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { updateTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction, client, context }) => {
+module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0];
+  const tempApplicationId = parseInt(context[1], 10);
 
-  // if(customIdValue === 'verificationwelcomemessage') {
-  //     messageCollecting(interaction, customIdValue, client)
-  // } else {
-  //     const modal = new ModalBuilder()
-  //         .setCustomId(`setTextModal_${customIdValue}`)
-  //         .setTitle('Edit Embed Text');
-
-  //     const Title = new TextInputBuilder()
-  //         .setCustomId(`title`)
-  //         .setLabel("Set Embed Title (optional)")
-  //         .setStyle(TextInputStyle.Short)
-  //         .setPlaceholder('Title of the embed (optional)')
-  //         .setRequired(false)
-  //         .setValue(interaction.message.embeds[1].title ? interaction.message.embeds[1].title : '');
-
-  //     const Description = new TextInputBuilder()
-  //         .setCustomId(`description`)
-  //         .setLabel("Set Embed Description")
-  //         .setStyle(TextInputStyle.Paragraph)
-  //         .setPlaceholder('Enter embed description here')
-  //         .setRequired(true)
-  //         .setValue(interaction.message.embeds[1].description);
-
-  //     const titleRow = new ActionRowBuilder().addComponents(Title)
-  //     const descriptionRow = new ActionRowBuilder().addComponents(Description)
-  //     modal.addComponents(titleRow, descriptionRow)
-
-  //     await interaction.showModal(modal)
-  // }
+  // Validate tempApplicationId
+  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  if (error || !tempApp) {
+    return interaction.reply({
+      content: error || "Application not found or does not belong to this server.",
+      flags: 64,
+    });
+  }
 
   if (customIdValue === "verificationwelcomemessage") {
-    messageCollecting(interaction, customIdValue, client);
+    messageCollecting(interaction, customIdValue, tempApplicationId);
   } else {
     const modal = new ModalBuilder()
-      .setCustomId(`setTextModal_${customIdValue}`)
+      .setCustomId(`setTextModal_${customIdValue}_${tempApplicationId}`)
       .setTitle("Edit Embed Text");
 
     // Get existing values or set defaults
@@ -79,7 +59,7 @@ module.exports = async ({ interaction, client, context }) => {
   }
 };
 
-async function messageCollecting(interaction, customIdValue) {
+async function messageCollecting(interaction, customIdValue, tempApplicationId) {
   const channelId = interaction.channel.id;
   const userId = interaction.user.id;
 
@@ -92,8 +72,8 @@ async function messageCollecting(interaction, customIdValue) {
   const filter = (msg) => msg.author.id === userId;
   const buttonfilter = (buttonInteraction) =>
     buttonInteraction.user.id === interaction.user.id &&
-    (buttonInteraction.customId === "cancelsetText" ||
-      buttonInteraction.customId === "notitle") &&
+    (buttonInteraction.customId.startsWith("cancelsetText") ||
+      buttonInteraction.customId.startsWith("notitle")) &&
     (buttonInteraction.message.content.includes(
       "Please note you cannot use {mentionuser} in the title.",
     ) ||
@@ -155,21 +135,9 @@ async function messageCollecting(interaction, customIdValue) {
       .setDisabled(true),
   );
 
-  // // Function to disable the cancel button
-  // const disableCancelButton = async (message) => {
-  //     // console.log(message)
-  //     //disable the buttons from the message
-  //     console.log(message.components)
-  //     const disabledcomponents = new ActionRowBuilder(message.components[0])
-  //     console.log(disabledcomponents)
-  //     // const disabledcomponents = message.components[0].components.forEach((button) => button.setDisabled(false));
-  //     // console.log(disabledcomponents)
-
-  //     await message.edit({ components: [disabledcomponents] });
-  // };
 
   const sendMessage = async (type, content, cancel) => {
-    var message;
+    let message;
 
     if (type === "interactionreply") {
       if (cancel) {
@@ -194,9 +162,6 @@ async function messageCollecting(interaction, customIdValue) {
     }
 
     botMessages.push(message);
-
-    // console.log(botMessages.length)
-    // console.log(botMessages[botMessages.length - 1])
   };
 
   //NEEDS FIXING WITH THE EMPTY TITLE!!!!
@@ -204,12 +169,10 @@ async function messageCollecting(interaction, customIdValue) {
     "interactionreply",
     `You'll be able to change the title and the description of the welcome message, we'll start with the title you would like to set. You have 5 minutes to do so.\n**Please note you cannot use {mentionuser} in the title.**`,
     true,
-  ); //\nYou can type \`empty\` to set no title.`);
+  );
 
-  // await console.log(botMessages[botMessages.length - 1])
-
-  var title;
-  var description;
+  let title;
+  let description;
 
   cancelCollector.on("collect", async (buttonInteraction) => {
     console.log(buttonInteraction.customId);
@@ -221,22 +184,15 @@ async function messageCollecting(interaction, customIdValue) {
         components: [],
       });
     } else if (buttonInteraction.customId === "notitle") {
-      // await disableCancelButton(botMessages[botMessages.length - 1]);
       buttonInteraction.update({ components: [disabledtitelcancelrow] });
       title = "deleted";
-      // await botMessages[botMessages.length - 1].edit({ components: [disabledtitelcancelrow] });
       step++;
       await sendMessage(
         "messagereply",
         "Now, please provide the description for the welcome message.",
         true,
-      ); //\nYou can type \`empty\` to set no description.');
+      );
     }
-    // .then(() => {
-    //     setTimeout(() => {
-    //         buttonInteraction.message.delete();
-    //     }, 2500);
-    // });
   });
 
   messageCollector.on("collect", async (collected) => {
@@ -262,7 +218,6 @@ async function messageCollecting(interaction, customIdValue) {
 
       title = collected.content;
 
-      // await disableCancelButton(botMessages[botMessages.length - 1]);
       await botMessages[botMessages.length - 1].edit({
         components: [disabledtitelcancelrow],
       });
@@ -271,13 +226,7 @@ async function messageCollecting(interaction, customIdValue) {
         "messagereply",
         "Now, please provide the description for the welcome message.",
         true,
-      ); //\nYou can type \`empty\` to set no description.');
-
-      // console.log(botMessages.length)
-      // console.log(botMessages)
-      // console.log(botMessages[botMessages.length - 1])
-
-      // await disableCancelButton(botMessages[botMessages.length - 1]);
+      );
 
       step++;
     } else if (step === 1) {
@@ -287,7 +236,6 @@ async function messageCollecting(interaction, customIdValue) {
           "Custom welcome message has been cancelled: The description exceeds the 4096 character limit. Please provide a shorter description.",
         );
       }
-      // await disableCancelButton(botMessages[botMessages.length - 1]);
       await botMessages[botMessages.length - 1].edit({
         components: [disabledcancelrow],
       });
@@ -301,19 +249,14 @@ async function messageCollecting(interaction, customIdValue) {
     cancelCollector.stop("cancelled");
     // Clean up the collector from the Map
     activeCollectors.delete(channelId);
-    // if (reason === 'newCollectorStarted') {
-    //     console.log('Collector was stopped because a new collector was started.');
-    // } else if (reason === 'cancelled') {
-    //     console.log('Collector was cancelled.');
-    // } else
     if (reason === "finished") {
-      await updateTemporarySetup(interaction.guild.id, {
+      await updateTempApplication(interaction.guild.id, {
         [customIdValue]: {
           title: title,
           description: description,
           text: "deleted",
         },
-      });
+      }, { id: tempApplicationId });
       const endmessage = await interaction.message.reply({
         content:
           "Verification welcome message succesfully set! Now returning to the setup embed...",
@@ -335,10 +278,9 @@ async function messageCollecting(interaction, customIdValue) {
         botMessages.length = 0;
 
         const customizationMenu = require("../../menu_commands/selectcustomizationMenu.js");
-        customizationMenu({ interaction, customIdValue });
+        customizationMenu({ interaction, customIdValue, tempApplicationId });
       }, 2500);
     } else if (reason === "cancelled") {
-      // await sendMessage('interactionreply', 'Custom welcome message has been cancelled.', true);
       setTimeout(async () => {
         // Delete collected messages
         for (const message of collected.values()) {
@@ -350,13 +292,10 @@ async function messageCollecting(interaction, customIdValue) {
           await message.delete().catch(console.error);
         }
 
-        //delete botMessages
         botMessages.length = 0;
       }, 2500);
     } else {
       botMessages.length = 0;
     }
-
-    // botMessages.length = 0
   });
 }

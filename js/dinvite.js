@@ -1,3 +1,4 @@
+const { Events } = require("discord.js");
 const { Collection } = require("@discordjs/collection");
 const { InviteTracker } = require("../dbObjects.js");
 
@@ -21,22 +22,14 @@ module.exports = class InviteManager {
       return hasPermission;
     }
 
-    client.on("ready", async () => {
+    client.on(Events.ClientReady, async () => {
       console.log("Starting to load invites...");
-      const Allguilds = Array.from(client.guilds.cache.values());
+      const allGuilds = Array.from(client.guilds.cache.values());
       const batchSize = 5;
       const delay = 2000;
 
-      // Filter guilds where melpo has permissions
-      const guilds = Allguilds.filter((guild) => {
-        const hasPermission = guild.members.me?.permissions.has("ManageGuild");
-        if (!hasPermission) {
-          console.log(
-            `Missing ManageGuild permission in guild: ${guild.name} (${guild.id})`,
-          );
-        }
-        return hasPermission;
-      });
+      // Filter guilds where bot has ManageGuild permission
+      const guilds = allGuilds.filter(hasInvitePermission);
 
       for (let i = 0; i < guilds.length; i += batchSize) {
         const batch = guilds.slice(i, i + batchSize);
@@ -45,7 +38,7 @@ module.exports = class InviteManager {
         );
 
         await Promise.all(
-          batch?.map(async (guild) => {
+          batch.map(async (guild) => {
             try {
               const collect = new Collection();
               const guildInvites = await guild.invites.fetch().catch((err) => {
@@ -85,7 +78,7 @@ module.exports = class InviteManager {
 
       const invitesData = new Collection();
       invite.guild.invites.fetch().then((bes) => {
-        bes?.map((x) => {
+        bes.forEach((x) => {
           invitesData.set(x.code, {
             uses: x.uses,
             inviter: x.inviter,
@@ -126,7 +119,7 @@ module.exports = class InviteManager {
         ) || member.guild.vanityURLCode;
 
       const hasVanityFeature = member.guild.features.includes("VANITY_URL");
-      var vanityURL = null;
+      let vanityURL = null;
 
       if (hasVanityFeature && member.guild.vanityURLCode) {
         try {
@@ -156,11 +149,11 @@ module.exports = class InviteManager {
             where: { unique_id: `${member.user.id}_${member.guild.id}` },
           });
 
-          if (invite == member.guild.vanityURLCode) {
+          if (invite == member.guild.vanityURLCode && hasVanityFeature === true) {
             // client.emit("memberJoin", member, member.guild.vanityURLCode, vanityURL)
             Tracker.id = "vanity";
-            Tracker.code = vanityURL.code;
-            Tracker.uses = vanityURL.uses;
+            Tracker.code = member.guild.vanityURLCode;
+            Tracker.uses = vanityURL?.uses ?? null;
           } else if (invite.inviter.id == member.user.id) {
             // client.emit("memberJoin", member, member, invite)
             Tracker.id = member.id;

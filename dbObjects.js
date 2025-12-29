@@ -51,6 +51,15 @@ const Whitelist = require("./models/whitelist.js")(
   sequelize,
   Sequelize.DataTypes,
 );
+const Application = require("./models/Application.js")(
+  sequelize, 
+  Sequelize.DataTypes
+);
+const TempApplication = require("./models/TempApplication.js")(sequelize, Sequelize.DataTypes);
+
+
+ServerConfig.hasMany(Application, { foreignKey: 'server_id', onDelete: 'CASCADE' });
+Application.belongsTo(ServerConfig, { foreignKey: 'server_id' });
 
 module.exports = {
   sequelize,
@@ -65,4 +74,6 @@ module.exports = {
   ArtBoardConfig,
   ArtLeaderboard,
   Whitelist,
+  Application,
+  TempApplication,
 };

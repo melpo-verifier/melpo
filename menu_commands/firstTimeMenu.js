@@ -1,17 +1,18 @@
 const { ButtonBuilder, ActionRowBuilder } = require("discord.js");
-const { updateTemporarySetup } = require("../js/tempconfigfuncs.js");
+const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, context }) => {
-  const channelnumber = parseInt(context[0]);
+  await interaction.deferUpdate();
+  const channelnumber = parseInt(context[0], 10);
+  const tempApplicationId = parseInt(context[1], 10);
 
   if (channelnumber === 0) {
     const channel = interaction.values[0];
 
-    await updateTemporarySetup(interaction.guild.id, {
+    await updateTempApplication(interaction.guild.id, {
       verifychannel: channel,
-    });
+    }, { id: tempApplicationId });
 
-    //edit embed to show the channel and enable the next button from the interaction components
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = `<#${channel}>`;
 
@@ -19,28 +20,25 @@ module.exports = async ({ interaction, context }) => {
     const actionRow = originalComponents[1];
     const originalButtons = actionRow.components;
 
-    // Find the specific button to modify (assuming it's the first button)
     const nextButton = ButtonBuilder.from(originalButtons[0]);
     nextButton.setDisabled(false);
 
-    // Update the action row with the modified button
     const updatedActionRow = new ActionRowBuilder().addComponents(
       nextButton,
       originalButtons[1],
     );
 
-    await interaction.update({
+    await interaction.editReply({
       embeds: [embed],
       components: [interaction.message.components[0], updatedActionRow],
     });
   } else if (channelnumber === 1) {
     const channel = interaction.values[0];
 
-    await updateTemporarySetup(interaction.guild.id, {
+    await updateTempApplication(interaction.guild.id, {
       reviewchannel: channel,
-    });
+    }, { id: tempApplicationId });
 
-    //edit embed to show the channel and enable the next button from the interaction components
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = `<#${channel}>`;
 
@@ -48,26 +46,25 @@ module.exports = async ({ interaction, context }) => {
     const actionRow = originalComponents[1];
     const originalButtons = actionRow.components;
 
-    // Find the specific button to modify (assuming it's the first button)
     const nextButton = ButtonBuilder.from(originalButtons[0]);
-    nextButton.setDisabled(false).setCustomId("next_1");
+    nextButton.setDisabled(false).setCustomId(`next_1_${tempApplicationId}`);
 
-    // Update the action row with the modified button
     const updatedActionRow = new ActionRowBuilder().addComponents(
       nextButton,
       originalButtons[1],
     );
 
-    await interaction.update({
+    await interaction.editReply({
       embeds: [embed],
       components: [interaction.message.components[0], updatedActionRow],
     });
   } else if (channelnumber === 2) {
     const role = interaction.values;
 
-    await updateTemporarySetup(interaction.guild.id, { verifiedrole: role });
+    await updateTempApplication(interaction.guild.id, {
+      verifiedrole: role,
+    }, { id: tempApplicationId });
 
-    //edit embed to show the role and enable the next button from the interaction components
     const embed = interaction.message.embeds[0];
     embed.fields[channelnumber].value = role
       ?.map((role) => `<@&${role}>`)
@@ -77,17 +74,15 @@ module.exports = async ({ interaction, context }) => {
     const actionRow = originalComponents[1];
     const originalButtons = actionRow.components;
 
-    // Find the specific button to modify (assuming it's the first button)
     const nextButton = ButtonBuilder.from(originalButtons[0]);
-    nextButton.setDisabled(false).setCustomId("next_2");
+    nextButton.setDisabled(false).setCustomId(`next_2_${tempApplicationId}`);
 
-    // Update the action row with the modified button
     const updatedActionRow = new ActionRowBuilder().addComponents(
       nextButton,
       originalButtons[1],
     );
 
-    await interaction.update({
+    await interaction.editReply({
       embeds: [embed],
       components: [interaction.message.components[0], updatedActionRow],
     });

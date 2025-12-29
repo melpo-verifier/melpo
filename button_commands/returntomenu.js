@@ -4,42 +4,47 @@ const {
   EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { getApplicationById } = require("../js/tempconfigfuncs.js");
 
-module.exports = async ({ interaction }) => {
+module.exports = async ({ interaction, applicationId }) => {
   const verify = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("verify")
+      .setCustomId(`verify_${applicationId}`)
       .setLabel("Verify")
       .setStyle("Success"),
-    new ButtonBuilder().setCustomId("deny").setLabel("Deny").setStyle("Danger"),
+    new ButtonBuilder().setCustomId(`deny_${applicationId}`).setLabel("Deny").setStyle("Danger"),
     new ButtonBuilder()
-      .setCustomId("reasondeny")
+      .setCustomId(`reasondeny_${applicationId}`)
       .setLabel("Deny with reason")
       .setStyle("Danger"),
     new ButtonBuilder()
-      .setCustomId("question")
+      .setCustomId(`question_${applicationId}`)
       .setLabel("Question")
       .setStyle("Primary"),
     new ButtonBuilder()
-      .setCustomId("action")
+      .setCustomId(`action_${applicationId}`)
       .setLabel("Kick")
       .setStyle("Secondary"),
   );
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
+  const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
 
-  if (serverConfig && Array.isArray(serverConfig.managerrole)) {
+  if (error) {
+    return interaction.reply({
+      content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = serverConfig.managerrole.some((role) =>
+    const hasManagerRole = application.managerrole.some((role) =>
       member.roles.cache.has(role),
     );
 
     if (!hasManagerRole) {
       return interaction.reply({
-        content: `You do not have permission to manage verifications. You need one of the following roles: ${serverConfig.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
         flags: MessageFlags.Ephemeral,
       });
     }

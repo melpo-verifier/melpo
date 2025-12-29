@@ -31,7 +31,8 @@ class ErrorHandler {
 
     console.error(`[${timestamp}] Error ${errorId} (${errorType}):`, {
       message: error.message,
-      stack: error.stack?.split("\n").slice(0, 5).join("\n"),
+      error: error,
+      // stack: error.stack?.split("\n").slice(0, 5).join("\n"),
       context: context || "Unknown",
       guild: interaction?.guild?.id || "Unknown",
       user: interaction?.user?.id || "Unknown",

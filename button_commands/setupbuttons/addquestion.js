@@ -6,10 +6,12 @@ const {
 } = require("discord.js");
 
 module.exports = async ({ interaction, context }) => {
-  const isfirsttime = parseInt(context[0]);
+  const isfirsttime = parseInt(context[0], 10);
+  const tempApplicationId = context?.[1] ?? context?.[0];
+  console.log(context)
 
   const modal = new ModalBuilder()
-    .setCustomId(`addQuestionModal_${isfirsttime}`)
+    .setCustomId(`addQuestionModal_${isfirsttime}_${tempApplicationId}`)
     .setTitle("Add Question");
 
   const Question = new TextInputBuilder()

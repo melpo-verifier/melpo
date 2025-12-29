@@ -6,7 +6,7 @@ const {
 } = require("discord.js");
 const { QuestionId } = require("../dbObjects.js");
 
-module.exports = async ({ interaction, client, userid }) => {
+module.exports = async ({ interaction, client, userid, applicationId }) => {
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
       content: `Oop! It seems this user has already been handled by someone else!`,
@@ -17,14 +17,14 @@ module.exports = async ({ interaction, client, userid }) => {
 
   const replybutton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`question_${userid}`)
+      .setCustomId(`question_${applicationId}_${userid}`)
       .setLabel("Reply")
       .setStyle("Primary"),
   );
 
   const confirmrow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId("answerquestion")
+      .setCustomId(`answerquestion_${applicationId}`)
       .setLabel("Answer")
       .setStyle("Success"),
     new ButtonBuilder()
@@ -53,6 +53,7 @@ module.exports = async ({ interaction, client, userid }) => {
       channelId: interaction.channel.id,
       guildId: interaction.guild.id,
       userId: userid,
+      applicationId: applicationId,
     });
   } catch (error) {
     if (error.code === 50007) {

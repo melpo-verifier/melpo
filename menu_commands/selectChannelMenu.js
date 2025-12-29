@@ -2,8 +2,9 @@ const generalinfo = require("../button_commands/setupbuttons/generalinfo.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const ivalue = interaction.values[0];
+  const tempApplicationId = parseInt(context[0], 10);
 
-  var whichdefault;
+  let whichdefault;
 
   if (ivalue === "verifyChannel") {
     whichdefault = 0;
@@ -15,5 +16,5 @@ module.exports = async ({ interaction, client, context }) => {
     whichdefault = 3;
   }
 
-  await generalinfo({ interaction, client, whichdefault, context });
+  await generalinfo({ interaction, client, whichdefault, tempApplicationId });
 };
