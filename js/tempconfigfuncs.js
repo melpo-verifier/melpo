@@ -53,7 +53,8 @@ async function updateTemporarySetup(serverID, updates) {
     if (Object.prototype.hasOwnProperty.call(updates, key)) {
       if (Array.isArray(updates[key])) {
         // If the update is an array, replace the existing array
-        setupData[key] = updates[key];
+        // Empty arrays are treated as deleting the field (set to null)
+        setupData[key] = updates[key].length === 0 ? null : updates[key];
       } else if (typeof updates[key] === "object" && updates[key] !== null) {
         // If the update is an object, merge it with the existing object
         setupData[key] = { ...setupData[key], ...updates[key] };
@@ -205,7 +206,8 @@ async function updateTempApplication(serverID, updates, appIdentifier) {
     if (Object.prototype.hasOwnProperty.call(updates, key)) {
       if (Array.isArray(updates[key])) {
         // If the update is an array, replace the existing array
-        mergedUpdates[key] = updates[key];
+        // Empty arrays are treated as deleting the field (set to null)
+        mergedUpdates[key] = updates[key].length === 0 ? [] : updates[key];
       } else if (typeof updates[key] === "object" && updates[key] !== null) {
         // If the update is an object, merge it with the existing object
         const existingValue = existingData[key];
