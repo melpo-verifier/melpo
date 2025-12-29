@@ -106,6 +106,12 @@ module.exports = class InviteManager {
     });
 
     client.on("guildMemberAdd", async (member) => {
+      // Validate member object
+      if (!member || !member.user || !member.guild) {
+        console.warn("Invalid member object in guildMemberAdd event");
+        return;
+      }
+
       if (!hasInvitePermission(member.guild)) return;
 
       const fetchInvites =
@@ -141,36 +147,26 @@ module.exports = class InviteManager {
       client.invites.set(member.guild.id, collect);
 
       try {
-        // if (invite == null || invite == undefined || !invite) {
-        //     // client.emit("memberJoin", member, null, null)
-        // } else {
         if (invite !== null && invite !== undefined && invite) {
           const [Tracker] = await InviteTracker.findOrCreate({
             where: { unique_id: `${member.user.id}_${member.guild.id}` },
           });
 
           if (invite == member.guild.vanityURLCode && hasVanityFeature === true) {
-            // client.emit("memberJoin", member, member.guild.vanityURLCode, vanityURL)
             Tracker.id = "vanity";
             Tracker.code = member.guild.vanityURLCode;
             Tracker.uses = vanityURL?.uses ?? null;
-          } else if (invite.inviter.id == member.user.id) {
-            // client.emit("memberJoin", member, member, invite)
+          } else if (invite.inviter && invite.inviter.id == member.user.id) {
             Tracker.id = member.id;
             Tracker.code = invite.code;
             Tracker.uses = invite.uses;
-          } else {
-            // let inviter;
-            // try {
-            //     inviter = await client.users.fetch(invite.inviter.id)
-            // }
-            // catch {
-            //     inviter = undefined
-            // }
-            // client.emit("memberJoin", member, inviter, invite)
+          } else if (invite.inviter) {
             Tracker.id = invite.inviter.id;
             Tracker.code = invite.code;
             Tracker.uses = invite.uses;
+          } else {
+            console.warn(`Invite found but inviter is null for member ${member.user.tag} (${member.id}) on guild ${member.guild.id}`);
+            return;
           }
 
           await Tracker.save();

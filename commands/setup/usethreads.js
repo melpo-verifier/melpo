@@ -4,6 +4,7 @@ const { Application } = require("../../dbObjects.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("usethreads")
+    .setContexts(0)
     .setDescription(
       "Toggles the use of threads for applications in both review and log channel.",
     )

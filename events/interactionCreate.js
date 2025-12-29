@@ -66,7 +66,7 @@ module.exports = {
       let applicationId = null;
       let tempApplicationId = null;
       
-      if (context.length > 0 && context[0]) {
+      if (context.length > 0 && context[0] && context[0].length < 17) {
         const parsed = parseInt(context[0], 10);
         if (!isNaN(parsed)) {
           if (command.includes("info") || command === "next" || command === "cancelsetup" || command === "finishsetup" || command === "toggleusethreads" || command === "setverifyfilter") {
@@ -87,7 +87,7 @@ module.exports = {
       const data = { interaction, client, context, userid, applicationId, tempApplicationId };
 
       if(interaction.customId) {
-        console.time(`Interaction handled: ${interaction.customId}`);
+        console.log(`Interaction handled: ${interaction.customId}`);
       }
       
       if (interaction.isButton()) {
@@ -100,7 +100,7 @@ module.exports = {
 
       // Update usage stats
       if (!interaction.customId?.includes("cancelverification") && interaction.customId) {
-        console.timeEnd(`Interaction handled: ${interaction.customId}`);
+        // console.timeEnd(`Interaction handled: ${interaction.customId}`);
         updateComponentUsage(command).catch((err) =>
           console.error("Failed to update component usage:", err),
         );
@@ -190,11 +190,11 @@ async function extractUserId(interaction) {
   
   if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
     if (
-      interaction.customId.includes("question_") ||
-      interaction.customId.includes("questionModal_")
+      (interaction.customId.includes("question_") ||
+      interaction.customId.includes("questionModal_"))
     ) {
       const userIdMatch = interaction.customId.match(/_(\d+)$/);
-      if (userIdMatch?.[1]) {
+      if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) {
         return userIdMatch[1];
       }
     }

@@ -4,7 +4,8 @@ const os = require("os");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("ping")
-    .setDescription("Replies with detailed bot and shard statistics!"),
+    .setDescription("Replies with detailed bot and shard statistics!")
+    .setContexts(0),
   async execute({ interaction }) {
     const client = interaction.client;
 

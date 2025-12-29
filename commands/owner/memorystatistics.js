@@ -11,6 +11,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("performancestatistics")
     .setDescription("Get comprehensive performance statistics of the bot")
+    .setContexts(0)
     .addStringOption((option) =>
       option
         .setName("type")
