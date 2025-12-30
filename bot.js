@@ -26,7 +26,7 @@ const InviteManager = require("./js/dinvite.js");
 const ErrorHandler = require("./js/ErrorHandling.js");
 const RateLimitError = require("./js/RateLimitHandling.js");
 const CommandLoader = require("./js/CommandLoader.js");
-const MemoryManager = require("./js/MemoryManager.js");
+// const MemoryManager = require("./js/MemoryManager.js");
 const artleaderboardweek = require("./js/artleaderboardweek.js");
 
 if (process.argv.length > 3 && process.argv[2] === "sharded") {
@@ -49,29 +49,30 @@ async function createBot(token) {
     allowedMentions: { parse: ["users", "roles"], repliedUser: true },
     sweepers: {
       messages: {
-        interval: 1800, // 30 minutes instead of 5
-        lifetime: 3600, // 1 hour instead of 30 minutes
+        interval: 3600,
+        lifetime: 7200,
       },
       users: {
-        interval: 1800, // 30 minutes instead of 10
+        interval: 3600,
         filter: () => (user) => user.id !== client.user.id && !user.bot,
       },
-      // Removed presence sweeper - not needed for verification bot
     },
     makeCache: Options.cacheWithLimits({
       MessageManager: {
-        maxSize: 200,
+        maxSize: 500,
         keepOverLimit: (message) => {
-          // Keep verification messages and recent messages
           return (
             message.author?.id === client.user.id ||
-            Date.now() - message.createdTimestamp < 1800000
-          ); // 30 minutes
+            Date.now() - message.createdTimestamp < 3600000
+          );
         },
       },
       UserManager: {
-        maxSize: 1000,
+        maxSize: 5000,
         keepOverLimit: (user) => user.id === client.user.id,
+      },
+      GuildMemberManager: {
+        maxSize: 2000,
       },
       RoleManager: Infinity,
     }),
@@ -85,10 +86,10 @@ async function createBot(token) {
 
   new InviteManager(client);
 
-  const memoryManager = new MemoryManager(client);
-  memoryManager.start();
+  // const memoryManager = new MemoryManager(client);
+  // memoryManager.start();
 
-  global.memoryManager = memoryManager;
+  // global.memoryManager = memoryManager;
 
   client.rest.on("rateLimited", async (rateLimitInfo) => {
     console.log("rate limited!");
