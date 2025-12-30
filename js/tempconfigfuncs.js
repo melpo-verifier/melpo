@@ -172,6 +172,7 @@ async function createTempApplication(serverID, appData = {}) {
       // Copy all relevant fields from the existing Application
       const appFields = existingApp.get({ plain: true });
       // Remove fields that shouldn't be copied (id, timestamps, server_id)
+      // eslint-disable-next-line no-unused-vars
       const { id, createdAt, updatedAt, server_id, autorole, ...copyableFields } = appFields;
       
       defaults = {
@@ -254,7 +255,7 @@ async function getDefaultApplication(guildId) {
 
 async function getApplicationByIdWithFallback(applicationId, guildId) {
   // Try to get the specific application
-  const { application, error } = await getApplicationById(applicationId, guildId);
+  const { application } = await getApplicationById(applicationId, guildId);
   
   if (application) {
     return { application, error: null };
