@@ -147,27 +147,39 @@ module.exports = class InviteManager {
       client.invites.set(member.guild.id, collect);
 
       try {
+        // Skip bots
+        if (member.user.bot) {
+          return;
+        }
+
         if (invite !== null && invite !== undefined && invite) {
           const [Tracker] = await InviteTracker.findOrCreate({
             where: { unique_id: `${member.user.id}_${member.guild.id}` },
           });
 
           if (invite == member.guild.vanityURLCode && hasVanityFeature === true) {
+            // Vanity URL invite
             Tracker.id = "vanity";
             Tracker.code = member.guild.vanityURLCode;
             Tracker.uses = vanityURL?.uses ?? null;
-          } else if (invite.inviter && invite.inviter.id == member.user.id) {
+          } else if (!invite.inviter) {
+            // Unkown invite
+            // Tracker.id = "unknown";
+            // Tracker.code = invite.code;
+            // Tracker.uses = invite.uses;
+            console.warn(`Invite found but inviter is null for member ${member.user.tag} (${member.id}) on guild ${member.guild.id}, invite code: ${invite?.code} ${invite?.uses}`);
+            return;
+          } else if (invite.inviter.id == member.user.id) {
+            // Self-invite
             Tracker.id = member.id;
             Tracker.code = invite.code;
             Tracker.uses = invite.uses;
-          } else if (invite.inviter) {
+          } else {
+            // Normal invite
             Tracker.id = invite.inviter.id;
             Tracker.code = invite.code;
             Tracker.uses = invite.uses;
-          } else {
-            console.warn(`Invite found but inviter is null for member ${member.user.tag} (${member.id}) on guild ${member.guild.id}`);
-            return;
-          }
+          } 
 
           await Tracker.save();
         }

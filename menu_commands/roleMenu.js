@@ -10,7 +10,7 @@ module.exports = async ({ interaction, client, context }) => {
 
   let whichdefault;
 
-  const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+  const { error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
   if (error) {
     return interaction.reply({
       content: `Error: ${error}`,
