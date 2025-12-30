@@ -27,10 +27,10 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
       .setCustomId(`answerquestion_${applicationId}`)
       .setLabel("Answer")
       .setStyle("Success"),
-    new ButtonBuilder()
-      .setCustomId("opt-out")
-      .setLabel("Opt-out")
-      .setStyle("Danger"),
+    // new ButtonBuilder()
+    //   .setCustomId("opt-out")
+    //   .setLabel("Opt-out")
+    //   .setStyle("Danger"),
   );
   const question = interaction.fields.getTextInputValue("questionInput");
   const questionform = new EmbedBuilder()

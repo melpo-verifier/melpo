@@ -46,16 +46,12 @@ module.exports = async ({ interaction, client, context }) => {
     existingApp = application;
   }
 
-  const questions = tempApp.questions && tempApp.questions.length > 0
-    ? tempApp.questions
-    : existingApp?.questions || [];
-  const reviewChannel = tempApp.reviewchannel || existingApp?.reviewchannel;
-  const verifyChannel = tempApp.verifychannel || existingApp?.verifychannel;
-  const verifiedRole = (tempApp.verifiedrole && tempApp.verifiedrole.length > 0)
-    ? tempApp.verifiedrole
-    : (existingApp?.verifiedrole && existingApp?.verifiedrole.length > 0 ? existingApp?.verifiedrole : null);
+  const questions = tempApp.questions
+  const reviewChannel = tempApp.reviewchannel
+  const verifyChannel = tempApp.verifychannel
+  const verifiedRole = tempApp.verifiedrole
 
-  if (!(verifyChannel && reviewChannel && verifiedRole && questions && questions.length > 0)) {
+  if (!(verifyChannel?.length > 0 && reviewChannel?.length > 0 && verifiedRole?.length > 0 && questions?.length > 0)) {
     return interaction.reply({
       content: "You need to set up all the *required* channels, roles and questions before finishing the setup.",
       flags: MessageFlags.Ephemeral,
@@ -153,9 +149,21 @@ module.exports = async ({ interaction, client, context }) => {
 
   for (const field of fields) {
     const value = tempApp[field];
-    if (value != null && value !== '' &&
-        (Array.isArray(value) ? value.length > 0 : true) &&
-        (typeof value === 'object' && !Array.isArray(value) ? Object.keys(value).length > 0 : true)) {
+    // Skip null/undefined values
+    if (value == null) continue;
+    
+    // Include empty arrays (to allow clearing roles)
+    if (Array.isArray(value)) {
+      appData[field] = value;
+    }
+    // Skip empty objects, include non-empty objects
+    else if (typeof value === 'object') {
+      if (Object.keys(value).length > 0) {
+        appData[field] = value;
+      }
+    }
+    // Include all other non-null/non-empty values
+    else if (value !== '') {
       appData[field] = value;
     }
   }
