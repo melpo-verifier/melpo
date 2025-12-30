@@ -4,7 +4,7 @@ const {
   PermissionsBitField,
   MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../../dbObjects.js");
+const { ServerConfig, Application } = require("../../dbObjects.js");
 const { deleteTemporarySetup } = require("../../js/tempconfigfuncs.js");
 
 module.exports = {
@@ -22,6 +22,7 @@ module.exports = {
       });
     }
 
+    await Application.destroy({ where: { server_id: interaction.guild.id } });
     await ServerConfig.destroy({ where: { server_id: interaction.guild.id } });
     await deleteTemporarySetup(interaction.guild.id);
 

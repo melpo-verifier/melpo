@@ -239,5 +239,36 @@ module.exports = {
         embeds: [applicationlistEmbed],
       });
     }
+
+    else if (subcommand === 'delete') {
+      const app = applications.find(a => a.name.toLowerCase() === name.toLowerCase());
+      if (!app) {
+        return interaction.reply({
+          content: 'Application not found.',
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+
+      const confirmationEmbed = new EmbedBuilder()
+        .setTitle("Confirm Deletion")
+        .setDescription(`Are you sure you want to delete the application "${app.name}"? This action cannot be undone.`)
+        .setColor("#ff3f3f");
+
+      const confirmationButtons = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`confirmdelete_${app.id}`)
+          .setLabel("Delete")
+          .setStyle("Danger"),
+        new ButtonBuilder()
+          .setCustomId(`canceldelete_${app.id}`)
+          .setLabel("Cancel")
+          .setStyle("Secondary"),
+      );
+
+      return interaction.reply({
+        embeds: [confirmationEmbed],
+        components: [confirmationButtons],
+      });
+    }
   },
 };
