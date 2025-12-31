@@ -143,7 +143,7 @@ module.exports = async ({ interaction, client, context }) => {
   const fields = [
     'questions', 'reviewchannel', 'verifylogs', 'verifychannel', 'verifiedrole',
     'verifychannelembed', 'startmessage', 'finishmessage', 'verifymessage',
-    'verificationwelcomemessage', 'autorole', 'unverifiedrole', 'pingrole',
+    'verificationwelcomemessage', 'questionpingrole', 'unverifiedrole', 'pingrole',
     'managerrole', 'verificationwelcomechannel', 'usethreads'
   ];
 

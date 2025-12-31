@@ -34,7 +34,7 @@ module.exports = async ({ interaction, client, context }) => {
     await updateTempApplication(interaction.guild.id, { managerrole: roles }, { id: tempApplicationId });
   } else if (selectedRole === 4) {
     whichdefault = 4;
-    await updateTempApplication(interaction.guild.id, { autorole: roles }, { id: tempApplicationId });
+    await updateTempApplication(interaction.guild.id, { questionpingrole: roles }, { id: tempApplicationId });
   }
 
   await rolesinfo({ interaction, client, whichdefault, tempApplicationId });

@@ -45,6 +45,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
+    questionpingrole: {
+      type: DataTypes.JSONB,
+      defaultValue: [],
+    },
     unverifiedrole: {
       type: DataTypes.JSONB, 
       defaultValue: [],

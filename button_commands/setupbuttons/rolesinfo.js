@@ -52,6 +52,10 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
     (tempApp.managerrole || applicationSetup.managerrole)?.length > 0
       ? tempApp.managerrole || applicationSetup.managerrole
       : null;
+  const questionpingrole = 
+    (tempApp.questionpingrole || applicationSetup.questionpingrole)?.length > 0
+      ? tempApp.questionpingrole || applicationSetup.questionpingrole
+      : null;
 
 
   const generalembed = new EmbedBuilder()
@@ -81,6 +85,10 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
         name: "Verification Manager Role `optional`",
         value: `*Users with this role can manage applications (no roles = everyone can manage)*\n${managerRole ? managerRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
       },
+      {
+        name: "Question Ping Role `optional`",
+        value: `*Role(s) that gets pinged when a user answers a question*\n${questionpingrole ? questionpingrole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+      }
     );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
@@ -128,6 +136,12 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
         value: "managerRole",
         default: whichdefault === 3 ? true : false,
       },
+      {
+        label: "Question Ping Role",
+        description: "Role(s) that gets pinged when a user answers a question",
+        value: "questionpingrole",
+        default: whichdefault === 4 ? true : false,
+      },
     );
 
   const verifiedRoleMenu = new RoleSelectMenuBuilder()
@@ -144,6 +158,8 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
             ? (pingRole ?? [])
             : whichdefault === 3
               ? (managerRole ?? [])
+              : whichdefault === 4
+                ? (questionpingrole ?? [])
                 : []
       ).slice(0, 10),
     );
