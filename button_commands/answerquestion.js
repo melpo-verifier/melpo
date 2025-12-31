@@ -136,10 +136,10 @@ module.exports = async ({ interaction, client }) => {
       );
     }
 
-    const rolesToPing = Array.isArray(application.pingrole)
-      ? application.pingrole?.map((roleId) => `<@&${roleId}>`).join(" ")
-      : application.pingrole
-        ? `<@&${application.pingrole}>`
+    const rolesToPing = Array.isArray(application.questionpingrole)
+      ? application.questionpingrole?.map((roleId) => `<@&${roleId}>`).join(" ")
+      : application.questionpingrole
+        ? `<@&${application.questionpingrole}>`
         : null;
 
     const container = new ContainerBuilder({

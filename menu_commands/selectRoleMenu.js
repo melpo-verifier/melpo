@@ -14,7 +14,7 @@ module.exports = async ({ interaction, client, context }) => {
     whichdefault = 2;
   } else if (ivalue === "managerRole") {
     whichdefault = 3;
-  } else if (ivalue === "autoRole") {
+  } else if (ivalue === "questionpingrole") {
     whichdefault = 4;
   }
 
