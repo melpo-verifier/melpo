@@ -176,8 +176,19 @@ module.exports = async ({ interaction, client, context }) => {
     await existingApp.save();
     finalApp = existingApp;
   } else {
-    // Create
-    finalApp = await Application.create(appData);
+    const existingByName = await Application.findOne({
+      where: { server_id: interaction.guild.id, name: tempApp.name }
+    });
+    
+    if (existingByName) {
+      // Application already exists, update it. (Shouldn't happen, but I've got reports of errors here, probably Discord doing weird and button sends twice).
+      Object.assign(existingByName, appData);
+      await existingByName.save();
+      finalApp = existingByName;
+    } else {
+      // Create new application
+      finalApp = await Application.create(appData);
+    }
   }
 
   const verifyChannelObj = interaction.guild.channels.cache.get(verifyChannel);
