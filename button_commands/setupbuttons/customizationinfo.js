@@ -25,12 +25,12 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
       .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
-    new ButtonBuilder()
-      .setLabel("Configure on dashboard")
-      .setStyle("Link")
-      .setURL(
-        `https://melpo.app/dashboard/${interaction.guild.id}`,
-      ),
+    // new ButtonBuilder()
+    //   .setLabel("Configure on dashboard")
+    //   .setStyle("Link")
+    //   .setURL(
+    //     `https://melpo.app/dashboard/${interaction.guild.id}`,
+    //   ),
   );
 
   const selectcustomizationMenu = new ActionRowBuilder().addComponents(

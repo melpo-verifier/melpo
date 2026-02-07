@@ -186,8 +186,18 @@ async function createTempApplication(serverID, appData = {}) {
     }
   }
 
-  tempApp = await TempApplication.create(defaults);
-  return { tempApp, created: true };
+  try {
+    tempApp = await TempApplication.create(defaults);
+    return { tempApp, created: true };
+  } catch (error) {
+    if (error.name === 'SequelizeUniqueConstraintError') {
+      const existingTempApp = await TempApplication.findOne({ where });
+      if (existingTempApp) {
+        return { tempApp: existingTempApp, created: false };
+      }
+    }
+    throw error;
+  }
 }
 
 async function updateTempApplication(serverID, updates, appIdentifier) {
@@ -265,6 +275,40 @@ async function getApplicationByIdWithFallback(applicationId, guildId) {
   return await getDefaultApplication(guildId);
 }
 
+async function restartTempApplication(serverID, oldTempAppId, appData = {}) {
+  // Use a transaction to atomically delete the old and create a new temp application
+  // This prevents race conditions where another request creates a duplicate
+  return await TempApplication.sequelize.transaction(async (transaction) => {
+    await TempApplication.destroy({
+      where: { server_id: serverID, id: oldTempAppId },
+      transaction,
+    });
+
+    let defaults = { server_id: serverID, ...appData };
+    
+    if (appData.applicationId) {
+      const existingApp = await Application.findByPk(appData.applicationId, { transaction });
+      if (existingApp) {
+        const appFields = existingApp.get({ plain: true });
+        // eslint-disable-next-line no-unused-vars
+        const { id, createdAt, updatedAt, server_id, autorole, ...copyableFields } = appFields;
+        
+        defaults = {
+          server_id: serverID,
+          applicationId: appData.applicationId,
+          ...copyableFields,
+          ...Object.fromEntries(
+            Object.entries(appData).filter(([key]) => key !== 'applicationId')
+          ),
+        };
+      }
+    }
+
+    const tempApp = await TempApplication.create(defaults, { transaction });
+    return { tempApp, created: true };
+  });
+}
+
 module.exports = {
   createTemporarySetup,
   updateTemporarySetup,
@@ -282,4 +326,5 @@ module.exports = {
   getTempApplicationById,
   getDefaultApplication,
   getApplicationByIdWithFallback,
+  restartTempApplication,
 };

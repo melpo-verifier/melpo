@@ -23,35 +23,37 @@ module.exports = async ({ interaction, context }) => {
 
   const appName = application.name;
 
-  // Clean up images
-  const imageFields = [
-    "verifychannelembed",
-    "startmessage",
-    "finishmessage",
-    "verifymessage",
-    "verificationwelcomemessage",
-  ];
+  await Application.sequelize.transaction(async (transaction) => {
+    // Clean up images
+    const imageFields = [
+      "verifychannelembed",
+      "startmessage",
+      "finishmessage",
+      "verifymessage",
+      "verificationwelcomemessage",
+    ];
 
-  for (const field of imageFields) {
-    const fieldData = application[field];
-    if (fieldData?.image) {
-      try {
-        await deleteImage(fieldData.image);
-        await purgeOldImages({
-          serverId: interaction.guild.id,
-          appName,
-          section: field,
-          keepKey: null,
-        });
-      } catch (error) {
-        console.error(`Failed to delete image for ${field}:`, error);
+    for (const field of imageFields) {
+      const fieldData = application[field];
+      if (fieldData?.image) {
+        try {
+          await deleteImage(fieldData.image);
+          await purgeOldImages({
+            serverId: interaction.guild.id,
+            appName,
+            section: field,
+            keepKey: null,
+          });
+        } catch (error) {
+          console.error(`Failed to delete image for ${field}:`, error);
+        }
       }
     }
-  }
+
+    await application.destroy({ transaction });
+  });
 
   await deleteTempApplication(interaction.guild.id, { applicationId });
-
-  await application.destroy();
 
   const successEmbed = new EmbedBuilder()
     .setColor("#00ff00")

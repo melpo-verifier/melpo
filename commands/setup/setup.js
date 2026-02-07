@@ -85,16 +85,11 @@ module.exports = {
 
     const subcommand = interaction.options.getSubcommand();
     const name = interaction.options.getString('name');
-    let serverConfig = await ServerConfig.findOne({
+    
+    const [serverConfig] = await ServerConfig.findOrCreate({
       where: { server_id: interaction.guild.id },
+      defaults: { autorole: [] },
     });
-
-    if (!serverConfig) {
-      serverConfig = await ServerConfig.create({
-        server_id: interaction.guild.id,
-        autorole: [],
-      });
-    }
 
     const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
     const maxApps = serverConfig.maxApplications || 5;
@@ -120,16 +115,16 @@ module.exports = {
           .setTitle("Ongoing Application Setup")
           .setDescription(`Setup for "${name}" is already in progress. Continue or start a new one?`)
           .setColor("#3f7ff1");
-      const continuebuttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("generalinfo_" + tempApp.id + "_false")
-          .setLabel("Continue previous setup")
-          .setStyle("Success"),
-        new ButtonBuilder()
-          .setCustomId("generalinfo_" + tempApp.id + "_true")
-          .setLabel("Start New Setup")
-          .setStyle("Primary"),
-      );
+        const continuebuttons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("generalinfo_" + tempApp.id + "_false")
+            .setLabel("Continue previous setup")
+            .setStyle("Success"),
+          new ButtonBuilder()
+            .setCustomId("generalinfo_" + tempApp.id + "_true")
+            .setLabel("Start New Setup")
+            .setStyle("Primary"),
+        );
         return interaction.reply({ embeds: [embed], components: [continuebuttons] });
       }
 

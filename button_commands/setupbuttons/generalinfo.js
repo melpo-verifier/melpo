@@ -6,7 +6,7 @@ const {
   StringSelectMenuBuilder,
   MessageFlags,
 } = require("discord.js");
-const { createTempApplication, deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
+const { getApplicationById, getTempApplicationById, restartTempApplication } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
 module.exports = async ({ interaction, context, whichdefault, applicationId, tempApplicationId }) => {
@@ -29,8 +29,7 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
 
   // Context[1] means to create a new temp application and delete the old one
   if (context && context[1] === "true") {
-    await deleteTempApplication(interaction.guild.id, { id: parseInt(tempApplicationId) });
-    const { tempApp: newTempApp } = await createTempApplication(interaction.guild.id, { 
+    const { tempApp: newTempApp } = await restartTempApplication(interaction.guild.id, parseInt(tempApplicationId), { 
       applicationId: tempApp.applicationId,
       name: tempApp.name 
     });
@@ -111,12 +110,12 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
       .setCustomId("cancelsetup_" + tempApplicationId)
       .setLabel("Cancel")
       .setStyle("Danger"),
-    new ButtonBuilder()
-      .setLabel("Configure on dashboard")
-      .setStyle("Link")
-      .setURL(
-        `https://melpo.app/dashboard/${interaction.guild.id}`,
-      ),
+    // new ButtonBuilder()
+    //   .setLabel("Configure on dashboard")
+    //   .setStyle("Link")
+    //   .setURL(
+    //     `https://melpo.app/dashboard/${interaction.guild.id}`,
+    //   ),
   );
 
   const selectChannelMenu = new StringSelectMenuBuilder()
