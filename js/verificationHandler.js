@@ -1,6 +1,5 @@
 const {
   EmbedBuilder,
-  AttachmentBuilder,
   MessageFlags,
   ContainerBuilder,
   TextDisplayBuilder,
@@ -300,16 +299,11 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
       originalEmbed,
       verifiedRoles,
     );
-    const textImage = resolveImage(welcomeMessage.image, "welcomemessage");
+    const textImage = resolveImage(welcomeMessage.image);
 
-    const files = [];
-    if (textImage.filePath) {
-      files.push(new AttachmentBuilder(textImage.filePath).setName(textImage.attachmentName));
-    }
+    const finalmessage = { content: finalText };
 
-    const finalmessage = { content: finalText, files };
-
-    if (!textImage.filePath && textImage.embedUrl) {
+    if (textImage.embedUrl) {
       finalmessage.embeds = [new EmbedBuilder().setImage(textImage.embedUrl)];
     }
 
@@ -323,7 +317,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
       : null;
     const messageContent = getMentions(finalDescription);
 
-    const imageAsset = resolveImage(welcomeMessage.image, "welcomemessage");
+    const imageAsset = resolveImage(welcomeMessage.image);
 
     const welcomeEmbed = new EmbedBuilder()
       .setTitle(finalTitle && finalTitle.trim() ? finalTitle : null)
@@ -343,9 +337,6 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
     await channel.send({
       content: messageContent || null,
       embeds: [welcomeEmbed],
-      files: imageAsset.filePath
-        ? [new AttachmentBuilder(imageAsset.filePath).setName(imageAsset.attachmentName)]
-        : [],
     });
   }
 }
@@ -358,7 +349,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
   const finalTitle = await processText(title, user, interaction, null, verifiedRoles);
   const finalDescription = await processText(description, user, interaction, null, verifiedRoles);
-  const dmImage = resolveImage(image, "verifymessage");
+  const dmImage = resolveImage(image);
 
   const finalEmbed = new EmbedBuilder()
     .setTitle(finalTitle ?? null)
@@ -368,9 +359,6 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
   await user.send({
     embeds: [finalEmbed],
-    files: dmImage.filePath
-      ? [new AttachmentBuilder(dmImage.filePath).setName(dmImage.attachmentName)]
-      : [],
   }).catch(() => {});
 }
 

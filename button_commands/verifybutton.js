@@ -6,7 +6,6 @@ const {
   ButtonBuilder,
   ActionRowBuilder,
   EmbedBuilder,
-  AttachmentBuilder,
   PermissionsBitField,
   MessageFlags,
   ContainerBuilder,
@@ -229,7 +228,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
         interaction.guild.name,
       );
       const startEmbedimage = application.startmessage?.image;
-      const startImageAsset = resolveImage(startEmbedimage, "startImage");
+      const startImageAsset = resolveImage(startEmbedimage);
 
       const startDMEmbed = new EmbedBuilder()
         .setTitle(
@@ -237,27 +236,20 @@ module.exports = async ({ interaction, client, applicationId }) => {
         )
         .setDescription(startEmbedDescription ?? null)
         .setColor("#3f7ff1")
-        .setFooter({ 
+        .setFooter({
           text: `Application: ${appName} | Click "cancel" to cancel the verification.`
         })
         .setImage(startImageAsset.embedUrl);
 
       let firstQuestionEmbed = new EmbedBuilder()
         .setColor("#3f7ff1")
-        .setFooter({ 
+        .setFooter({
           text: `Application: ${appName} | Click "cancel" to cancel the verification.`
         });
 
       try {
         await dmChannel.send({
           embeds: [startDMEmbed],
-          files: startImageAsset.filePath
-            ? [
-                new AttachmentBuilder(startImageAsset.filePath).setName(
-                  startImageAsset.attachmentName,
-                ),
-              ]
-            : [],
         });
       } catch (error) {
         if (error.code === 50007) {
@@ -1034,10 +1026,7 @@ async function processVerificationResult(
       interaction.guild.name,
     );
       const finishEmbedimage = finishmessage?.image;
-      const finishImageAsset = resolveImage(
-        finishEmbedimage,
-        "finishImage",
-      );
+      const finishImageAsset = resolveImage(finishEmbedimage);
 
     const endEmbed = new EmbedBuilder()
       .setTitle(
@@ -1046,17 +1035,10 @@ async function processVerificationResult(
       .setDescription(finishEmbedDescription)
       .setColor("#008000")
       .setFooter({ text: `Application: ${appName}` })
-        .setImage(finishImageAsset.embedUrl);
+      .setImage(finishImageAsset.embedUrl);
 
     dmChannel.send({
       embeds: [endEmbed],
-        files: finishImageAsset.filePath
-          ? [
-            new AttachmentBuilder(finishImageAsset.filePath).setName(
-              finishImageAsset.attachmentName,
-            ),
-          ]
-          : [],
     });
 
     user = user || interaction.user;
