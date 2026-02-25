@@ -40,7 +40,7 @@ async function updateVerifyMessage(opts) {
   const verificationMessage = await findVerifyMessage(
     verifyChannelObj,
     botId,
-    embedConfig.footer,
+    embedConfig,
   );
 
   const embed = new EmbedBuilder()
