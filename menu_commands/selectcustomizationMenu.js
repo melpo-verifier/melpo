@@ -4,7 +4,6 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
   ButtonStyle,
-  AttachmentBuilder,
   MessageFlags,
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
@@ -168,20 +167,10 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
     infoembed.setColor("#3f7ff1");
   }
 
-  let attachment;
   if (image && embed) {
-    const asset = resolveImage(image, chosenvalue);
+    const asset = resolveImage(image);
     if (asset.embedUrl) {
       embed.setColor(color || "#3f7ff1").setImage(asset.embedUrl);
-    }
-    if (asset.filePath) {
-      try {
-        attachment = new AttachmentBuilder(asset.filePath).setName(
-          asset.attachmentName,
-        );
-      } catch (error) {
-        console.error("Error creating attachment:", error);
-      }
     }
   }
 
@@ -246,7 +235,6 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           setImage,
           finishbuttons,
         ],
-        files: attachment ? [attachment] : [],
       });
     } else {
       interaction.message.edit({
@@ -258,7 +246,6 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           setImage,
           finishbuttons,
         ],
-        files: attachment ? [attachment] : [],
       });
     }
   } else {
@@ -276,7 +263,6 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           setImage,
           finishbuttons,
         ],
-        files: attachment ? [attachment] : [],
       });
     } else {
       interaction.update({
@@ -288,7 +274,6 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           setImage,
           finishbuttons,
         ],
-        files: attachment ? [attachment] : [],
       });
     }
   }

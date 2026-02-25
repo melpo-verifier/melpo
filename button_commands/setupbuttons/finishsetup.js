@@ -1,13 +1,8 @@
 const {
-  ButtonBuilder,
-  ActionRowBuilder,
   EmbedBuilder,
-  AttachmentBuilder,
   MessageFlags,
 } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
-const fs = require("fs");
-const path = require("path");
 const {
   deleteTempApplication,
   getApplicationById,
@@ -19,6 +14,7 @@ const {
   purgeOldImages,
   isR2ImageResource,
 } = require("../../js/customizationImages.js");
+const { updateVerifyMessage } = require("../../js/verifyChannelUtils.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const tempApplicationId = context[0] === "firsttime" ? parseInt(context[1], 10) : parseInt(context[0], 10);
@@ -125,18 +121,6 @@ module.exports = async ({ interaction, client, context }) => {
     if (isR2ImageResource(tempApp[category]?.image)) {
       continue;
     }
-
-    if (tempApp[category]?.image) {
-      const imagePath = path.join(__dirname, "..", "..", tempApp[category].image);
-      try {
-        await fs.promises.access(imagePath, fs.constants.F_OK);
-        console.log(`Image exists: ${imagePath}`);
-      } catch {
-        console.error(`Image not found: ${imagePath}`);
-        tempApp[category].image = null;
-        throw new Error(`Image not found: ${imagePath}`);
-      }
-    }
   }
 
   const appData = { server_id: interaction.guild.id, name: tempApp.name };
@@ -188,75 +172,27 @@ module.exports = async ({ interaction, client, context }) => {
     });
   }
 
-  const verificationMessages = await verifyChannelObj.messages.fetch();
-  const verificationMessage = verificationMessages.find(
-    (m) =>
-      m.author.id === client.user.id &&
-      m.embeds.length > 0 &&
-      m.embeds[0].footer &&
-      m.embeds[0].footer.text === `${tempApp.name}`,
-  );
-
   const embedColor = (tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) || "#3f7ff1";
   const embedTitle = tempApp.verifychannelembed?.title ?? existingApp?.verifychannelembed?.title ?? "Verification";
   const embedDescription = tempApp.verifychannelembed?.description ?? existingApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
   const embedImage = tempApp.verifychannelembed?.image ?? existingApp?.verifychannelembed?.image;
-  const embedImageAsset = resolveImage(embedImage, "verifychannelimage");
+  const embedImageAsset = resolveImage(embedImage);
 
-  if (!verificationMessage) {
-    const verificationembed = new EmbedBuilder()
-      .setColor(embedColor)
-      .setTitle(embedTitle)
-      .setDescription(embedDescription)
-      .setImage(embedImageAsset.embedUrl)
-      .setFooter({ text: `${tempApp.name}` });
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`verifybutton_${finalApp.id}`)
-        .setLabel("Apply")
-        .setStyle("Success"),
-    );
-
-    let attachment;
-    if (embedImageAsset.filePath) {
-      attachment = new AttachmentBuilder(embedImageAsset.filePath).setName(
-        embedImageAsset.attachmentName,
-      );
-    }
-
-    await verifyChannelObj.send({
-      embeds: [verificationembed],
-      components: [row],
-      files: attachment ? [attachment] : [],
-    });
-  } else {
-    const verifymessageEmbed = new EmbedBuilder(verificationMessage.embeds[0])
-      .setColor(embedColor)
-      .setTitle(embedTitle)
-      .setDescription(embedDescription)
-      .setImage(embedImageAsset.embedUrl)
-      .setFooter({ text: `${tempApp.name}` });
-
-    let attachment;
-    if (embedImageAsset.filePath) {
-      attachment = new AttachmentBuilder(embedImageAsset.filePath).setName(
-        embedImageAsset.attachmentName,
-      );
-    }
-
-    if (
-      verificationMessage.embeds[0].title !== verifymessageEmbed.title ||
-      verificationMessage.embeds[0].description !== verifymessageEmbed.description ||
-      verificationMessage.embeds[0].image?.url !== verifymessageEmbed.image?.url ||
-      verificationMessage.embeds[0].color !== verifymessageEmbed.color
-    ) {
-      await verificationMessage.edit({
-        embeds: [verifymessageEmbed],
-        files: attachment ? [attachment] : [],
-      });
-    }
-  }
+  await updateVerifyMessage({
+    verifyChannelObj,
+    botId: client.user.id,
+    embedConfig: {
+      color: embedColor,
+      title: embedTitle,
+      description: embedDescription,
+      imageUrl: embedImageAsset.embedUrl,
+      footer: tempApp.name,
+    },
+    button: {
+      customId: `verifybutton_${finalApp.id}`,
+      label: "Apply",
+    },
+  });
 
   await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
 
