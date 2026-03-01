@@ -56,7 +56,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
       applicationId: applicationId,
     });
   } catch (error) {
-    if (error.code === 50007) {
+    if (error.code === 50007 || error.code === 50278) {
       return await interaction.reply({
         content: `Cannot send question: this user has DMs disabled, has blocked the bot or left the server.`,
         flags: MessageFlags.Ephemeral,

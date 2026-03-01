@@ -269,7 +269,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
       flags: MessageFlags.Ephemeral,
     });
   } catch (error) {
-    if (error.code === 50007) {
+    if (error.code === 50007 || error.code === 50278) {
       await interaction.followUp({
         content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
         flags: MessageFlags.Ephemeral,

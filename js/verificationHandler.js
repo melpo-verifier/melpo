@@ -354,7 +354,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
   const finalEmbed = new EmbedBuilder()
     .setTitle(finalTitle ?? null)
     .setDescription(finalDescription)
-    .setColor(color)
+    .setColor(color ?? null)
     .setImage(dmImage.embedUrl);
 
   await user.send({
@@ -375,7 +375,7 @@ async function sendDenyDM(user, guildName, reason = null) {
     await user.send({ embeds: [denyEmbed] });
     return { success: true };
   } catch (error) {
-    if (error.code === 50007) {
+    if (error.code === 50007 || error.code === 50278) {
       return { success: false, dmDisabled: true };
     }
     throw error;
