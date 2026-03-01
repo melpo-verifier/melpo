@@ -252,7 +252,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
           embeds: [startDMEmbed],
         });
       } catch (error) {
-        if (error.code === 50007) {
+        if (error.code === 50007 || error.code === 50278) {
           // Cannot send messages to this user
           await interaction.editReply({
             content: `<@${user.id}>, I cannot send you DMs! Please enable DMs from server members and try again.`,

@@ -87,10 +87,11 @@ module.exports = async ({ interaction, client }) => {
   );
 
   await message.edit({ components: [disabledconfirmrow] });
-  const sendanswer = await interaction.reply({
+  await interaction.reply({
     content: `Please send your answer to the question you just pressed "answer" to`,
     components: [cancelButton],
   });
+  const sendanswer = await interaction.fetchReply();
 
   await QuestionId.destroy({
     where: { interactionMessageId: interaction.message.id },
