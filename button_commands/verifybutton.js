@@ -168,7 +168,9 @@ module.exports = async ({ interaction, client, applicationId }) => {
       });
     }
 
-    const botPermissions = verifyLogsChannel.permissionsFor(client.user);
+    const botMember = interaction.guild.members.me ?? await interaction.guild.members.fetchMe();
+  
+    const botPermissions = verifyLogsChannel.permissionsFor(botMember);
     if (
       !botPermissions ||
       !botPermissions.has([
