@@ -15,6 +15,8 @@ const {
   MediaGalleryBuilder,
   ThumbnailBuilder,
   SectionBuilder,
+  AttachmentBuilder,
+  FileBuilder,
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
@@ -169,7 +171,6 @@ module.exports = async ({ interaction, client, applicationId }) => {
     }
 
     const botMember = interaction.guild.members.me ?? await interaction.guild.members.fetchMe();
-  
     const botPermissions = verifyLogsChannel.permissionsFor(botMember);
     if (
       !botPermissions ||
@@ -882,9 +883,10 @@ module.exports = async ({ interaction, client, applicationId }) => {
     }
   } catch (error) {
     console.error("Verification error:", error);
-    await interaction.editReply({
-      content: `An error occurred during the verification process. Please try again later.`,
-      flags: MessageFlags.Ephemeral,
+    // throw error;
+
+    await interaction.user.send({
+      content: `An error occurred during the verification process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
     });
   } finally {
     activeVerifications.delete(interaction.user.id);
@@ -931,15 +933,32 @@ async function constructApplicationEmbed(
 
   if (answers.length > 0) {
     let totalCharacterCount = 0;
+    let absoluteTotalCharacterCount = 0;
     const MAX_TOTAL_CHARACTERS = 3600;
     const MAX_FIELD_CHARACTERS = 1024;
+    let wasTruncated = false;
+    const fullTextLines = [];
+
     answers.forEach((answer, index) => {
+      absoluteTotalCharacterCount += questions[index].content.length + (answer.content?.length || 0);
+    });
+
+    answers.forEach((answer, index) => {
+      const questioncontent = questions[index].content.replace(/(\*\*|__|\*|~~|`|>)/g, "");
+      const rawContent = answer.content || "No answer provided";
+      fullTextLines.push(`Q${index + 1}: ${questioncontent}`);
+      fullTextLines.push(`Answer: ${rawContent}`);
+      if (answer.attachments && answer.attachments.length > 0) {
+        fullTextLines.push(`Attachments: ${answer.attachments.join(', ')}`);
+      }
+      fullTextLines.push('');
 
       if(totalCharacterCount >= MAX_TOTAL_CHARACTERS) {
+        wasTruncated = true;
         return;
       }
 
-      const questionText = `**${index + 1}.** **${questions[index].content}**`;
+      const questionText = absoluteTotalCharacterCount >= MAX_TOTAL_CHARACTERS ? `**${index + 1}.** **${questioncontent.slice(0, 10)}...**` : `**${index + 1}.** **${questioncontent}**`;
       const answertext = answer.content || "No answer provided";
 
       let formattedField = [
@@ -949,23 +968,18 @@ async function constructApplicationEmbed(
 
       if (formattedField.length > MAX_FIELD_CHARACTERS) {
         formattedField = formattedField.slice(0, MAX_FIELD_CHARACTERS - 3) + "...";
+        wasTruncated = true;
       }
 
       if (totalCharacterCount + formattedField.length > MAX_TOTAL_CHARACTERS) {
         const remainingCharacters = MAX_TOTAL_CHARACTERS - totalCharacterCount;
         if (remainingCharacters > 100) { // Only add if there's meaningful space left
           formattedField = formattedField.slice(0, remainingCharacters - 3) + "...";
+          wasTruncated = true;
           console.log(`Truncated field ${index + 1} to fit within total limits.`);
         } else {
+          wasTruncated = true;
           console.log(`Field ${index + 1} exceeds total limit and will not be added.`);
-          // Add a note that content was truncated
-          if (totalCharacterCount + 60 <= MAX_TOTAL_CHARACTERS) { // Check if we can fit the truncation notice
-            container.addTextDisplayComponents(
-              new TextDisplayBuilder({
-                content: "**Note:** Some responses were truncated due to length limits.",
-              }),
-            );
-          }
           return;
         }
       }
@@ -992,9 +1006,34 @@ async function constructApplicationEmbed(
         );
       }
     });
+
+    const fullText = wasTruncated ? fullTextLines.join('\n') : null
+
+    if (wasTruncated && fullText) {
+      const safeAppName = appName.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const name = `${user.id}_${safeAppName}.txt`;
+      const buffer = Buffer.from(fullText, 'utf-8');
+      const attachment = new AttachmentBuilder(buffer, { name });
+      container.addFileComponents(
+        new FileBuilder().setURL(`attachment://${name}`),
+      );
+
+      return {
+        container,
+        wasTruncated,
+        fullText,
+        attachment,
+      };
+    }
+
+    return {
+      container,
+      wasTruncated,
+      fullText: fullText
+    };
   }
 
-  return container;
+  return { container, wasTruncated: false, fullText: null };
 }
 
 async function processVerificationResult(
@@ -1045,7 +1084,7 @@ async function processVerificationResult(
 
     user = user || interaction.user;
 
-    const container = await constructApplicationEmbed(
+    const { container, attachment } = await constructApplicationEmbed(
       user,
       botQuestions,
       responses,
@@ -1081,10 +1120,16 @@ async function processVerificationResult(
 
     let channelsent;
 
-    channelsent = await verifyLogsChannel.send({
+    const sendPayload = {
       flags: [MessageFlags.IsComponentsV2],
       components: [container, verify],
-    });
+    };
+
+    if (attachment) {
+      sendPayload.files = [attachment];
+    }
+
+    channelsent = await verifyLogsChannel.send(sendPayload);
     if (useThreads === true) {
       await channelsent.startThread({
         name: `${user.globalName ?? user.username}'s Verification`,

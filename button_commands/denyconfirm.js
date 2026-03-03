@@ -1,9 +1,10 @@
-const { MessageFlags, EmbedBuilder } = require("discord.js");
+const { MessageFlags } = require("discord.js");
 const { Verification } = require("../dbObjects.js");
 const {
   checkManagerPermission,
   handleV2Edit,
   VerificationStatus,
+  relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
   sendDenyDM,
@@ -59,45 +60,50 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   }
 
   // Process log messages
-  await processLogMessages({
-    interaction,
-    client,
-    application,
-    messageids,
-    user: member,
-    status: VerificationStatus.DENIED,
-    useRateLimiting: false,
-  });
+  try {
+    await processLogMessages({
+      interaction,
+      client,
+      application,
+      messageids,
+      user: member,
+      status: VerificationStatus.DENIED,
+      useRateLimiting: false,
+    });
+  } catch (logError) {
+    if (logError.code === 50001 || logError.code === 50013) {
+      console.warn(`Missing permissions for log messages in guild ${interaction.guild.id}`);
+      await interaction.followUp({
+        content: "Warning: Could not process log messages due to missing permissions.",
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
+    } else {
+      throw logError;
+    }
+  }
 
   // If no separate log channel, edit the current message
   if (!application.verifylogs || application.reviewchannel === application.verifylogs) {
     if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-      const deniedContainer = handleV2Edit(interaction, interaction.message, VerificationStatus.DENIED);
-      await interaction.editReply({
+      const { container, files } = relinkAttachments(interaction.message);
+
+      const tempMsg = { ...interaction.message, components: [container] };
+      const deniedContainer = handleV2Edit(
+        interaction, 
+        tempMsg, 
+        VerificationStatus.DENIED
+      );
+
+      const editPayload = {
         flags: [MessageFlags.IsComponentsV2],
         components: [deniedContainer],
-      });
+      };
+      if (files) editPayload.files = files;
+      await interaction.editReply(editPayload);
 
       if (interaction.message.thread) {
         await interaction.message.thread.setArchived(true);
       }
-    } else {
-      const originalEmbed = interaction.message.embeds[0];
-      let fields = originalEmbed.fields || [];
-
-      if (fields.length > 0 && fields[fields.length - 1].name.includes("Are you sure")) {
-        fields.pop();
-      }
-
-      const embed = new EmbedBuilder(originalEmbed)
-        .setColor("#EB2121")
-        .setTitle(originalEmbed.title + " (DENIED)")
-        .setFields(fields)
-        .setFooter({
-          text: `Denied by ${interaction.user.username} | ${originalEmbed?.footer?.text || userid}`,
-        });
-
-      await interaction.editReply({ embeds: [embed], components: [] });
     }
   }
 

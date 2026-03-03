@@ -1,10 +1,11 @@
-const { MessageFlags, EmbedBuilder } = require("discord.js");
+const { MessageFlags } = require("discord.js");
 const { Verification } = require("../dbObjects.js");
 const {
   checkManagerPermission,
   validateRoles,
   handleV2Edit,
   VerificationStatus,
+  relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
   sendWelcomeMessage,
@@ -80,7 +81,15 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   const originalEmbed = interaction.message.embeds[0];
 
   // Apply roles
-  await applyRoles(user, verifiedRoles, unverifiedRoles);
+  const botMember = interaction.guild.members.me;
+  if (!botMember || !botMember.permissions.has("ManageRoles")) {
+    return await interaction.followUp({
+      content: "I don't have the **Manage Roles** permission. Please grant it and try again.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  await applyRoles(user, verifiedRoles, unverifiedRoles, interaction);
 
   // Send welcome message
   if (welcomeChannel && welcomeMessage) {
@@ -119,32 +128,25 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   // If no separate log channel, edit the current message
   if (!application.verifylogs || application.reviewchannel === application.verifylogs) {
     if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-      const verifiedContainer = handleV2Edit(interaction, interaction.message, VerificationStatus.VERIFIED);
-      await interaction.editReply({
+      const { container, files } = relinkAttachments(interaction.message);
+
+      const tempMsg = { ...interaction.message, components: [container] };
+      const verifiedContainer = handleV2Edit(
+        interaction,
+        tempMsg,
+        VerificationStatus.VERIFIED,
+      );
+
+      const editPayload = {
         flags: [MessageFlags.IsComponentsV2],
         components: [verifiedContainer],
-      });
+      };
+      if (files) editPayload.files = files;
+      await interaction.editReply(editPayload);
 
       if (interaction.message.thread) {
         await interaction.message.thread.setArchived(true);
       }
-    } else {
-      const originalEmbedData = interaction.message.embeds[0];
-      let fields = originalEmbedData.fields || [];
-
-      if (fields.length > 0 && fields[fields.length - 1].name.includes("Are you sure")) {
-        fields.pop();
-      }
-
-      const embed = new EmbedBuilder(originalEmbedData)
-        .setColor("#008000")
-        .setTitle(originalEmbedData.title + " (VERIFIED)")
-        .setFields(fields)
-        .setFooter({
-          text: `Verified by ${interaction.user.username} | ${originalEmbedData?.footer?.text || userid}`,
-        });
-
-      await interaction.editReply({ embeds: [embed], components: [] });
     }
   }
 

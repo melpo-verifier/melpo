@@ -1,10 +1,10 @@
 const {
   ButtonBuilder,
   ActionRowBuilder,
-  EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
+const { relinkAttachments } = require("../js/verificationHandler.js");
 
 module.exports = async ({ interaction, applicationId }) => {
   await interaction.deferUpdate();
@@ -60,7 +60,7 @@ module.exports = async ({ interaction, applicationId }) => {
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`verifyconfirm_${applicationId}_${interaction.user.id}`)
-      .setLabel("Confirm Verification")
+      .setLabel("Confirm Accept")
       .setStyle("Success"),
     new ButtonBuilder()
       .setCustomId(`returntomenu_${applicationId}`)
@@ -69,19 +69,12 @@ module.exports = async ({ interaction, applicationId }) => {
   );
 
   if (hasComponents) {
-    await interaction.message.edit({
+    const { container, files } = relinkAttachments(interaction.message);
+    const editPayload = {
       flags: [MessageFlags.IsComponentsV2],
-      components: [originalComponents[0], verifyRow],
-    });
-  } else {
-    const verifyEmbed = new EmbedBuilder(originalEmbed).addFields({
-      name: "Are you sure you want to verify this user?",
-      value: 'Click "Confirm Verification" to verify or "Cancel" to return.',
-    });
-
-    await interaction.message.edit({
-      embeds: [verifyEmbed],
-      components: [verifyRow],
-    });
+      components: [container, verifyRow],
+    };
+    if (files) editPayload.files = files;
+    await interaction.message.edit(editPayload);
   }
 };

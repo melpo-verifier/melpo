@@ -1,10 +1,10 @@
 const {
   ButtonBuilder,
   ActionRowBuilder,
-  EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js"); //the fallback is temporary for migration since button ids aren't updated into the past.
+const { relinkAttachments } = require("../js/verificationHandler.js");
 
 module.exports = async ({ interaction, applicationId }) => {
   await interaction.deferUpdate();
@@ -67,19 +67,12 @@ module.exports = async ({ interaction, applicationId }) => {
   );
 
   if (hasComponents) {
-    await interaction.message.edit({
+    const { container, files } = relinkAttachments(interaction.message);
+    const editPayload = {
       flags: [MessageFlags.IsComponentsV2],
-      components: [originalComponents[0], verifyRow],
-    });
-  } else {
-    const verifyEmbed = new EmbedBuilder(originalEmbed).addFields({
-      name: "Are you sure you want to kick this user?",
-      value: 'Click "Confirm Verification" to kick or "Cancel" to return.',
-    });
-
-    await interaction.message.edit({
-      embeds: [verifyEmbed],
-      components: [verifyRow],
-    });
+      components: [container, verifyRow],
+    };
+    if (files) editPayload.files = files;
+    await interaction.message.edit(editPayload);
   }
 };

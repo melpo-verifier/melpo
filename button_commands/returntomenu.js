@@ -1,10 +1,10 @@
 const {
   ButtonBuilder,
   ActionRowBuilder,
-  EmbedBuilder,
   MessageFlags,
 } = require("discord.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
+const { relinkAttachments } = require("../js/verificationHandler.js");
 
 module.exports = async ({ interaction, applicationId }) => {
   const verify = new ActionRowBuilder().addComponents(
@@ -51,18 +51,9 @@ module.exports = async ({ interaction, applicationId }) => {
   }
 
   if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-    const originalComponents = interaction.message.components;
-
-    const firstcomponent = originalComponents.shift();
-
-    await interaction.update({ components: [firstcomponent, verify] });
-  } else {
-    //remove last field from embed
-    const originalembed = interaction.message.embeds[0];
-    const verifiedEmbed = new EmbedBuilder(originalembed)
-      .spliceFields(-1, 1)
-      .setColor("#3f7ff1");
-
-    await interaction.update({ embeds: [verifiedEmbed], components: [verify] });
+    const { container, files } = relinkAttachments(interaction.message);
+    const editPayload = { components: [container, verify] };
+    if (files) editPayload.files = files;
+    await interaction.update(editPayload);
   }
 };
