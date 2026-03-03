@@ -147,7 +147,7 @@ module.exports = async ({ interaction, client }) => {
       accent_color: 4161521,
     }).addTextDisplayComponents(
       new TextDisplayBuilder({
-        content: `${rolesToPing ? `-# ${rolesToPing}` : ""}\n### Question answered by ${user.globalName ?? user.username}\n**Question:**\n${interaction.message.embeds[0].fields[0].value}\n**Answer:**\n${totalcontent}`,
+        content: `${rolesToPing ? `-# ${rolesToPing}` : ""}\n### Question answered by <@${user.id}>\n**Question:**\n${interaction.message.embeds[0].fields[0].value}\n**Answer:**\n${totalcontent}`,
         spacing_size: SeparatorSpacingSize.Small,
       }),
     );
@@ -221,6 +221,7 @@ module.exports = async ({ interaction, client }) => {
         ) => {
           // Get the thread attached to the verification message
           let threadchannelid = null;
+          let verificationMessage = null;
           const verificationChannel = await c.channels.fetch(
             verificationChannelId,
           );
@@ -230,7 +231,7 @@ module.exports = async ({ interaction, client }) => {
           } else {
             try {
               if (verificationChannel) {
-                const verificationMessage =
+                verificationMessage =
                   await verificationChannel.messages.fetch(
                     verificationMessageId,
                   );
@@ -253,7 +254,7 @@ module.exports = async ({ interaction, client }) => {
                 components: [container, replybutton],
               });
             } else {
-              await verificationChannel.send({
+              await verificationMessage.reply({
                 flags: [MessageFlags.IsComponentsV2],
                 components: [container, replybutton],
               });
@@ -273,6 +274,7 @@ module.exports = async ({ interaction, client }) => {
       );
     } else {
       let threadchannelid = null;
+      let verificationMessage = null;
       const verificationChannel = client.channels.cache.get(
         verificationChannelId,
       );
@@ -282,7 +284,7 @@ module.exports = async ({ interaction, client }) => {
       } else {
         try {
           if (verificationChannel) {
-            const verificationMessage =
+            verificationMessage =
               await verificationChannel.messages.fetch(verificationMessageId);
             threadchannelid = verificationMessage?.thread?.id;
           }
@@ -301,7 +303,7 @@ module.exports = async ({ interaction, client }) => {
           components: [container, replybutton],
         });
       } else {
-        await verificationChannel.send({
+        await verificationMessage.reply({
           flags: [MessageFlags.IsComponentsV2],
           components: [container, replybutton],
         });
