@@ -14,7 +14,7 @@ const {
   purgeOldImages,
   isR2ImageResource,
 } = require("../../js/customizationImages.js");
-const { updateVerifyMessage } = require("../../js/verifyChannelUtils.js");
+const { updateVerifyMessage, isValidHexColor } = require("../../js/verifyChannelUtils.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const tempApplicationId = context[0] === "firsttime" ? parseInt(context[1], 10) : parseInt(context[0], 10);
@@ -172,7 +172,7 @@ module.exports = async ({ interaction, client, context }) => {
     });
   }
 
-  const embedColor = (tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) || "#3f7ff1";
+  const embedColor = isValidHexColor(tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) ? (tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) : "#3f7ff1";
   const embedTitle = tempApp.verifychannelembed?.title ?? existingApp?.verifychannelembed?.title ?? "Verification";
   const embedDescription = tempApp.verifychannelembed?.description ?? existingApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
   const embedImage = tempApp.verifychannelembed?.image ?? existingApp?.verifychannelembed?.image;

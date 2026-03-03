@@ -8,6 +8,7 @@ const {
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
+const { isValidHexColor } = require("../js/verifyChannelUtils.js");
 
 module.exports = async ({ interaction, customIdValue, tempApplicationId, context }) => {
   let chosenvalue;
@@ -110,7 +111,7 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
     embed = new EmbedBuilder()
       .setTitle(title ?? null)
       .setDescription(description)
-      .setColor(color || "#3f7ff1");
+      .setColor(isValidHexColor(color) ? color : "#3f7ff1");
   }
 
   let infoembed = null;
@@ -170,7 +171,7 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
   if (image && embed) {
     const asset = resolveImage(image);
     if (asset.embedUrl) {
-      embed.setColor(color || "#3f7ff1").setImage(asset.embedUrl);
+      embed.setColor(isValidHexColor(color) ? color : "#3f7ff1").setImage(asset.embedUrl);
     }
   }
 

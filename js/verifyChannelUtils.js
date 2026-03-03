@@ -4,6 +4,13 @@ const {
   ButtonBuilder,
 } = require("discord.js");
 
+const DEFAULT_EMBED_COLOR = "#3f7ff1";
+
+function isValidHexColor(value) {
+  const hexColorRegex = /^#?[0-9A-Fa-f]{6}$/;
+  return hexColorRegex.test(value)
+}
+
 async function findVerifyMessage(verifyChannelObj, botId, embedConfig) {
   const verificationMessages = await verifyChannelObj.messages.fetch({
     limit: 50,
@@ -44,7 +51,7 @@ async function updateVerifyMessage(opts) {
   );
 
   const embed = new EmbedBuilder()
-    .setColor(embedConfig.color)
+    .setColor(isValidHexColor(embedConfig.color) ? embedConfig.color : DEFAULT_EMBED_COLOR)
     .setTitle(embedConfig.title)
     .setDescription(embedConfig.description)
     .setImage(embedConfig.imageUrl)
@@ -90,4 +97,5 @@ async function updateVerifyMessage(opts) {
 
 module.exports = {
   updateVerifyMessage,
+  isValidHexColor
 };
