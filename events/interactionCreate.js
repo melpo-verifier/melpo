@@ -7,7 +7,7 @@ const {
 const ErrorHandler = require("../js/ErrorHandling.js");
 
 const interactionCache = new Map();
-const CACHE_TTL = 15000;
+const CACHE_TTL = 5000;
 const MAX_CACHE_SIZE = 1000;
 
 const checkDuplicatesFor = ["verifyconfirm", "denyconfirm", "actionconfirm"];
@@ -44,7 +44,7 @@ module.exports = {
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
           return interaction
             .reply({
-              content: "⏳ Please wait 15 seconds before trying again.",
+              content: "⏳ Please wait 5 seconds before trying again.",
               flags: MessageFlags.Ephemeral,
             })
             .catch(() => {});

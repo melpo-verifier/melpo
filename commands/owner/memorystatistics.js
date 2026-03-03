@@ -43,7 +43,7 @@ module.exports = {
       });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const type = interaction.options.getString("type") || "all";
     const timeframe = interaction.options.getString("timeframe") || "today";

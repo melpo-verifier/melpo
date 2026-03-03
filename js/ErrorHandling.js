@@ -45,6 +45,16 @@ class ErrorHandler {
       return errorId;
     }
 
+    // Unknown Interaction
+    if (error.code === 10062) {
+      return errorId;
+    }
+
+    // Service Unavailable
+    if (error.status === 503) {
+      return errorId;
+    }
+
     if (interaction && !interaction.replied && !interaction.deferred) {
       try {
         await this.handleUserNotification(
@@ -115,7 +125,7 @@ class ErrorHandler {
       return this.ERROR_TYPES.MEMORY;
     }
 
-    if (error.code === 10008 || error.code === 10003 || error.code === 50001) {
+    if (error.code === 10008 || error.code === 10003 || error.code === 50001 || error.code === 10062) {
       return this.ERROR_TYPES.API;
     }
 
@@ -137,6 +147,8 @@ class ErrorHandler {
   }
 
   static async handleUserNotification(interaction, errorType, errorId, error) {
+    if (!interaction?.isRepliable?.()) return;
+
     const messages = {
       [this.ERROR_TYPES.PERMISSION]:
         "I don't have the required permissions to do that.",
@@ -187,7 +199,7 @@ class ErrorHandler {
     errorId,
     interaction,
   ) {
-    if (error.code === 50001 || error.code === 50013 || error.code === 10062) return;
+    if (error.code === 50001 || error.code === 50013 || error.code === 10062 || error.status === 503) return;
 
     const interactionInfo = interaction
       ? {
