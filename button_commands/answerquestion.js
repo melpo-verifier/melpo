@@ -24,6 +24,14 @@ module.exports = async ({ interaction, client }) => {
   const info = await QuestionId.findOne({
     where: { interactionMessageId: interaction.message.id },
   });
+
+  if (!info) {
+    return interaction.reply({
+      content: "This question is no longer available. It may have already been answered or expired.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
   const questionIdData = info.get({ plain: true });
   const guildId = info.guildId;
   const verificationMessageId = info.verificationMessageId;

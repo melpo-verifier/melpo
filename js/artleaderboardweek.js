@@ -130,12 +130,29 @@ module.exports = async (client) => {
     await leaderboard.save();
   }
 
+  const reactionUpdate = new Map();
+  const DEBOUNCE_MS = 5000;
+
   client.on("messageReactionAdd", async (reaction, user) => {
-    await updatedb(reaction, user);
+    const key = reaction.message.id;
+    if (reactionUpdate.has(key)) {
+      clearTimeout(reactionUpdate.get(key));
+    }
+    reactionUpdate.set(key, setTimeout(async () => {
+      reactionUpdate.delete(key);
+      await updatedb(reaction, user);
+    }, DEBOUNCE_MS));
   });
 
   client.on("messageReactionRemove", async (reaction, user) => {
-    await updatedb(reaction, user);
+    const key = reaction.message.id;
+    if (reactionUpdate.has(key)) {
+      clearTimeout(reactionUpdate.get(key));
+    }
+    reactionUpdate.set(key, setTimeout(async () => {
+      reactionUpdate.delete(key);
+      await updatedb(reaction, user);
+    }, DEBOUNCE_MS));
   });
 
   client.on("messageCreate", async (message) => {
@@ -328,6 +345,11 @@ module.exports = async (client) => {
         let image = await fetchImage(artchannels, sortedValues[i].id);
         if (image) {
           topPlaces.push({ ...sortedValues[i], image });
+        }
+
+        // Delay to not get ratelimited
+        if (topPlaces.length < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
         }
       }
 
