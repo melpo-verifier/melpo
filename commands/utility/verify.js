@@ -174,7 +174,7 @@ module.exports = {
         if (!user) throw new Error("User not found");
 
         // Apply roles
-        await applyRoles(user, verifiedRoles, unverifiedRoles);
+        await applyRoles(user, verifiedRoles, unverifiedRoles, interaction);
 
         results.success.push(userID);
 
