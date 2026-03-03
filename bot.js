@@ -315,7 +315,7 @@ async function createBot(token) {
   const disverify = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("verify")
-      .setLabel("Verify")
+      .setLabel("Accept")
       .setStyle("Success")
       .setDisabled(true),
     new ButtonBuilder()

@@ -1059,7 +1059,7 @@ async function processVerificationResult(
     const verify = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId(`verify_${applicationId}_${interaction.user.id}`)
-        .setLabel("Verify")
+        .setLabel("Accept")
         .setStyle("Success"),
       new ButtonBuilder()
         .setCustomId(`deny_${applicationId}_${interaction.user.id}`)
