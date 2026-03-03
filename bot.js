@@ -3,25 +3,15 @@ const path = require("node:path");
 const {
   Client,
   IntentsBitField,
-  EmbedBuilder,
-  ButtonBuilder,
-  ActionRowBuilder,
   Partials,
   AuditLogEvent,
   PermissionsBitField,
   Options,
-  MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
-  MediaGalleryBuilder,
-  SectionBuilder,
-  ThumbnailBuilder,
 } = require("discord.js");
 require("dotenv").config();
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js");
-const { ServerConfig, Verification, Status } = require("./dbObjects.js");
+const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js");
+const { ServerConfig, Verification, Status, Application } = require("./dbObjects.js");
 const InviteManager = require("./js/dinvite.js");
 const ErrorHandler = require("./js/ErrorHandling.js");
 const RateLimitError = require("./js/RateLimitHandling.js");
@@ -243,113 +233,16 @@ async function createBot(token) {
     }
   });
 
-  function createLeftV2Component(originalMessage, member) {
-    const leftContainer = new ContainerBuilder({
-      accent_color: 0x808080,
-    });
-
-    const originalContainer = originalMessage.components[0];
-
-    if (originalContainer?.components) {
-      for (const component of originalContainer.components) {
-        if (component.type === 9) {
-          // Section component
-          let content = component.components[0].content;
-
-          content = content.replace(/<@&\d+>/g, "").trim();
-
-          leftContainer.addSectionComponents(
-            new SectionBuilder()
-              .addTextDisplayComponents(
-                new TextDisplayBuilder({
-                  content: content + `\n**Status:** \`Left Server\``,
-                }),
-              )
-              .setThumbnailAccessory(
-                new ThumbnailBuilder({
-                  media: { url: component.accessory.media.url },
-                }),
-              ),
-          );
-        } else if (component.type === 10) {
-          // Text display component
-          leftContainer.addTextDisplayComponents(
-            new TextDisplayBuilder({
-              content: component.content,
-            }),
-          );
-        } else if (component.type === 14) {
-          // Separator component
-          leftContainer.addSeparatorComponents(
-            new SeparatorBuilder({
-              spacing: component.spacing || SeparatorSpacingSize.Small,
-            }),
-          );
-        } else if (component.type === 12) {
-          // Media gallery component
-          if (component.items?.length > 0) {
-            const mappedurls = component.items?.map((item) => ({
-              media: {
-                url: item.media.url,
-              },
-            }));
-            leftContainer.addMediaGalleryComponents(
-              new MediaGalleryBuilder({
-                items: mappedurls,
-              }),
-            );
-          }
-        }
-      }
-    }
-
-    leftContainer.addTextDisplayComponents(
-      new TextDisplayBuilder({
-        content: `-# User left server (${member.id})`,
-      }),
-    );
-
-    return leftContainer;
-  }
-
-  const disverify = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId("verify")
-      .setLabel("Accept")
-      .setStyle("Success")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("deny")
-      .setLabel("Deny")
-      .setStyle("Danger")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("reasondeny")
-      .setLabel("Deny with reason")
-      .setStyle("Danger")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("question")
-      .setLabel("Question")
-      .setStyle("Primary")
-      .setDisabled(true),
-    new ButtonBuilder()
-      .setCustomId("action")
-      .setLabel("Kick")
-      .setStyle("Secondary")
-      .setDisabled(true),
-  );
-
   client.on("guildMemberRemove", async (member) => {
     if (!member?.guild?.id || !member.id) return;
 
-    let serverConfig, verification;
+    let applications, verification;
 
     try {
-      [serverConfig, verification] = await Promise.all([
-        ServerConfig.findOne({
+      [applications, verification] = await Promise.all([
+        Application.findAll({
           where: { server_id: member.guild.id },
-          attributes: ["reviewchannel", "verifylogs"],
+          attributes: ["id", "reviewchannel", "verifylogs"],
         }),
         Verification.findOne({
           where: { userId: member.id },
@@ -361,10 +254,10 @@ async function createBot(token) {
       return;
     }
 
-    if (!serverConfig || !verification) return;
+    if (!applications?.length || !verification) return;
 
-    const messageIds = verification?.guildVerifications?.[member.guild.id];
-    if (!messageIds || !Array.isArray(messageIds) || !messageIds.length) return;
+    const guildData = verification?.guildVerifications?.[member.guild.id];
+    if (!guildData) return;
 
     let wasKicked = false;
     const botMember = member.guild.members.cache.get(client.user.id);
@@ -391,197 +284,20 @@ async function createBot(token) {
       }
     }
 
-    if (
-      serverConfig.verifylogs &&
-      messageIds &&
-      serverConfig.reviewchannel !== serverConfig.verifylogs
-    ) {
-      const reviewChannel = member.guild.channels.cache.get(
-        serverConfig.reviewchannel,
-      );
-      const logChannel = member.guild.channels.cache.get(
-        serverConfig.verifylogs,
-      );
+    for (const app of applications) {
+      const appMessageIds = getMessageIds(verification, member.guild.id, app.id);
+      if (!appMessageIds || appMessageIds.length === 0) continue;
 
-      if (logChannel && reviewChannel && messageIds) {
-        // Get all messages in chronological order
-        const messages = [];
-        for (const messageId of messageIds) {
-          try {
-            const message = await reviewChannel.messages.fetch(messageId);
-            if (message) messages.push(message);
-            await new Promise((resolve) => setTimeout(resolve, 300));
-          } catch (error) {
-            if (error.code === 10008) {
-              console.log(`Message ${messageId} not found - skipping`);
-              continue;
-            }
-            throw error;
-          }
-        }
-
-        // Sort by timestamp
-        messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-        for (const message of messages) {
-          await new Promise((resolve) => setTimeout(resolve, 600));
-
-          try {
-            if (message.flags.has(MessageFlags.IsComponentsV2)) {
-              const leftContainer = createLeftV2Component(message, member);
-
-              let threadEmbed;
-
-              if (message.thread) {
-                threadEmbed = new EmbedBuilder()
-                  .setTitle(`Thread Summary`)
-                  .setColor("#808080");
-
-                try {
-                  const threadMessages = await message.thread.messages.fetch();
-
-                  if (threadMessages.size > 1) {
-                    const messagesArray = Array.from(threadMessages.values())
-                      .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-                      .slice(1);
-
-                    const formattedMessages = messagesArray?.map((msg) => {
-                      let content;
-
-                      if (msg.flags.has(MessageFlags.IsComponentsV2)) {
-                        content =
-                          msg.components?.[0]?.components?.[0]?.content ||
-                          "No content";
-                      } else {
-                        content = msg.content || "No content";
-                      }
-
-                      if (msg.author.id === client.user.id) {
-                        content = content?.replace(
-                          /### Question answered by[^\n]*\n?/g,
-                          "\n",
-                        );
-                      }
-
-                      return `\`${msg.author.username}:\` ${content}`;
-                    });
-
-                    const finalContent = formattedMessages
-                      .join("\n")
-                      .slice(0, 4096);
-                    threadEmbed.setDescription(
-                      finalContent || "No messages in thread",
-                    );
-                  } else {
-                    threadEmbed.setDescription(
-                      "No additional messages in thread",
-                    );
-                  }
-                } catch (error) {
-                  console.error("Error fetching thread messages:", error);
-                  threadEmbed.setDescription("Error loading thread messages");
-                }
-              }
-
-              const sendmessage = await logChannel.send({
-                flags: [MessageFlags.IsComponentsV2],
-                components: [leftContainer],
-              });
-
-              const threadchannel = await sendmessage.startThread({
-                name: `${member.user?.username || member.id}'s log`,
-              });
-
-              if (threadEmbed) {
-                await threadchannel.send({ embeds: [threadEmbed] });
-              }
-              await threadchannel.setArchived(true);
-
-              if (message.thread) {
-                await message.thread.delete().catch(console.error);
-              }
-
-              await message.delete().catch(console.error);
-            } else {
-              const originalembed = message.embeds[0];
-
-              const Embed = new EmbedBuilder(originalembed)
-                .setColor("#808080")
-                .setTitle(originalembed.title + " (LEFT)")
-                .setFooter({
-                  text: `Left | ${originalembed?.footer?.text || member.id}`,
-                });
-
-              await logChannel.send({
-                content: `<@${member.id}>`,
-                embeds: [Embed],
-              });
-              await message.delete().catch(console.error);
-            }
-          } catch (error) {
-            console.error(`Error processing log message:`, error);
-          }
-        }
-      }
-    } else {
-      const reviewChannel = member.guild.channels.cache.get(
-        serverConfig.reviewchannel,
-      );
-      if (!reviewChannel) return;
-
-      if (messageIds && messageIds.length > 0) {
-        for (const messageId of messageIds) {
-          try {
-            const message = await reviewChannel.messages.fetch(messageId);
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-
-            if (
-              message &&
-              message.author.id === client.user.id &&
-              !message.embeds[0]?.footer?.text?.includes("Left")
-            ) {
-              if (message.flags.has(MessageFlags.IsComponentsV2)) {
-                const leftContainer = createLeftV2Component(message, member);
-                await message.edit({
-                  flags: [MessageFlags.IsComponentsV2],
-                  components: [leftContainer, disverify],
-                });
-
-                if (message.thread) {
-                  await message.thread.setArchived(true);
-                }
-              } else if (!message?.embeds[0]?.footer?.text?.includes("Left")) {
-                const originalembed = message.embeds[0];
-
-                const Embed = new EmbedBuilder(originalembed)
-                  .setColor("#808080")
-                  .setTitle(originalembed.title + " (LEFT)")
-                  .setFooter({
-                    text: `Left | ${originalembed?.footer?.text || member.id}`,
-                  });
-
-                await message.edit({
-                  embeds: [Embed],
-                  components: [disverify],
-                });
-              }
-            }
-          } catch (error) {
-            console.error(
-              `Failed to process message with ID ${messageId}: ${error}`,
-            );
-          }
-        }
-      }
+      await processLeaveMessages({
+        client,
+        member,
+        application: app,
+        messageIds: appMessageIds,
+      });
     }
 
-    // Clean up verification data
     try {
-      if (messageIds && messageIds.length > 0) {
-        delete verification.guildVerifications[member.guild.id];
-        verification.changed("guildVerifications", true);
-        await verification.save();
-      }
+      await cleanupVerificationData(verification, member.guild.id);
     } catch (error) {
       console.error("Failed to update verification:", error);
     }

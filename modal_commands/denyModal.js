@@ -7,6 +7,7 @@ const {
   processLogMessages,
   cleanupVerificationData,
   sendDenyDM,
+  getMessageIds,
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
@@ -33,7 +34,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
       flags: MessageFlags.Ephemeral,
     });
   }
-  const messageids = verification?.guildVerifications?.[interaction.guild.id];
+  const messageids = getMessageIds(verification, interaction.guild.id, applicationId);
   const reason = interaction.fields.getTextInputValue("denyInput");
 
   let member;
@@ -95,7 +96,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id);
+    await cleanupVerificationData(verification, interaction.guild.id, applicationId);
   }
 
   // Send denial DM

@@ -8,6 +8,7 @@ const {
   processLogMessages,
   cleanupVerificationData,
   sendDenyDM,
+  getMessageIds,
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
@@ -49,7 +50,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
   // Get verification data
   const verification = await Verification.findOne({ where: { userId: userid } });
-  const messageids = verification?.guildVerifications?.[interaction.guild.id];
+  const messageids = getMessageIds(verification, interaction.guild.id, applicationId);
 
   // Try to get member for processLogMessages
   let member;
@@ -109,7 +110,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id);
+    await cleanupVerificationData(verification, interaction.guild.id, applicationId);
   }
 
   // Send denial DM

@@ -11,6 +11,7 @@ const {
   relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
+  getMessageIds,
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
@@ -113,7 +114,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   const verification = await Verification.findOne({
     where: { userId: userid },
   });
-  const messageids = verification?.guildVerifications?.[interaction.guild.id];
+  const messageids = getMessageIds(verification, interaction.guild.id, applicationId);
 
   // Process log messages
   try {
@@ -164,6 +165,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   }
 
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id);
+    await cleanupVerificationData(verification, interaction.guild.id, applicationId);
   }
 };

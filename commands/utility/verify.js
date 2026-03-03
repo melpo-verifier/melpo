@@ -16,6 +16,7 @@ const {
   sendVerifyDM,
   applyRoles,
   createNoApplicationEmbed,
+  getMessageIds,
 } = require("../../js/verificationHandler.js");
 
 module.exports = {
@@ -180,7 +181,7 @@ module.exports = {
 
         // Get verification data
         const verification = await Verification.findOne({ where: { userId: userID } });
-        const messageids = verification?.guildVerifications?.[interaction.guild.id] || [];
+        const messageids = getMessageIds(verification, interaction.guild.id, application.id);
         const invitetracker = await InviteTracker.findOne({
           where: { unique_id: `${userID}_${interaction.guild.id}` },
         });
@@ -222,7 +223,7 @@ module.exports = {
 
         // Cleanup verification data
         if (messageids && messageids.length > 0) {
-          await cleanupVerificationData(verification, interaction.guild.id);
+          await cleanupVerificationData(verification, interaction.guild.id, application.id);
         }
 
         // Send welcome message
