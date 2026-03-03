@@ -10,7 +10,7 @@ module.exports = async ({ interaction, applicationId }) => {
   const verify = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`verify_${applicationId}`)
-      .setLabel("Verify")
+      .setLabel("Accept")
       .setStyle("Success"),
     new ButtonBuilder().setCustomId(`deny_${applicationId}`).setLabel("Deny").setStyle("Danger"),
     new ButtonBuilder()
