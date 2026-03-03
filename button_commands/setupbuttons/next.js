@@ -4,6 +4,7 @@ const {
   EmbedBuilder,
   ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder,
+  MessageFlags,
 } = require("discord.js");
 const { getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 
@@ -59,10 +60,20 @@ module.exports = async ({ interaction, context }) => {
       ]);
 
     await interaction.editReply({ components: [] });
-    await interaction.message.edit({
-      embeds: [updatedEmbed],
-      components: [selectmenu, updatedActionRow],
-    });
+    try {
+      await interaction.message.edit({
+        embeds: [updatedEmbed],
+        components: [selectmenu, updatedActionRow],
+      });
+    } catch (error) {
+      if (error.code === 50001 || error.code === 50013) {
+        return interaction.followUp({
+          content: "I don't have permission to edit messages in this channel. Please check my permissions and try again.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      throw error;
+    }
   } else if (nextnumber === 1) {
     const reviewChannel = temporarySetup.reviewchannel;
     const verifyChannel = temporarySetup.verifychannel;
@@ -98,10 +109,20 @@ module.exports = async ({ interaction, context }) => {
       ]);
 
     await interaction.editReply({ components: [] });
-    await interaction.message.edit({
-      embeds: [updatedEmbed],
-      components: [selectmenu, updatedActionRow],
-    });
+    try {
+      await interaction.message.edit({
+        embeds: [updatedEmbed],
+        components: [selectmenu, updatedActionRow],
+      });
+    } catch (error) {
+      if (error.code === 50001 || error.code === 50013) {
+        return interaction.followUp({
+          content: "I don't have permission to edit messages in this channel. Please check my permissions and try again.",
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+      throw error;
+    }
   } else if (nextnumber === 2) {
     const firsttimequestions = require("../../js/firsttimequestions.js");
 
