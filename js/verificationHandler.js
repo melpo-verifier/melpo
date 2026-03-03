@@ -8,6 +8,9 @@ const {
   MediaGalleryBuilder,
   SectionBuilder,
   ThumbnailBuilder,
+  PermissionsBitField,
+  FileBuilder,
+  AttachmentBuilder,
 } = require("discord.js");
 const { Verification, InviteTracker } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
@@ -15,11 +18,13 @@ const { resolveImage } = require("./imageUtils.js");
 const VerificationStatus = {
   VERIFIED: "verified",
   DENIED: "denied",
+  KICKED: "kicked",
 };
 
 const StatusColors = {
   [VerificationStatus.VERIFIED]: 0x008000,
   [VerificationStatus.DENIED]: 0xeb2121,
+  [VerificationStatus.KICKED]: 0xeb2121,
 };
 
 async function rateLimitedOperation(operation, maxRetries = 3) {
@@ -95,7 +100,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
   if (verifiedRoles && verifiedRoles.length > 0) {
     for (const roleId of verifiedRoles) {
-      const role = await interaction.guild.roles.fetch(roleId);
+      const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
       if (!role) {
         errors.push(`Verified role with ID ${roleId} not found. Please update your server configuration.`);
         continue;
@@ -110,7 +115,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
   if (unverifiedRoles && unverifiedRoles.length > 0) {
     for (const roleId of unverifiedRoles) {
-      const role = await interaction.guild.roles.fetch(roleId);
+      const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
       if (role && interaction.guild.members.me.roles.highest.comparePositionTo(role) <= 0) {
         errors.push(`Cannot remove role ${role.name} because it's higher than or equal to my highest role.`);
       }
@@ -121,42 +126,77 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 }
 
 // Apply roles to user (add verified, remove unverified)
-async function applyRoles(user, verifiedRoles, unverifiedRoles) {
+async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
   if (unverifiedRoles && unverifiedRoles.length > 0) {
     for (const roleId of unverifiedRoles) {
-      await user.roles.remove(roleId).catch(console.error);
+      await user.roles.remove(roleId).catch(
+        (err) => {
+          if (err.code === 10011) {
+            interaction.channel.send(`Unknown role ${roleId} during removal, skipping. Please reconfigure your roles in setup.`).catch(() => {});
+          } else {
+            console.error(`Failed to remove role ${roleId}: ${err.message}`);
+          }
+        }
+      );
     }
   }
 
   if (verifiedRoles && verifiedRoles.length > 0) {
     for (const roleId of verifiedRoles) {
-      await user.roles.add(roleId).catch(console.error);
+      await user.roles.add(roleId).catch(
+        (err) => {
+          if (err.code === 10011) {
+            interaction.channel.send(`Unknown role ${roleId} during addition, skipping. Please reconfigure your roles in setup.`).catch(() => {});
+          } else {
+            console.error(`Failed to add role ${roleId}: ${err.message}`);
+          }
+        }
+      );
     }
   }
 }
 
-// Handle V2 container edit for verification/denial
-function handleV2Edit(interaction, message, status) {
+function handleV2Edit(interaction, message, status, reason = null) {
+  const MAX_DISPLAYABLE_TEXT = 4000;
   const color = StatusColors[status];
-  const statusText = status === VerificationStatus.VERIFIED ? "Verified" : "Denied";
+  const statusTextMap = {
+    [VerificationStatus.VERIFIED]: "Verified",
+    [VerificationStatus.DENIED]: "Denied",
+    [VerificationStatus.KICKED]: "Kicked",
+  };
+  const statusText = statusTextMap[status] || "Denied";
 
+  const footerText = `-# ${statusText} by ${interaction.user.username} (${interaction.user.id})`;
+  const statusSuffix = reason
+    ? `\n**Status:** \`${statusText} by ${interaction.user.username}\`: ${reason}`
+    : `\n**Status:** \`${statusText} by ${interaction.user.username}\``;
+  const reservedChars = footerText.length + 50;
+  let totalTextLength = 0;
+
+  const clonedContainer = JSON.parse(JSON.stringify(message.components[0] || {}));
   const editedContainer = new ContainerBuilder({
     accent_color: color,
   });
 
-  const originalContainer = message.components[0];
-
-  if (originalContainer?.components) {
-    for (const component of originalContainer.components) {
+  if (clonedContainer.components) {
+    for (const component of clonedContainer.components) {
       if (component.type === 9) {
         let content = component.components[0].content;
         content = content.replace(/<@&\d+>/g, "").trim();
+
+        const fullContent = content + statusSuffix;
+        const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
+        const truncatedContent = available < fullContent.length
+          ? fullContent.slice(0, Math.max(available - 3, 0)) + "..."
+          : fullContent;
+
+        totalTextLength += truncatedContent.length;
 
         editedContainer.addSectionComponents(
           new SectionBuilder()
             .addTextDisplayComponents(
               new TextDisplayBuilder({
-                content: content + `\n**Status:** \`${statusText} by ${interaction.user.username}\``,
+                content: truncatedContent,
               }),
             )
             .setThumbnailAccessory(
@@ -166,9 +206,18 @@ function handleV2Edit(interaction, message, status) {
             ),
         );
       } else if (component.type === 10) {
+        const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
+        if (available <= 0) continue;
+
+        const content = available < component.content.length
+          ? component.content.slice(0, Math.max(available - 3, 0)) + "..."
+          : component.content;
+
+        totalTextLength += content.length;
+
         editedContainer.addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: component.content,
+            content: content,
           }),
         );
       } else if (component.type === 14) {
@@ -188,13 +237,19 @@ function handleV2Edit(interaction, message, status) {
             }),
           );
         }
+      } else if (component.type === 13) {
+        if (component.file?.url?.startsWith('attachment://')) {
+          editedContainer.addFileComponents(
+            new FileBuilder().setURL(component.file.url),
+          );
+        }
       }
     }
   }
 
   editedContainer.addTextDisplayComponents(
     new TextDisplayBuilder({
-      content: `-# ${statusText} by ${interaction.user.username} (${interaction.user.id})`,
+      content: footerText,
     }),
   );
 
@@ -435,10 +490,22 @@ async function processLogMessages(options) {
     messageids,
     user,
     status,
+    reason = null,
     useRateLimiting = false,
   } = options;
 
-  const statusText = status === VerificationStatus.VERIFIED ? "VERIFIED" : "DENIED";
+  const statusTextMap = {
+    [VerificationStatus.VERIFIED]: "VERIFIED",
+    [VerificationStatus.DENIED]: "DENIED",
+    [VerificationStatus.KICKED]: "KICKED",
+  };
+  const actionTextMap = {
+    [VerificationStatus.VERIFIED]: "Verified",
+    [VerificationStatus.DENIED]: "Denied",
+    [VerificationStatus.KICKED]: "Kicked",
+  };
+  const statusText = statusTextMap[status] || "DENIED";
+  const actionText = actionTextMap[status] || "Denied";
   const color = StatusColors[status];
 
   const hasSeparateLogChannel =
@@ -451,6 +518,20 @@ async function processLogMessages(options) {
     const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
 
     if (logChannel && reviewChannel && messageids && messageids.length > 0) {
+      const botMember = interaction.guild.members.me ?? await logChannel.guild.members.fetchMe();
+      const botPermissions = logChannel.permissionsFor(botMember);
+      if (
+        !botPermissions ||
+        !botPermissions.has([
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ViewChannel,
+        ])
+      ) {
+        return await interaction.channel.send({
+          content: `<@${user.id}>, I don't have permissions to send messages in the verification review channel!`,
+        });
+      }
+
       const messages = [];
       for (const messageId of messageids) {
         try {
@@ -476,18 +557,25 @@ async function processLogMessages(options) {
 
         try {
           if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-            const editedContainer = handleV2Edit(interaction, message, status);
+            const { container: preparedContainer, files } = relinkAttachments(message);
+            const tempMsg = { ...message, components: [preparedContainer] };
+            const editedContainer = handleV2Edit(interaction, tempMsg, status, reason);
 
             let threadEmbed;
             if (message.thread) {
               threadEmbed = await createThreadSummary(message.thread, client, status);
             }
 
-            const sendOp = async () =>
-              logChannel.send({
+            const sendOp = async () => {
+              const payload = {
                 flags: [MessageFlags.IsComponentsV2],
                 components: [editedContainer],
-              });
+              };
+              if (files) {
+                payload.files = files;
+              }
+              return logChannel.send(payload);
+            };
 
             const sendmessage = useRateLimiting
               ? await rateLimitedOperation(sendOp)
@@ -520,26 +608,6 @@ async function processLogMessages(options) {
 
             const deleteOp = async () => message.delete();
             (useRateLimiting ? rateLimitedOperation(deleteOp) : deleteOp()).catch(console.error);
-          } else if (message.embeds && message.embeds[0]) {
-            const originalembed = message.embeds[0];
-
-            const Embed = new EmbedBuilder(originalembed)
-              .setColor(color)
-              .setTitle((originalembed.title || "Verification") + ` (${statusText})`)
-              .setFooter({
-                text: `${statusText === "VERIFIED" ? "Verified" : "Denied"} by ${interaction.user.username} | ${originalembed?.footer?.text || user.id}`,
-              });
-
-            const logOp = async () =>
-              logChannel.send({
-                content: `<@${user.id}>`,
-                embeds: [Embed],
-              });
-
-            useRateLimiting ? await rateLimitedOperation(logOp) : await logOp();
-
-            const delOp = async () => message.delete();
-            (useRateLimiting ? rateLimitedOperation(delOp) : delOp()).catch(console.error);
           }
         } catch (error) {
           console.error("Error processing log message:", error);
@@ -563,11 +631,11 @@ async function processLogMessages(options) {
           if (message && message.author.id === client.user.id) {
             const footerText = message.embeds?.[0]?.footer?.text || "";
             const alreadyProcessed =
-              footerText.includes("Verified") || footerText.includes("Denied");
+              footerText.includes("Verified") || footerText.includes("Denied") || footerText.includes("Kicked");
 
             if (!alreadyProcessed) {
               if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-                const editedContainer = handleV2Edit(interaction, message, status);
+                const editedContainer = handleV2Edit(interaction, message, status, reason);
                 const editOp = async () =>
                   message.edit({
                     flags: [MessageFlags.IsComponentsV2],
@@ -581,8 +649,12 @@ async function processLogMessages(options) {
                   .setColor(color)
                   .setTitle((originalembed.title || "Verification") + ` (${statusText})`)
                   .setFooter({
-                    text: `${statusText === "VERIFIED" ? "Verified" : "Denied"} by ${interaction.user.username} | ${originalembed?.footer?.text || user.id}`,
+                    text: `${actionText} by ${interaction.user.username} | ${originalembed?.footer?.text || user.id}`,
                   });
+
+                if (reason) {
+                  Embed.setDescription(`**Denied for reason:** ${reason}`);
+                }
 
                 const editOp = async () => message.edit({ embeds: [Embed], components: [] });
                 useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
@@ -649,7 +721,7 @@ async function verifyUser(options) {
   const welcomeChannel = application.verificationwelcomechannel;
 
   // Apply roles
-  await applyRoles(user, verifiedRoles, unverifiedRoles);
+  await applyRoles(user, verifiedRoles, unverifiedRoles, interaction);
 
   // Get verification data
   const verification = await Verification.findOne({ where: { userId } });
@@ -768,6 +840,30 @@ async function denyUser(options) {
   return { success: true, user, dmDisabled: dmResult.dmDisabled };
 }
 
+function relinkAttachments(message) {
+  const container = JSON.parse(JSON.stringify(message.components?.[0] || {}));
+  const comps = container.components || [];
+
+  const fileComp = comps[comps.length - 1];
+  if (!fileComp?.file?.url) {
+    return { container, files: null };
+  }
+
+  const url = fileComp.file.url;
+  const name =
+    fileComp.file.name || url.split('/').pop().split('?')[0];
+
+  if (!url.startsWith('attachment://')) {
+    fileComp.file.url = `attachment://${name}`;
+    return {
+      container,
+      files: [new AttachmentBuilder(url, { name })],
+    };
+  }
+
+  return { container, files: null };
+}
+
 module.exports = {
   VerificationStatus,
   StatusColors,
@@ -777,6 +873,7 @@ module.exports = {
   validateRoles,
   applyRoles,
   handleV2Edit,
+  relinkAttachments,
   processText,
   getMentions,
   sendWelcomeMessage,

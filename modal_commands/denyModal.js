@@ -1,15 +1,13 @@
-const {
-  EmbedBuilder,
-  MessageFlags,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize,
-  MediaGalleryBuilder,
-  SectionBuilder,
-  ThumbnailBuilder,
-} = require("discord.js");
+const { MessageFlags } = require("discord.js");
 const { Verification } = require("../dbObjects.js");
+const {
+  handleV2Edit,
+  VerificationStatus,
+  relinkAttachments,
+  processLogMessages,
+  cleanupVerificationData,
+  sendDenyDM,
+} = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, client, userid, applicationId }) => {
@@ -38,312 +36,80 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
   const messageids = verification?.guildVerifications?.[interaction.guild.id];
   const reason = interaction.fields.getTextInputValue("denyInput");
 
-  if (
-    application.verifylogs &&
-    messageids &&
-    application.reviewchannel !== application.verifylogs
-  ) {
-    const reviewChannel = interaction.guild.channels.cache.get(
-      application.reviewchannel,
-    );
-    const logChannel = interaction.guild.channels.cache.get(
-      application.verifylogs,
-    );
+  let member;
+  try {
+    member = await interaction.guild.members.fetch(userid);
+  } catch {
+    member = { user, id: userid };
+  }
 
-    if (logChannel && reviewChannel && messageids) {
-      const messages = [];
-      for (const messageId of messageids) {
-        try {
-          const message = await reviewChannel.messages.fetch(messageId);
-          if (message) messages.push(message);
-          await new Promise((resolve) => setTimeout(resolve, 300));
-        } catch (error) {
-          if (error.code === 10008) {
-            console.log(`Message ${messageId} not found - skipping`);
-            continue;
-          }
-          throw error;
-        }
-      }
-
-      // Sort by timestamp
-      messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-      for (const message of messages) {
-        await new Promise((resolve) => setTimeout(resolve, 600));
-
-        if (message.flags.has(MessageFlags.IsComponentsV2)) {
-          const verifiedContainer = await handleV2edit(
-            interaction,
-            message,
-            reason,
-          );
-
-          let threadEmbed;
-
-          if (message.thread) {
-            threadEmbed = new EmbedBuilder()
-              .setTitle(`Thread Summary`)
-              .setColor("#EB2121");
-
-            try {
-              const threadMessages = await message.thread.messages.fetch();
-
-              if (threadMessages.size > 1) {
-                const messagesArray = Array.from(threadMessages.values())
-                  .sort((a, b) => a.createdTimestamp - b.createdTimestamp)
-                  .slice(1);
-
-                const formattedMessages = messagesArray?.map((msg) => {
-                  let content;
-
-                  if (msg.flags.has(MessageFlags.IsComponentsV2)) {
-                    content =
-                      msg.components?.[0]?.components?.[0]?.content ||
-                      "No content";
-                  } else {
-                    content = msg.content || "No content";
-                  }
-
-                  if (msg.author.id === client.user.id) {
-                    content = content?.replace(
-                      /### Question answered by[^\n]*\n?/g,
-                      "\n",
-                    );
-                  }
-
-                  return `\`${msg.author.username}:\` ${content}`;
-                });
-
-                const finalContent = formattedMessages
-                  .join("\n")
-                  .slice(0, 4096);
-                threadEmbed.setDescription(
-                  finalContent || "No messages in thread",
-                );
-              } else {
-                threadEmbed.setDescription("No additional messages in thread");
-              }
-            } catch (error) {
-              console.error("Error fetching thread messages:", error);
-              threadEmbed.setDescription("Error loading thread messages");
-            }
-          }
-
-          let sendmessage = await logChannel.send({
-            flags: [MessageFlags.IsComponentsV2],
-            components: [verifiedContainer],
-          });
-
-          let threadchannel = await sendmessage.startThread({
-            name: `${user.username}'s log`,
-          });
-
-          if (threadEmbed) {
-            await threadchannel.send({ embeds: [threadEmbed] });
-          }
-          await threadchannel.setArchived(true);
-          if (interaction.message.thread) {
-            await interaction.message.thread.delete();
-          }
-
-          await message.delete().catch(console.error);
-        } else {
-          let originalembed = message.embeds[0];
-
-          let Embed = new EmbedBuilder(originalembed)
-            .setColor("#EB2121")
-            .setTitle(originalembed.title + " (DENIED)")
-            .setFooter({
-              text: `Denied by ${interaction.user.username} | ${originalembed?.footer?.text || userid}`,
-            })
-            .setDescription(`**Denied for reason:** ${reason}`);
-
-          await logChannel.send({ content: `<@${userid}>`, embeds: [Embed] });
-          await message.delete().catch(console.error);
-        }
-      }
+  // Process log messages
+  try {
+    await processLogMessages({
+      interaction,
+      client,
+      application,
+      messageids,
+      user: member,
+      status: VerificationStatus.DENIED,
+      reason,
+      useRateLimiting: false,
+    });
+  } catch (logError) {
+    if (logError.code === 50001 || logError.code === 50013) {
+      console.warn(`Missing permissions for log messages in guild ${interaction.guild.id}`);
+      await interaction.followUp({
+        content: "Warning: Could not process log messages due to missing permissions.",
+        flags: MessageFlags.Ephemeral,
+      }).catch(() => {});
+    } else {
+      throw logError;
     }
-  } else {
+  }
+
+  // If no separate log channel, edit the current message
+  if (!application.verifylogs || application.reviewchannel === application.verifylogs) {
     if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
-      const verifiedContainer = await handleV2edit(
-        interaction,
-        interaction.message,
-        reason,
+      const { container, files } = relinkAttachments(interaction.message);
+
+      const tempMsg = { ...interaction.message, components: [container] };
+      const deniedContainer = handleV2Edit(
+        interaction, 
+        tempMsg, 
+        VerificationStatus.DENIED,
+        reason
       );
 
-      await interaction.editReply({
+      const editPayload = {
         flags: [MessageFlags.IsComponentsV2],
-        components: [verifiedContainer],
-      });
+        components: [deniedContainer],
+      };
+      if (files) editPayload.files = files;
+      await interaction.editReply(editPayload);
 
       if (interaction.message.thread) {
         await interaction.message.thread.setArchived(true);
       }
-    } else {
-      const originalEmbed = interaction.message.embeds[0];
-      let fields = originalEmbed.fields || [];
-
-      // Remove confirmation field
-      if (
-        fields.length > 0 &&
-        fields[fields.length - 1].name.includes("Are you sure")
-      ) {
-        fields.pop();
-      }
-
-      const embed = new EmbedBuilder(originalEmbed)
-        .setColor("#EB2121")
-        .setTitle(originalEmbed.title + " (DENIED)")
-        .setFields(fields)
-        .setFooter({
-          text: `Denied by ${interaction.user.username} | ${originalEmbed?.footer?.text || userid}`,
-        })
-        .setDescription(`**Denied for reason:** ${reason}`);
-
-      await interaction.editReply({ embeds: [embed], components: [] });
-    }
-
-    if (messageids && messageids.length > 0) {
-      for (const messageId of messageids) {
-        if (messageId === interaction.message.id) {
-          continue;
-        }
-
-        try {
-          const message = await interaction.channel.messages.fetch(messageId);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-
-          if (message && message.author.id === client.user.id) {
-            if (message.flags.has(MessageFlags.IsComponentsV2)) {
-              const editedContainer = await handleV2edit(
-                interaction,
-                message,
-                reason,
-              );
-              await message.edit({
-                flags: [MessageFlags.IsComponentsV2],
-                components: [editedContainer],
-              });
-            } else if (!message?.embeds[0]?.footer?.text?.includes("Denied")) {
-              const originalembed = message.embeds[0];
-
-              let Embed = new EmbedBuilder(originalembed)
-                .setColor("#EB2121")
-                .setTitle(originalembed.title + " (DENIED)")
-                .setFooter({
-                  text: `Denied by ${interaction.user.username} | ${originalembed?.footer?.text || userid}`,
-                })
-                .setDescription(`**Denied for reason:** ${reason}`);
-
-              await message.edit({ embeds: [Embed], components: [] });
-            }
-          }
-        } catch (error) {
-          console.error(
-            `Failed to process message with ID ${messageId}: ${error}`,
-          );
-        }
-      }
     }
   }
 
-  //delete the message ids from verifications
+  // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    delete verification.guildVerifications[interaction.guild.id];
-    verification.changed("guildVerifications", true);
-    await verification.save();
+    await cleanupVerificationData(verification, interaction.guild.id);
   }
 
-  const denyEmbed = new EmbedBuilder()
-    .setColor("#EB2121")
-    .setTitle("Application Denied")
-    .setDescription(
-      `Your application into **${interaction.guild.name}** has been denied!\n**Reason:** ${interaction.fields.getTextInputValue("denyInput")}`,
-    );
+  // Send denial DM
+  const dmResult = await sendDenyDM(user, interaction.guild.name, reason);
 
-  try {
-    await user.send({ embeds: [denyEmbed] });
+  if (dmResult.dmDisabled) {
+    await interaction.followUp({
+      content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  } else {
     await interaction.followUp({
       content: `✅ User denied successfully!`,
       flags: MessageFlags.Ephemeral,
     });
-  } catch (error) {
-    if (error.code === 50007 || error.code === 50278) {
-      await interaction.followUp({
-        content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
-        flags: MessageFlags.Ephemeral,
-      });
-    } else {
-      throw error;
-    }
   }
 };
-
-async function handleV2edit(interaction, message, reason) {
-  const editedContainer = new ContainerBuilder({
-    accent_color: 0xeb2121,
-  });
-
-  const originalContainer = message.components[0];
-
-  if (originalContainer?.components) {
-    for (const component of originalContainer.components) {
-      if (component.type === 9) {
-        let content = component.components[0].content;
-
-        content = content.replace(/<@&\d+>/g, "").trim();
-
-        editedContainer.addSectionComponents(
-          new SectionBuilder()
-            .addTextDisplayComponents(
-              new TextDisplayBuilder({
-                content:
-                  content +
-                  `\n**Status:** \`Denied by ${interaction.user.username}\`: ${reason}`,
-              }),
-            )
-            .setThumbnailAccessory(
-              new ThumbnailBuilder({
-                media: { url: component.accessory.media.url },
-              }),
-            ),
-        );
-      }
-      if (component.type === 10) {
-        editedContainer.addTextDisplayComponents(
-          new TextDisplayBuilder({
-            content: component.content,
-          }),
-        );
-      } else if (component.type === 14) {
-        editedContainer.addSeparatorComponents(
-          new SeparatorBuilder({
-            spacing: component.spacing || SeparatorSpacingSize.Small,
-          }),
-        );
-      } else if (component.type === 12) {
-        if (component.items?.length > 0) {
-          const mappedurls = component.items?.map((item) => ({
-            media: {
-              url: item.media.url,
-            },
-          }));
-          editedContainer.addMediaGalleryComponents(
-            new MediaGalleryBuilder({
-              items: mappedurls,
-            }),
-          );
-        }
-      }
-    }
-  }
-
-  editedContainer.addTextDisplayComponents(
-    new TextDisplayBuilder({
-      content: `-# Denied by ${interaction.user.username} (${interaction.user.id})`,
-    }),
-  );
-
-  return editedContainer;
-}
