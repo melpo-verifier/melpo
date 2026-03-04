@@ -11,20 +11,59 @@ const {
   PermissionsBitField,
   FileBuilder,
   AttachmentBuilder,
+  ButtonBuilder,
+  ActionRowBuilder,
 } = require("discord.js");
 const { Verification, InviteTracker } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
+
+function getMessageIds(verification, guildId, applicationId = null) {
+  const guildData = verification?.guildVerifications?.[guildId];
+  if (!guildData) return [];
+
+  if (Array.isArray(guildData)) {
+    return guildData;
+  }
+
+  if (applicationId != null) {
+    return guildData[applicationId] || [];
+  }
+
+  return Object.values(guildData).flat();
+}
+
+function addMessageId(verification, guildId, applicationId, messageId) {
+  if (!verification.guildVerifications) {
+    verification.guildVerifications = {};
+  }
+
+  let guildData = verification.guildVerifications[guildId];
+
+  if (!guildData || Array.isArray(guildData)) {
+    verification.guildVerifications[guildId] = {};
+    guildData = verification.guildVerifications[guildId];
+  }
+
+  if (!guildData[applicationId]) {
+    guildData[applicationId] = [];
+  }
+
+  guildData[applicationId].push(messageId);
+  verification.changed("guildVerifications", true);
+}
 
 const VerificationStatus = {
   VERIFIED: "verified",
   DENIED: "denied",
   KICKED: "kicked",
+  LEFT: "left",
 };
 
 const StatusColors = {
   [VerificationStatus.VERIFIED]: 0x008000,
   [VerificationStatus.DENIED]: 0xeb2121,
   [VerificationStatus.KICKED]: 0xeb2121,
+  [VerificationStatus.LEFT]: 0x808080,
 };
 
 async function rateLimitedOperation(operation, maxRetries = 3) {
@@ -254,6 +293,130 @@ function handleV2Edit(interaction, message, status, reason = null) {
   );
 
   return editedContainer;
+}
+
+function createLeftV2Component(message, memberId) {
+  const MAX_DISPLAYABLE_TEXT = 4000;
+  const color = StatusColors[VerificationStatus.LEFT];
+
+  const footerText = `-# User left server (${memberId})`;
+  const statusSuffix = `\n**Status:** \`Left Server\``;
+  const reservedChars = footerText.length + 50;
+  let totalTextLength = 0;
+
+  const clonedContainer = JSON.parse(
+    JSON.stringify(message.components[0] || {}),
+  );
+  const editedContainer = new ContainerBuilder({
+    accent_color: color,
+  });
+
+  if (clonedContainer.components) {
+    for (const component of clonedContainer.components) {
+      if (component.type === 9) {
+        let content = component.components[0].content;
+        content = content.replace(/<@&\d+>/g, "").trim();
+
+        const fullContent = content + statusSuffix;
+        const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
+        const truncatedContent = available < fullContent.length
+            ? fullContent.slice(0, Math.max(available - 3, 0)) + "..."
+            : fullContent;
+
+        totalTextLength += truncatedContent.length;
+
+        editedContainer.addSectionComponents(
+          new SectionBuilder()
+            .addTextDisplayComponents(
+              new TextDisplayBuilder({
+                content: truncatedContent,
+              }),
+            )
+            .setThumbnailAccessory(
+              new ThumbnailBuilder({
+                media: { url: component.accessory.media.url },
+              }),
+            ),
+        );
+      } else if (component.type === 10) {
+        const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
+        if (available <= 0) continue;
+
+        const content = available < component.content.length
+            ? component.content.slice(0, Math.max(available - 3, 0)) + "..."
+            : component.content;
+
+        totalTextLength += content.length;
+
+        editedContainer.addTextDisplayComponents(
+          new TextDisplayBuilder({
+            content: content,
+          }),
+        );
+      } else if (component.type === 14) {
+        editedContainer.addSeparatorComponents(
+          new SeparatorBuilder({
+            spacing: component.spacing || SeparatorSpacingSize.Small,
+          }),
+        );
+      } else if (component.type === 12) {
+        if (component.items?.length > 0) {
+          const mappedurls = component.items.map((item) => ({
+            media: { url: item.media.url },
+          }));
+          editedContainer.addMediaGalleryComponents(
+            new MediaGalleryBuilder({
+              items: mappedurls,
+            }),
+          );
+        }
+      } else if (component.type === 13) {
+        if (component.file?.url?.startsWith("attachment://")) {
+          editedContainer.addFileComponents(
+            new FileBuilder().setURL(component.file.url),
+          );
+        }
+      }
+    }
+  }
+
+  editedContainer.addTextDisplayComponents(
+    new TextDisplayBuilder({
+      content: footerText,
+    }),
+  );
+
+  return editedContainer;
+}
+
+function createDisabledButtons() {
+  return new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("verify")
+      .setLabel("Accept")
+      .setStyle("Success")
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setCustomId("deny")
+      .setLabel("Deny")
+      .setStyle("Danger")
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setCustomId("reasondeny")
+      .setLabel("Deny with reason")
+      .setStyle("Danger")
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setCustomId("question")
+      .setLabel("Question")
+      .setStyle("Primary")
+      .setDisabled(true),
+    new ButtonBuilder()
+      .setCustomId("action")
+      .setLabel("Kick")
+      .setStyle("Secondary")
+      .setDisabled(true),
+  );
 }
 
 // Process text placeholders for welcome messages
@@ -673,13 +836,120 @@ async function processLogMessages(options) {
   }
 }
 
-// Clean up verification data from database
-async function cleanupVerificationData(verification, guildId) {
-  if (verification?.guildVerifications?.[guildId]) {
-    delete verification.guildVerifications[guildId];
-    verification.changed("guildVerifications", true);
-    await verification.save();
+async function processLeaveMessages(options) {
+  const { client, member, application, messageIds } = options;
+
+  const reviewChannel = member.guild.channels.cache.get(application.reviewchannel);
+  if (!reviewChannel) return;
+
+  const hasSeparateLogChannel =
+    application.verifylogs && application.verifylogs !== application.reviewchannel;
+
+  for (const messageId of messageIds) {
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    let foundMessage;
+    try {
+      foundMessage = await reviewChannel.messages.fetch(messageId);
+    } catch (error) {
+      if (error.code === 10008) continue;
+      console.error(`Error fetching message ${messageId}:`, error);
+      continue;
+    }
+
+    if (!foundMessage) continue;
+
+    try {
+      if (hasSeparateLogChannel) {
+        const logChannel =
+          member.guild.channels.cache.get(application.verifylogs);
+
+        if (
+          logChannel &&
+          foundMessage.flags?.has(MessageFlags.IsComponentsV2)
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+
+          const { container, files } = relinkAttachments(foundMessage);
+          const tempMsg = { ...foundMessage, components: [container] };
+          const leftContainer = createLeftV2Component(tempMsg, member.id);
+
+          let threadEmbed;
+          if (foundMessage.thread) {
+            threadEmbed = await createThreadSummary(
+              foundMessage.thread,
+              client,
+              VerificationStatus.LEFT,
+            );
+          }
+
+          const payload = {
+            flags: [MessageFlags.IsComponentsV2],
+            components: [leftContainer],
+          };
+          if (files) payload.files = files;
+
+          const sentMessage = await logChannel.send(payload);
+
+          const thread = await sentMessage.startThread({
+            name: `${member.user?.username || member.id}'s log`,
+          });
+
+          if (threadEmbed) {
+            await thread.send({ embeds: [threadEmbed] });
+          }
+          await thread.setArchived(true);
+
+          if (foundMessage.thread) {
+            await foundMessage.thread.delete().catch(console.error);
+          }
+          await foundMessage.delete().catch(console.error);
+        }
+      } else {
+        if (
+          foundMessage.author.id === client.user.id &&
+          foundMessage.flags?.has(MessageFlags.IsComponentsV2)
+        ) {
+          const { container, files } = relinkAttachments(foundMessage);
+          const tempMsg = { ...foundMessage, components: [container] };
+          const leftContainer = createLeftV2Component(tempMsg, member.id);
+          const disabledButtons = createDisabledButtons();
+
+          const editPayload = {
+            flags: [MessageFlags.IsComponentsV2],
+            components: [leftContainer, disabledButtons],
+          };
+          if (files) editPayload.files = files;
+
+          await foundMessage.edit(editPayload);
+
+          if (foundMessage.thread) {
+            await foundMessage.thread.setArchived(true);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error processing log message:", error);
+    }
   }
+}
+
+// Clean up verification data from database
+async function cleanupVerificationData(verification, guildId, applicationId = null) {
+  const guildData = verification?.guildVerifications?.[guildId];
+  if (!guildData) return;
+
+  if (applicationId != null && !Array.isArray(guildData)) {
+    delete guildData[applicationId];
+    if (Object.keys(guildData).length === 0) {
+      delete verification.guildVerifications[guildId];
+    }
+  } else {
+    delete verification.guildVerifications[guildId];
+  }
+
+  verification.changed("guildVerifications", true);
+  await verification.save();
 }
 
 // Create "no application" embed for users verified/denied without application
@@ -725,7 +995,7 @@ async function verifyUser(options) {
 
   // Get verification data
   const verification = await Verification.findOne({ where: { userId } });
-  const messageids = verification?.guildVerifications?.[interaction.guild.id] || [];
+  const messageids = getMessageIds(verification, interaction.guild.id, application.id);
   const invitetracker = await InviteTracker.findOne({
     where: { unique_id: `${userId}_${interaction.guild.id}` },
   });
@@ -757,7 +1027,7 @@ async function verifyUser(options) {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id);
+    await cleanupVerificationData(verification, interaction.guild.id, application.id);
   }
 
   // Send welcome message
@@ -799,7 +1069,7 @@ async function denyUser(options) {
 
   // Get verification data
   const verification = await Verification.findOne({ where: { userId } });
-  const messageids = verification?.guildVerifications?.[interaction.guild.id] || [];
+  const messageids = getMessageIds(verification, interaction.guild.id, application.id);
   const invitetracker = await InviteTracker.findOne({
     where: { unique_id: `${userId}_${interaction.guild.id}` },
   });
@@ -831,7 +1101,7 @@ async function denyUser(options) {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id);
+    await cleanupVerificationData(verification, interaction.guild.id, application.id);
   }
 
   // Send deny DM
@@ -876,11 +1146,14 @@ module.exports = {
   relinkAttachments,
   processText,
   getMentions,
+  getMessageIds,
+  addMessageId,
   sendWelcomeMessage,
   sendVerifyDM,
   sendDenyDM,
   createThreadSummary,
   processLogMessages,
+  processLeaveMessages,
   cleanupVerificationData,
   createNoApplicationEmbed,
   verifyUser,

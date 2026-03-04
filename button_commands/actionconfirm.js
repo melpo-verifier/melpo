@@ -3,7 +3,7 @@ const {
   PermissionsBitField,
   MessageFlags,
 } = require("discord.js");
-const { Verification } = require("../dbObjects.js");
+const { Verification, Application } = require("../dbObjects.js");
 const {
   checkManagerPermission,
   handleV2Edit,
@@ -11,6 +11,7 @@ const {
   relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
+  getMessageIds,
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
@@ -113,28 +114,31 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   const verification = await Verification.findOne({
     where: { userId: userid },
   });
-  const messageids = verification?.guildVerifications?.[interaction.guild.id];
 
-  // Process log messages
-  try {
-    await processLogMessages({
-      interaction,
-      client,
-      application,
-      messageids,
-      user: member,
-      status: VerificationStatus.KICKED,
-      useRateLimiting: false,
-    });
-  } catch (logError) {
-    if (logError.code === 50001 || logError.code === 50013) {
-      console.warn(`Missing permissions for log messages in guild ${interaction.guild.id}`);
-      await interaction.followUp({
-        content: "Warning: Could not process log messages due to missing permissions.",
-        flags: MessageFlags.Ephemeral,
-      }).catch(() => {});
-    } else {
-      throw logError;
+  const allApplications = await Application.findAll({
+    where: { server_id: interaction.guild.id },
+    attributes: ["id", "reviewchannel", "verifylogs"],
+  });
+
+  // Edit messages from all applications
+  for (const app of allApplications) {
+    const appMessageIds = getMessageIds(verification, interaction.guild.id, app.id);
+    if (!appMessageIds || appMessageIds.length === 0) continue;
+
+    try {
+      await processLogMessages({
+        interaction,
+        client,
+        application: app,
+        messageids: appMessageIds,
+        user: member,
+        status: VerificationStatus.KICKED,
+        useRateLimiting: false,
+      });
+    } catch (logError) {
+      if (!logError.code === 50001 || !logError.code === 50013) {
+        console.error("Error processing log messages:", logError);
+      }
     }
   }
 
@@ -145,8 +149,8 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
       const tempMsg = { ...interaction.message, components: [container] };
       const kickedContainer = handleV2Edit(
-        interaction, 
-        tempMsg, 
+        interaction,
+        tempMsg,
         VerificationStatus.KICKED
       );
 
@@ -163,7 +167,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     }
   }
 
-  if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id);
-  }
+  // Cleanup verification data for entire guild (user is kicked from server)
+  await cleanupVerificationData(verification, interaction.guild.id);
 };

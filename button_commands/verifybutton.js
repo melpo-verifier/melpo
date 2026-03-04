@@ -21,6 +21,7 @@ const {
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
+const { addMessageId } = require("../js/verificationHandler.js");
 
 const activeVerifications = new Map();
 
@@ -1137,28 +1138,16 @@ async function processVerificationResult(
     }
     
     try {
-      const verification = await Verification.findOne({
+      let verification = await Verification.findOne({
         where: { userId: user.id },
       });
       if (verification) {
-        if (
-          verification?.guildVerifications &&
-          verification?.guildVerifications?.[guildId]
-        ) {
-          verification.guildVerifications[guildId].push(channelsent.id);
-        } else {
-          verification.guildVerifications = {
-            ...verification.guildVerifications,
-            [guildId]: [channelsent.id],
-          };
-        }
-        verification.changed("guildVerifications", true);
-
+        addMessageId(verification, guildId, applicationId, channelsent.id);
         await verification.save();
       } else {
         await Verification.create({
           userId: user.id,
-          guildVerifications: { [guildId]: [channelsent.id] },
+          guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } },
         });
       }
     } catch (error) {
