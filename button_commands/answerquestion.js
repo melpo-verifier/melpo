@@ -135,14 +135,18 @@ module.exports = async ({ interaction, client }) => {
 
   messageCollector.on("collect", async (m) => {
     let totalcontent = m.content;
+    let answercontent = m.content;
     let attachmentUrls = [];
 
     // Truncate if too long
-    if (totalcontent.length > 1024) {
-      totalcontent = totalcontent.substring(0, 1021) + "...";
-      await m.author.send(
-        "Note: Your answer was shortened to fit Discord's limits.",
-      );
+    if (answercontent.length > 1024) {
+      answercontent = answercontent.substring(0, 1021) + "...";
+    }
+
+    const questionform = interaction.message.embeds[0];
+
+    if(totalcontent.length + questionform.fields[0].value.length > 3800) {
+      totalcontent = totalcontent.substring(0, 3800 - questionform.fields[0].value.length) + "...";
     }
 
     const rolesToPing = Array.isArray(application.questionpingrole)
@@ -190,21 +194,9 @@ module.exports = async ({ interaction, client }) => {
       }
     }
 
-    const questionform = interaction.message.embeds[0];
     const answerform = EmbedBuilder.from(questionform)
-      .addFields({ name: "Answer", value: totalcontent })
+      .addFields({ name: "Answer", value: answercontent })
       .setColor("#008000");
-
-    const logresponse = EmbedBuilder.from(questionform)
-      .addFields({ name: "Answer", value: totalcontent })
-      .setAuthor({
-        name: user.tag,
-        iconURL: user.displayAvatarURL({ dynamic: true }),
-      })
-      .setTimestamp()
-      .setFooter({ text: `DM | ${user.id}` });
-
-    delete logresponse.data.title;
 
     await interaction.message.edit({
       components: [disabledconfirmrow],
