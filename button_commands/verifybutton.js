@@ -936,7 +936,6 @@ async function constructApplicationEmbed(
     let totalCharacterCount = 0;
     let absoluteTotalCharacterCount = 0;
     const MAX_TOTAL_CHARACTERS = 3600;
-    const MAX_FIELD_CHARACTERS = 1024;
     let wasTruncated = false;
     const fullTextLines = [];
 
@@ -966,11 +965,6 @@ async function constructApplicationEmbed(
         questionText,
         `_ _ ${answertext}`,
       ].join("\n");
-
-      if (formattedField.length > MAX_FIELD_CHARACTERS) {
-        formattedField = formattedField.slice(0, MAX_FIELD_CHARACTERS - 3) + "...";
-        wasTruncated = true;
-      }
 
       if (totalCharacterCount + formattedField.length > MAX_TOTAL_CHARACTERS) {
         const remainingCharacters = MAX_TOTAL_CHARACTERS - totalCharacterCount;
