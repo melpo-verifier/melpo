@@ -581,11 +581,11 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 }
 
 // Send denial DM to user
-async function sendDenyDM(user, application, guildName, reason = null) {
+async function sendDenyDM(modname, user, application, guildName, reason = null) {
   const denyEmbed = new EmbedBuilder()
     .setColor(application.denymessage?.color || "#EB2121")
     .setTitle(application.denymessage?.title || "Application Denied")
-    .setDescription(`${application.denymessage?.description || `Your application into **${guildName}** has been denied.`}${reason ? `\n\n**Reason:** ${reason}` : ""}`)
+    .setDescription((`${application.denymessage?.description?.replace(/{modname}/gi, modname) || `Your application into **${guildName}** has been denied.`}`) + `${reason ? `\n**Reason:** ${reason}` : ""}`)
     // .setDescription(
     //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
     // );
@@ -1106,7 +1106,7 @@ async function denyUser(options) {
   }
 
   // Send deny DM
-  const dmResult = await sendDenyDM(user, interaction.guild.name, reason);
+  const dmResult = await sendDenyDM(interaction.user.username, user, application, interaction.guild.name, reason);
 
   return { success: true, user, dmDisabled: dmResult.dmDisabled };
 }
