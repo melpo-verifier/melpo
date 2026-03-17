@@ -910,6 +910,8 @@ async function constructApplicationEmbed(
     where: { unique_id: `${user.id}_${serverId}` },
   });
 
+  const headerText = `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`;
+
   const container = new ContainerBuilder({
     accent_color: 4161521,
   })
@@ -917,7 +919,7 @@ async function constructApplicationEmbed(
       new SectionBuilder()
         .addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+            content: headerText,
           }),
         )
         .setThumbnailAccessory(
@@ -933,9 +935,9 @@ async function constructApplicationEmbed(
     );
 
   if (answers.length > 0) {
-    let totalCharacterCount = 0;
+    let totalCharacterCount = headerText.length;
     let absoluteTotalCharacterCount = 0;
-    const MAX_TOTAL_CHARACTERS = 3600;
+    const MAX_TOTAL_CHARACTERS = 3800;
     let wasTruncated = false;
     const fullTextLines = [];
 
