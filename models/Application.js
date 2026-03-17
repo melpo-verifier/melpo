@@ -70,7 +70,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: {
         title: "How to verify",
-        description: `After clicking the "Verify" button below the bot will DM you some questions in order for you to access the server. You'll have to fill out the complete form in order for the moderators to see your application. \n\nClick the "Apply" button below to start verification`,
+        description: `After clicking the "Apply" button below the bot will DM you some questions in order for you to access the server. You'll have to fill out the complete form in order for the moderators to see your application. \n\nClick the "Apply" button below to start the application`,
         color: "#3f7ff1",
       },
       allowNull: false,
@@ -78,8 +78,8 @@ module.exports = (sequelize, DataTypes) => {
     verifymessage: {
       type: DataTypes.JSONB,
       defaultValue: {
-        title: `Verification accepted`,
-        description: "Your verification for **${interaction.guild.name}** has been accepted by {modname}!",
+        title: `Application accepted`,
+        description: "Your application for **{appName}** in **${interaction.guild.name}** has been accepted by {modname}!",
         color: "#008000",
       },
       allowNull: false,
@@ -96,8 +96,8 @@ module.exports = (sequelize, DataTypes) => {
     finishmessage: {
       type: DataTypes.JSONB,
       defaultValue: {
-        title: `Verification Completed`,
-        description: "The verification has been completed successfully and has been sent to review to ${interaction.guild.name}!",
+        title: `Application Completed`,
+        description: "Your application has been completed successfully and has been sent to review to ${interaction.guild.name}!",
         color: "#008000",
       },
       allowNull: false,
@@ -105,8 +105,8 @@ module.exports = (sequelize, DataTypes) => {
     denymessage: {
       type: DataTypes.JSONB,
       defaultValue: {
-        title: `Verification Denied`,
-        description: "Your verification has been denied by {modname}!",
+        title: `Application Denied`,
+        description: "Your application for **{appName}** in **${interaction.guild.name}** has been denied by {modname}!",
         color: "#EB2121",
       },
       allowNull: false,
