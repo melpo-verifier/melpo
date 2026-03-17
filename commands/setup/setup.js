@@ -97,7 +97,7 @@ module.exports = {
     }
 
     const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
-    const maxApps = serverConfig.maxApplications || 5;
+    const maxApps = serverConfig.maxApplications || 10;
 
     if (subcommand === 'create') {
       if (applications.length >= maxApps) {

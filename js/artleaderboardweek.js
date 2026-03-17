@@ -61,9 +61,9 @@ module.exports = async (client) => {
     }
 
     if (
-      reaction.message.channel.isDMBased() ||
+      reaction.message?.channel?.isDMBased() ||
       !reaction.message?.author ||
-      reaction.message.author.bot ||
+      reaction.message?.author.bot ||
       user.bot
     )
       return;

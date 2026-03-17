@@ -24,16 +24,21 @@ async function findVerifyMessage(verifyChannelObj, botId, embedConfig) {
   );
 }
 
-function messageNeedsUpdate(existingMessage, newEmbed) {
+function messageNeedsUpdate(existingMessage, newEmbed, newButtonCustomId) {
   const oldEmbed = existingMessage.embeds[0];
   const newEmbedData = newEmbed.data;
 
-  return (
+  const embedChanged = (
     (oldEmbed.title || null) !== (newEmbedData.title || null) ||
     (oldEmbed.description || null) !== (newEmbedData.description || null) ||
     oldEmbed.image?.url !== newEmbedData.image?.url ||
     oldEmbed.color !== newEmbedData.color
   );
+  
+  const oldButtonCustomId = existingMessage.components?.[0]?.components?.[0]?.customId;
+  const buttonChanged = oldButtonCustomId !== newButtonCustomId;
+  
+  return embedChanged || buttonChanged;
 }
 
 async function updateVerifyMessage(opts) {
@@ -77,9 +82,10 @@ async function updateVerifyMessage(opts) {
     };
   } else {
     // Check if update needed
-    if (messageNeedsUpdate(verificationMessage, embed)) {
+    if (messageNeedsUpdate(verificationMessage, embed, button.customId)) {
       await verificationMessage.edit({
         embeds: [embed],
+        components: [row],
       });
 
       return {

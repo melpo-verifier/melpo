@@ -1,4 +1,4 @@
-const { ButtonBuilder, ActionRowBuilder } = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder } = require("discord.js");
 const { updateTempApplication } = require("../js/tempconfigfuncs.js");
 
 module.exports = async ({ interaction, context }) => {
@@ -13,8 +13,8 @@ module.exports = async ({ interaction, context }) => {
       verifychannel: channel,
     }, { id: tempApplicationId });
 
-    const embed = interaction.message.embeds[0];
-    embed.fields[channelnumber].value = `<#${channel}>`;
+    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+    embed.data.fields[channelnumber].value = `<#${channel}>`;
 
     const originalComponents = interaction.message.components;
     const actionRow = originalComponents[1];
@@ -39,8 +39,8 @@ module.exports = async ({ interaction, context }) => {
       reviewchannel: channel,
     }, { id: tempApplicationId });
 
-    const embed = interaction.message.embeds[0];
-    embed.fields[channelnumber].value = `<#${channel}>`;
+    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+    embed.data.fields[channelnumber].value = `<#${channel}>`;
 
     const originalComponents = interaction.message.components;
     const actionRow = originalComponents[1];
@@ -65,8 +65,8 @@ module.exports = async ({ interaction, context }) => {
       verifiedrole: role,
     }, { id: tempApplicationId });
 
-    const embed = interaction.message.embeds[0];
-    embed.fields[channelnumber].value = role
+    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+    embed.data.fields[channelnumber].value = role
       ?.map((role) => `<@&${role}>`)
       .join(", ");
 
