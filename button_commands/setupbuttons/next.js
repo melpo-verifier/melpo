@@ -5,6 +5,7 @@ const {
   ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder,
   MessageFlags,
+  PermissionsBitField,
 } = require("discord.js");
 const { getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 
@@ -31,6 +32,26 @@ module.exports = async ({ interaction, context }) => {
   }
 
   if (nextnumber === 0) {
+
+    const channel = await interaction.guild.channels.fetch(temporarySetup.verifychannel).catch(() => null);
+    if (channel) {
+      const botMember = await interaction.guild.members.fetchMe();
+      const botPermissions = channel.permissionsFor(botMember);
+      if (
+        !botPermissions ||
+        !botPermissions.has([
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ViewChannel,
+        ])
+      ) {
+        return interaction.followUp({
+          content: `I don't have the required permissions in the selected channel. Please make sure I have the following channel-specific permissions in <#${temporarySetup.verifychannel}>:\n- View Channel\n- Send Messages\n\nAlso make sure I have all required global permissions using </checkpermissions:1324406378328096890>.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    }
+    
+
     const verifyChannel = temporarySetup.verifychannel;
 
     const channelmenu = new ChannelSelectMenuBuilder()
@@ -75,6 +96,25 @@ module.exports = async ({ interaction, context }) => {
       throw error;
     }
   } else if (nextnumber === 1) {
+
+    const channel = await interaction.guild.channels.fetch(temporarySetup.reviewchannel).catch(() => null);
+    if (channel) {
+      const botMember = await interaction.guild.members.fetchMe();
+      const botPermissions = channel.permissionsFor(botMember);
+      if (
+        !botPermissions ||
+        !botPermissions.has([
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ViewChannel,
+        ])
+      ) {
+        return interaction.followUp({
+          content: `I don't have the required permissions in the selected channel. Please make sure I have the following channel-specific permissions in <#${temporarySetup.reviewchannel}>:\n- View Channel\n- Send Messages\n\nAlso make sure I have all required global permissions using </checkpermissions:1324406378328096890>.`,
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    }
+
     const reviewChannel = temporarySetup.reviewchannel;
     const verifyChannel = temporarySetup.verifychannel;
 
@@ -124,6 +164,38 @@ module.exports = async ({ interaction, context }) => {
       throw error;
     }
   } else if (nextnumber === 2) {
+    //check if all roles are valid and bot can assign them
+    const roles = temporarySetup.verifiedrole || [];
+    let invalidRoles = [];
+    let noPermissionRoles = [];
+    for (const roleId of roles) {
+      const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+      if (!role) {
+        invalidRoles.push(roleId);
+        continue;
+      }
+
+      const botMember = await interaction.guild.members.fetchMe();
+      if (role && botMember.roles.highest.comparePositionTo(role) <= 0) {
+        noPermissionRoles.push(roleId);
+        continue;
+      }
+    }
+
+    if(noPermissionRoles.length > 0) {
+      return interaction.followUp({
+        content: `I don't have permission to assign the selected role(s): ${noPermissionRoles.map((id) => `<@&${id}>`).join(", ")}.\n Please make sure my highest role is above the selected role(s) in the role hierarchy.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    if(invalidRoles.length > 0) {
+      return interaction.followUp({
+        content: `The following selected role(s) are invalid: ${invalidRoles.map((id) => `<@&${id}>`).join(", ")}.\n The role might have been deleted during setup, please select valid role(s).`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
     const firsttimequestions = require("../../js/firsttimequestions.js");
 
     firsttimequestions({ interaction, applicationId: tempApplicationId });
