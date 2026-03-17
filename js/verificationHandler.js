@@ -420,7 +420,7 @@ function createDisabledButtons() {
 }
 
 // Process text placeholders for welcome messages
-async function processText(text, user, interaction, originalEmbed, verifiedRoles) {
+async function processText(text, user, interaction, originalEmbed, verifiedRoles, appName = null) {
   if (!text) return null;
 
   // Handle question placeholders
@@ -486,6 +486,7 @@ async function processText(text, user, interaction, originalEmbed, verifiedRoles
 
   text = text.replace(/{modname}/gi, interaction.user.globalName ?? interaction.user.username);
   text = text.replace(/\${interaction.guild.name}/gi, interaction.guild.name);
+  text = text.replace(/{appName}/gi, appName);
 
   return text && text.trim() ? text : null;
 }
@@ -565,8 +566,8 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
   const { title, description, color, image } = application.verifymessage;
 
-  const finalTitle = await processText(title, user, interaction, null, verifiedRoles);
-  const finalDescription = await processText(description, user, interaction, null, verifiedRoles);
+  const finalTitle = await processText(title, user, interaction, null, verifiedRoles, application.name);
+  const finalDescription = await processText(description, user, interaction, null, verifiedRoles, application.name);
   const dmImage = resolveImage(image);
 
   const finalEmbed = new EmbedBuilder()
@@ -582,10 +583,16 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
 // Send denial DM to user
 async function sendDenyDM(modname, user, application, guildName, reason = null) {
+  const description = application.denymessage?.description
+    ? application.denymessage.description
+        .replace(/{modname}/gi, modname)
+        .replace(/\${interaction.guild.name}/gi, guildName)
+        .replace(/{appName}/gi, application.name)
+    : `Your application into **${guildName}** has been denied.`;
   const denyEmbed = new EmbedBuilder()
     .setColor(application.denymessage?.color || "#EB2121")
     .setTitle(application.denymessage?.title || "Application Denied")
-    .setDescription((`${application.denymessage?.description?.replace(/{modname}/gi, modname) || `Your application into **${guildName}** has been denied.`}`) + `${reason ? `\n**Reason:** ${reason}` : ""}`)
+    .setDescription(description + `${reason ? `\n**Reason:** ${reason}` : ""}`)
     // .setDescription(
     //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
     // );
