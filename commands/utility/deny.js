@@ -203,7 +203,7 @@ module.exports = {
         }
 
         // Send denial DM
-        await sendDenyDM(user.user, interaction.guild.name);
+        await sendDenyDM(interaction.user.username, user.user, application, interaction.guild.name);
 
         results.success.push(userID);
       } catch (error) {

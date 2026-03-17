@@ -254,17 +254,10 @@ module.exports = async ({ interaction, client }) => {
                 components: [container, replybutton],
               });
             } else {
-              if (verificationMessage) {
-                await verificationMessage.reply({
-                  flags: [MessageFlags.IsComponentsV2],
-                  components: [container, replybutton],
-                });
-              } else { // if verification Message is undefined, use .send instead of .reply
-                verificationChannel.send({
-                  flags: [MessageFlags.IsComponentsV2],
-                  components: [container, replybutton],
-                });
-              }
+              await verificationMessage.reply({
+                flags: [MessageFlags.IsComponentsV2],
+                components: [container, replybutton],
+              });
             }
           }
           return false;

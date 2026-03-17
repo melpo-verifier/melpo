@@ -100,7 +100,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
   }
 
   // Send denial DM
-  const dmResult = await sendDenyDM(user, interaction.guild.name, reason);
+  const dmResult = await sendDenyDM(interaction.user.username, user, application, interaction.guild.name, reason);
 
   if (dmResult.dmDisabled) {
     await interaction.followUp({
