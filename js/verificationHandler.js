@@ -581,13 +581,14 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 }
 
 // Send denial DM to user
-async function sendDenyDM(user, guildName, reason = null) {
+async function sendDenyDM(user, application, guildName, reason = null) {
   const denyEmbed = new EmbedBuilder()
-    .setColor("#EB2121")
-    .setTitle("Application Denied")
-    .setDescription(
-      `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
-    );
+    .setColor(application.denymessage?.color || "#EB2121")
+    .setTitle(application.denymessage?.title || "Application Denied")
+    .setDescription(`${application.denymessage?.description || `Your application into **${guildName}** has been denied.`}${reason ? `\n\n**Reason:** ${reason}` : ""}`)
+    // .setDescription(
+    //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
+    // );
 
   try {
     await user.send({ embeds: [denyEmbed] });

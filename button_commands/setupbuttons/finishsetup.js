@@ -160,8 +160,17 @@ module.exports = async ({ interaction, client, context }) => {
     await existingApp.save();
     finalApp = existingApp;
   } else {
-    // Create
-    finalApp = await Application.create(appData);
+    // Check if application exists (in case of error)
+    const appExists = await Application.findOne({
+      where: { server_id: interaction.guild.id, name: tempApp.name },
+    });
+    if (appExists) {
+      Object.assign(appExists, appData);
+      await appExists.save();
+      finalApp = appExists;
+    } else {
+      finalApp = await Application.create(appData);
+    }
   }
 
   const verifyChannelObj = interaction.guild.channels.cache.get(verifyChannel);
@@ -172,10 +181,10 @@ module.exports = async ({ interaction, client, context }) => {
     });
   }
 
-  const embedColor = isValidHexColor(tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) ? (tempApp.verifychannelembed?.color ?? existingApp?.verifychannelembed?.color) : "#3f7ff1";
-  const embedTitle = tempApp.verifychannelembed?.title ?? existingApp?.verifychannelembed?.title ?? "Verification";
-  const embedDescription = tempApp.verifychannelembed?.description ?? existingApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
-  const embedImage = tempApp.verifychannelembed?.image ?? existingApp?.verifychannelembed?.image;
+  const embedColor = isValidHexColor(finalApp?.verifychannelembed?.color) ? finalApp.verifychannelembed.color : (tempApp?.verifychannelembed?.color ?? "#3f7ff1");
+  const embedTitle = finalApp?.verifychannelembed?.title ?? tempApp?.verifychannelembed?.title ?? "Verification";
+  const embedDescription = finalApp?.verifychannelembed?.description ?? tempApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
+  const embedImage = finalApp?.verifychannelembed?.image ?? tempApp?.verifychannelembed?.image;
   const embedImageAsset = resolveImage(embedImage);
 
   await updateVerifyMessage({
