@@ -1,7 +1,6 @@
 const { Events } = require("discord.js");
 const { Collection } = require("@discordjs/collection");
 const { InviteTracker } = require("../dbObjects.js");
-const { data } = require("../commands/setup/help.js");
 
 module.exports = class InviteManager {
   constructor(client) {
