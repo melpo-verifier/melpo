@@ -1,6 +1,7 @@
 const { Events } = require("discord.js");
 const { Collection } = require("@discordjs/collection");
 const { InviteTracker } = require("../dbObjects.js");
+const { data } = require("../commands/setup/help.js");
 
 module.exports = class InviteManager {
   constructor(client) {
@@ -11,6 +12,9 @@ module.exports = class InviteManager {
       );
 
     client.invites = new Collection();
+
+    const vanityCache = {};
+    const cache_TTL = 5 * 60 * 1000;
 
     function hasInvitePermission(guild) {
       const hasPermission = guild.members.me?.permissions.has("ManageGuild");
@@ -129,7 +133,7 @@ module.exports = class InviteManager {
 
       if (hasVanityFeature && member.guild.vanityURLCode) {
         try {
-          vanityURL = await member.guild.fetchVanityData();
+          vanityURL = await getVanityURL(member.guild);
         } catch {
           vanityURL = null;
         }
@@ -208,5 +212,28 @@ module.exports = class InviteManager {
         );
       }
     });
+    
+    async function getVanityURL(guild) {
+      const now = Date.now();
+      const cache = vanityCache[guild.id];
+      
+      if (cache && now - cache.timestamp < cache_TTL) {
+        return cache.data;
+      }
+
+      let vanityURL = null;
+      try {
+        vanityURL = await guild.fetchVanityData();
+      } catch {
+        vanityURL = null;
+      }
+
+      vanityCache[guild.id] = {
+        data: vanityURL,
+        timestamp: now,
+      }
+
+      return vanityURL;
+    }
   }
 };
