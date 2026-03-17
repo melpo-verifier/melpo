@@ -239,7 +239,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
           startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null,
         )
         .setDescription(startEmbedDescription ?? null)
-        .setColor("#3f7ff1")
+        .setColor(application.startmessage?.color || "#3f7ff1")
         .setFooter({
           text: `Application: ${appName} | Click "cancel" to cancel the verification.`
         })
@@ -1069,7 +1069,7 @@ async function processVerificationResult(
         finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null,
       )
       .setDescription(finishEmbedDescription)
-      .setColor("#008000")
+      .setColor(finishmessage?.color || "#008000")
       .setFooter({ text: `Application: ${appName}` })
       .setImage(finishImageAsset.embedUrl);
 
