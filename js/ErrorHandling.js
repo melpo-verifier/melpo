@@ -228,47 +228,47 @@ class ErrorHandler {
     await devUser.send({ embeds: [devEmbed] });
   }
 
-  static async handleMemoryError(error, client) {
-    const now = Date.now();
-    if (this.lastMemoryCleanup && now - this.lastMemoryCleanup < 60000) {
-      console.warn("Skipping memory cleanup: already performed recently.");
-      return;
-    }
+  // static async handleMemoryError(error, client) {
+  //   const now = Date.now();
+  //   if (this.lastMemoryCleanup && now - this.lastMemoryCleanup < 60000) {
+  //     console.warn("Skipping memory cleanup: already performed recently.");
+  //     return;
+  //   }
 
-    this.lastMemoryCleanup = now;
-    console.error(`Critical memory error detected:`, error.message);
+  //   this.lastMemoryCleanup = now;
+  //   console.error(`Critical memory error detected:`, error.message);
 
-    if (client) {
-      console.log("Performing emergency memory cleanup...");
+  //   if (client) {
+  //     console.log("Performing emergency memory cleanup...");
 
-      client.guilds.cache.clear();
-      client.users.cache.clear();
-      client.channels.cache.clear();
+  //     client.guilds.cache.clear();
+  //     client.users.cache.clear();
+  //     client.channels.cache.clear();
 
-      if (client.commands) client.commands.clear();
-      if (client.buttonCommands) client.buttonCommands.clear();
-      if (client.menus) client.menus.clear();
-      if (client.modals) client.modals.clear();
+  //     if (client.commands) client.commands.clear();
+  //     if (client.buttonCommands) client.buttonCommands.clear();
+  //     if (client.menus) client.menus.clear();
+  //     if (client.modals) client.modals.clear();
 
-      this.errorStats.clear();
+  //     this.errorStats.clear();
 
-      if (global.gc) {
-        global.gc();
-      }
+  //     if (global.gc) {
+  //       global.gc();
+  //     }
 
-      try {
-        const owner = await client.users.fetch("808738877945675786");
-        await owner.send(
-          `Bot had to perform emergency cleanup. Error: ${error.message}`,
-        );
-      } catch (err) {
-        console.error(
-          "Failed to notify owner about memory error:",
-          err.message,
-        );
-      }
-    }
-  }
+  //     try {
+  //       const owner = await client.users.fetch("808738877945675786");
+  //       await owner.send(
+  //         `Bot had to perform emergency cleanup. Error: ${error.message}`,
+  //       );
+  //     } catch (err) {
+  //       console.error(
+  //         "Failed to notify owner about memory error:",
+  //         err.message,
+  //       );
+  //     }
+  //   }
+  // }
 
   static cleanupErrorStats() {
     const oneHourAgo = Date.now() - 3600000;

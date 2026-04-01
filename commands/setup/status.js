@@ -3,7 +3,7 @@ const {
   PermissionsBitField,
   MessageFlags,
 } = require("discord.js");
-const { Status } = require("../../dbObjects"); // path to dbObjects.js
+const { Instances } = require("../../dbObjects");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -87,17 +87,17 @@ module.exports = {
       });
     }
 
-    const [statusData] = await Status.findOrCreate({
+    const [statusData] = await Instances.findOrCreate({
       where: { client_id: client.user.id },
     });
 
     const presence = {
-      activities: [{ name: statusData.name, type: parseInt(statusData.type) }],
+      activities: [{ name: statusData.status_name, type: parseInt(statusData.type) }],
       status: statusData.status,
     };
 
     if (name) {
-      statusData.name = name;
+      statusData.status_name = name;
       presence.activities[0].name = name;
     }
 

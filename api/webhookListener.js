@@ -1,11 +1,31 @@
 const express = require("express");
+const { exec } = require("child_process");
+const crypto = require("crypto");
+const pm2 = require("pm2");
 const {
   Client,
   GatewayIntentBits,
 } = require("discord.js");
-const { Status } = require("../dbObjects.js");
+const { Instances } = require("../dbObjects.js");
 const { Op } = require("sequelize");
 const cors = require("cors");
+
+const algorithm = "aes-256-cbc";
+const getEncryptionKey = () => {
+  const key = process.env.ENCRYPTION_KEY || "";
+  return Buffer.from(key.padEnd(32, "\0").slice(0, 32));
+};
+
+function decryptToken(text) {
+  if (!text || !text.includes(":")) return text;
+  const textParts = text.split(":");
+  const iv = Buffer.from(textParts.shift(), "hex");
+  const encryptedText = Buffer.from(textParts.join(":"), "hex");
+  const decipher = crypto.createDecipheriv(algorithm, getEncryptionKey(), iv);
+  let decrypted = decipher.update(encryptedText);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+  return decrypted.toString();
+}
 
 const {
   getApplicationById
@@ -46,7 +66,7 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
   const embedImageAsset = resolveImage(embedImage);
 
   try {
-    const statuses = await Status.findAll({
+    const statuses = await Instances.findAll({
       where: { guilds: { [Op.contains]: [guildId] } },
     });
 
@@ -156,7 +176,7 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
         );
         clientId = customBotId;
 
-        const botToken = getBotTokenFromId(clientId);
+        const botToken = await getBotTokenFromId(clientId);
         if (!botToken) {
           return res
             .status(404)
@@ -243,11 +263,241 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
   }
 });
 
+app.post("/api/pm2/instances", async (req, res) => {
+  const { bot } = req.body;
+
+  if (!bot || !bot.client_id) {
+    return res.status(400).json({ error: "Missing bot details" });
+  }
+
+  const clientId = bot.client_id;
+
+  try {
+    const existingBot = await Instances.findOne({ where: { client_id: clientId } });
+    if (!existingBot) {
+      return res.status(404).json({ error: "Bot instance not found in database" });
+    }
+
+    const ownerId = existingBot.owner_id;
+    const processName = `bot_${ownerId}_${clientId}`;
+
+    const pm2Command = `pm2 start customindex.js --name "${processName}" --time -f -- "${clientId}"`;
+
+    exec(pm2Command, async (error, stdout) => {
+      if (error) {
+        console.error(`Error starting PM2 instance: ${error.message}`);
+        return res.status(500).json({ error: "Failed to start bot instance" });
+      }
+      console.log(`PM2 bot started for ${clientId}:`, stdout);
+
+      // Save PM2 config so it restarts on server reboot
+      exec("pm2 save", (saveError) => {
+        if (saveError) {
+          console.error(`Error saving PM2 config: ${saveError.message}`);
+        } else {
+          console.log("PM2 config saved for auto-restart on reboot");
+        }
+      });
+
+      // Wait a moment for the bot to fully initialize, then register commands
+      setTimeout(() => {
+        const deployCommand = `node deploy-commands-global.js --clientId "${clientId}"`;
+        exec(deployCommand, (deployError, deployStdout) => {
+          if (deployError) {
+            console.error(`Error registering commands for ${clientId}: ${deployError.message}`);
+          } else {
+            console.log(`Commands registered for ${clientId}:`, deployStdout);
+          }
+        });
+      }, 2000);
+
+      res.json({
+        success: true,
+        message: "Bot instance started and commands are being registered",
+      });
+    });
+  } catch (error) {
+    console.error("Error retrieving custom bot from db:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.patch("/api/bot/:clientId/presence", async (req, res) => {
+  const { clientId } = req.params;
+  const { status_name, status_type, status } = req.body;
+
+  console.log(`Received presence update for clientId ${clientId}:`, { status_name, status_type, status });
+
+  if (clientId === process.env.MELPO_ID) {
+    return res.status(403).json({ error: "Cannot modify Melpo through the API" });
+  }
+
+  try {
+    const instance = await Instances.findOne({
+      where: { client_id: clientId },
+    });
+    if (!instance) {
+      return res.status(404).json({ error: "Bot instance not found" });
+    }
+
+    const processName = `bot_${instance.owner_id}_${clientId}`;
+
+    // Update presence via PM2 messaging
+    pm2.connect((err) => {
+      if (err) {
+        console.error("Failed to connect to PM2:", err);
+        return res.json({ success: true, bot: instance, saved: true, warning: "Could not send update signal" });
+      }
+
+      pm2.list((err, processList) => {
+        if (err) {
+          console.error("Failed to list PM2 processes:", err);
+          pm2.disconnect();
+          return res.json({ success: true, bot: instance, saved: true, warning: "Could not send update signal" });
+        }
+
+        const process = processList.find(p => p.name === processName);
+        if (!process) {
+          console.warn(`Process ${processName} not found in PM2 list`);
+          pm2.disconnect();
+          return res.json({
+            success: true,
+            bot: instance,
+            saved: true,
+            warning: "Process not found",
+          });
+        }
+
+        pm2.sendDataToProcessId(
+          process.pm_id,
+          {
+            type: "updatePresence",
+            data: {
+              status: instance.status,
+              status_name: instance.status_name,
+              status_type: instance.type,
+            },
+            id: process.pm_id,
+            topic: "updatePresence",
+          },
+          (error) => {
+            pm2.disconnect();
+            if (error) {
+              console.error(`Failed to send message to ${processName}:`, error);
+            } else {
+              console.log(`Successfully sent presence update message to ${processName}`);
+            }
+          }
+        );
+      });
+    });
+
+    return res.json({ success: true, bot: instance, saved: true });
+  } catch (error) {
+    console.error("Error updating bot presence:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.patch("/api/pm2/instances/:id", async (req, res) => {
+  const clientId = req.params.id;
+  const { status, status_name, status_type } = req.body;
+
+  if (clientId === process.env.MELPO_ID) {
+    return res
+      .status(403)
+      .json({ error: "Cannot modify Melpo through the API" });
+  }
+
+  try {
+    const existingBot = await Instances.findOne({
+      where: { client_id: clientId },
+    });
+    if (!existingBot) {
+      return res.status(404).json({ error: "Bot instance not found in database" });
+    }
+
+    if (status !== undefined) existingBot.status = status;
+    if (status_name !== undefined) existingBot.status_name = status_name;
+    if (status_type !== undefined) existingBot.type = parseInt(status_type);
+    await existingBot.save();
+
+    res.json({
+      success: true,
+      message: "Bot status updated",
+      bot: existingBot,
+    });
+  } catch (error) {
+    console.error("Error updating bot status:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.delete("/api/pm2/instances/:id", async (req, res) => {
+  const clientId = req.params.id;
+
+  if (clientId === process.env.MELPO_ID) {
+    return res.status(403).json({ error: "Cannot delete Melpo through the API" });
+  }
+
+  try {
+    const existingBot = await Instances.findOne({
+      where: { client_id: clientId },
+    });
+    if (!existingBot) {
+      return res.status(404).json({ error: "Bot instance not found in database" });
+    }
+
+    const ownerId = existingBot.owner_id;
+    const pm2Command = `pm2 delete "bot_${ownerId}_${clientId}"`;
+
+    const clearCommand = `node deploy-commands-global.js --clientId "${clientId}" --clear`;
+    exec(clearCommand, (clearError, clearStdout) => {
+      if (clearError) {
+        console.error(`Error clearing commands for ${clientId}: ${clearError.message}`);
+      } else {
+        console.log(`Commands cleared for ${clientId}:`, clearStdout);
+      }
+
+      exec(pm2Command, (error, stdout) => {
+        if (error) {
+          console.error(`Error deleting PM2 instance: ${error.message}`);
+          return res.status(500).json({ error: "Failed to delete bot instance" });
+        }
+        console.log(`PM2 bot deleted for ${clientId}:`, stdout);
+
+        exec("pm2 save", (saveError) => {
+          if (saveError) {
+            console.error(`Error saving PM2 config: ${saveError.message}`);
+          } else {
+            console.log("PM2 config saved after deletion");
+          }
+        });
+
+        res.json({
+          success: true,
+          message:
+            "Bot instance stopped, commands deleted, and process removed",
+        });
+      });
+    });
+  } catch (error) {
+    console.error("Error retrieving custom bot from db:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 app.listen(3169, () => {
   console.log("Webhook server running on port 3169");
 });
 
-const getBotTokenFromId = (clientId) => {
+const getBotTokenFromId = async (clientId) => {
+  const instance = await Instances.findOne({ where: { client_id: clientId } });
+
+  if (instance?.bot_token) {
+    return decryptToken(instance.bot_token);
+  }
+
   const botName = Object.keys(process.env)
     .find((key) => process.env[key] === clientId)
     ?.split("_")[0];

@@ -6,10 +6,11 @@ const {
   StringSelectMenuBuilder,
   MessageFlags,
 } = require("discord.js");
+const { AdTexts, UserBilling } = require("../../dbObjects.js");
 const { createTempApplication, deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
-module.exports = async ({ interaction, context, whichdefault, applicationId, tempApplicationId }) => {
+module.exports = async ({ interaction, context, whichdefault, applicationId, tempApplicationId, client }) => {
   tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
   
   if (!tempApplicationId) {
@@ -66,12 +67,30 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
       : finalTempApp.verificationwelcomechannel ||
         applicationSetup?.verificationwelcomechannel;
 
+  let adtext = null;
+
+  if (Math.random() < 0.05) {
+    const guild = await client.guilds.fetch(interaction.guild.id);
+
+    const serverOwner = guild?.ownerId;
+    const isPaidUser = await UserBilling.findOne({ where: { user_id: serverOwner } });
+
+    if(!isPaidUser) {
+      const adTexts = await AdTexts.findAll({
+        type: "setup"
+      });
+      
+      if (adTexts.length > 0) {
+        adtext = adTexts[Math.floor(Math.random() * adTexts.length)].text;
+      }
+    }
+  }
 
   const generalembed = new EmbedBuilder()
     .setColor("#3f7ff1")
     .setTitle("Channels setup")
     .setDescription(
-      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n_ _`,
+      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)${adtext ? `\n-# ${adtext}` : ''}\n_ _`,
     )
     .addFields(
       {

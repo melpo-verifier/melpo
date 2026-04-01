@@ -5,7 +5,7 @@ const {
   TempConfig,
   QuestionId,
   Verification,
-  Status,
+  Instances,
 } = require("./dbObjects.js");
 const { Op } = require("sequelize");
 // const fs = require("fs");
@@ -222,7 +222,7 @@ manager.on("shardCreate", (shard) => {
             `Collected ${uniqueGuildIds.length} unique guild IDs from all shards.`,
           );
 
-          await Status.upsert({
+          await Instances.upsert({
             client_id: process.env.MELPO_ID,
             guilds: uniqueGuildIds,
           });

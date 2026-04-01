@@ -13,6 +13,8 @@ module.exports = class InviteManager {
     client.invites = new Collection();
 
     const vanityCache = {};
+    const activeVanityFetches = {};
+    const activeInviteFetches = {};
     const cache_TTL = 5 * 60 * 1000;
 
     function hasInvitePermission(guild) {
@@ -79,33 +81,58 @@ module.exports = class InviteManager {
     client.on("inviteCreate", async (invite) => {
       if (!hasInvitePermission(invite.guild)) return;
 
-      const invitesData = new Collection();
-      invite.guild.invites.fetch().then((bes) => {
-        bes.forEach((x) => {
-          invitesData.set(x.code, {
-            uses: x.uses,
-            inviter: x.inviter,
-            code: x.code,
-          });
-        });
-        client.invites.set(invite.guild.id, invitesData);
+      let guildInvites = client.invites.get(invite.guild.id);
+      if (!guildInvites) {
+        guildInvites = new Collection();
+        client.invites.set(invite.guild.id, guildInvites);
+      }
+      
+      guildInvites.set(invite.code, {
+        uses: invite.uses,
+        inviter: invite.inviter,
+        code: invite.code,
+        guildID: invite.guild.id,
       });
     });
 
     client.on("inviteDelete", async (invite) => {
       if (!hasInvitePermission(invite.guild)) return;
 
-      const invitesData = new Collection();
-      invite.guild.invites.fetch().then((bes) => {
-        bes?.map((x) => {
-          invitesData.set(x.code, {
-            uses: x.uses,
-            inviter: x.inviter,
-            code: x.code,
-          });
+      const guildInvites = client.invites.get(invite.guild.id);
+      if (guildInvites) {
+        guildInvites.delete(invite.code);
+      }
+    });
+
+    client.on("guildDelete", (guild) => {
+      delete vanityCache[guild.id];
+      delete activeVanityFetches[guild.id];
+      delete activeInviteFetches[guild.id];
+      client.invites.delete(guild.id);
+    });
+
+    client.on("guildCreate", async (guild) => {
+      if (!hasInvitePermission(guild)) return;
+      try {
+        const collect = new Collection();
+        const guildInvites = await guild.invites.fetch().catch((err) => {
+          console.error(`Failed to fetch invites for guild ${guild.id}:`, err);
+          return null;
         });
-        client.invites.set(invite.guild.id, invitesData);
-      });
+        if (guildInvites) {
+          guildInvites.forEach((x) => {
+            collect.set(x.code, {
+              uses: x.uses,
+              inviter: x.inviter,
+              code: x.code,
+              guildID: guild.id,
+            });
+          });
+          client.invites.set(guild.id, collect);
+        }
+      } catch (error) {
+        console.error(`Error processing guildCreate for guild ${guild.id}:`, error);
+      }
     });
 
     client.on("guildMemberAdd", async (member) => {
@@ -119,18 +146,27 @@ module.exports = class InviteManager {
 
       const fetchInvites =
         client.invites.get(member.guild.id) || new Collection();
-      const invitesData = await member.guild.invites.fetch();
-      const invite =
-        invitesData.find(
-          (bes) =>
-            fetchInvites.has(bes.code) &&
-            fetchInvites.get(bes.code).uses < bes.uses,
-        ) || member.guild.vanityURLCode;
+      
+      if (!activeInviteFetches[member.guild.id]) {
+        activeInviteFetches[member.guild.id] = member.guild.invites.fetch().catch(() => new Collection()).finally(() => {
+          delete activeInviteFetches[member.guild.id];
+        });
+      }
+
+      const invitesData = await activeInviteFetches[member.guild.id];
+
+      const invite = invitesData?.find(
+        (bes) =>
+          fetchInvites.has(bes.code) &&
+          fetchInvites.get(bes.code).uses < bes.uses,
+      );
 
       const hasVanityFeature = member.guild.features.includes("VANITY_URL");
+      let usedVanity = false;
       let vanityURL = null;
 
-      if (hasVanityFeature && member.guild.vanityURLCode) {
+      if (!invite && hasVanityFeature && member.guild.vanityURLCode) {
+        usedVanity = true;
         try {
           vanityURL = await getVanityURL(member.guild);
         } catch {
@@ -139,7 +175,7 @@ module.exports = class InviteManager {
       }
 
       let collect = new Collection();
-      invitesData.forEach((x) => {
+      invitesData?.forEach((x) => {
         collect.set(x.code, {
           uses: x.uses,
           inviter: x.inviter,
@@ -155,41 +191,31 @@ module.exports = class InviteManager {
           return;
         }
 
-        if (invite !== null && invite !== undefined && invite) {
-          const [Tracker] = await InviteTracker.findOrCreate({
-            where: { unique_id: `${member.user.id}_${member.guild.id}` },
-          });
+        const [Tracker] = await InviteTracker.findOrCreate({
+          where: { unique_id: `${member.user.id}_${member.guild.id}` },
+        });
 
-          if (invite == member.guild.vanityURLCode && hasVanityFeature === true) {
-            // Vanity URL invite
-            Tracker.id = "vanity";
-            Tracker.code = member.guild.vanityURLCode;
-            Tracker.uses = vanityURL?.uses ?? null;
-          } else if (!invite.inviter) {
-            // Unkown invite
-            // Tracker.id = "unknown";
-            // Tracker.code = invite.code;
-            // Tracker.uses = invite.uses;
-            console.warn(`Invite found but inviter is null for member ${member.user.tag} (${member.id}) on guild ${member.guild.id}, invite code: ${invite?.code} ${invite?.uses}`);
+        if (usedVanity) {
+          // Vanity URL invite
+          Tracker.id = "vanity";
+          Tracker.code = member.guild.vanityURLCode;
+          Tracker.uses = vanityURL?.uses ?? null;
+        } else if (invite) {
+          if (!invite.inviter) {
+            console.warn(`Invite found but inviter is null on guild ${member.guild.id}, invite code: ${invite?.code} ${invite?.uses}`);
             return;
-          } else if (invite.inviter.id == member.user.id) {
-            // Self-invite
-            Tracker.id = member.id;
-            Tracker.code = invite.code;
-            Tracker.uses = invite.uses;
           } else {
             // Normal invite
             Tracker.id = invite.inviter.id;
             Tracker.code = invite.code;
             Tracker.uses = invite.uses;
-          } 
-
-          await Tracker.save();
-        }
-        if (!invite) {
-          console.warn(`No invite found for member ${member.user.tag} (${member.id})`);
+          }
+        } else {
+          // Unknown invite
           return;
         }
+
+        await Tracker.save();
       } catch (error) {
         console.error(
           `An error occurred at processing memberJoin event in dinvite: ${error}`,
@@ -215,24 +241,27 @@ module.exports = class InviteManager {
     async function getVanityURL(guild) {
       const now = Date.now();
       const cache = vanityCache[guild.id];
-      
+
       if (cache && now - cache.timestamp < cache_TTL) {
-        return cache.data;
+        return Promise.resolve(cache.data);
       }
 
-      let vanityURL = null;
-      try {
-        vanityURL = await guild.fetchVanityData();
-      } catch {
-        vanityURL = null;
+      if (activeVanityFetches[guild.id]) {
+        return activeVanityFetches[guild.id];
       }
 
-      vanityCache[guild.id] = {
-        data: vanityURL,
-        timestamp: now,
-      }
+      const fetchPromise = guild.fetchVanityData().then((vanityData) => {
+        vanityCache[guild.id] = { data: vanityData, timestamp: Date.now() };
+        delete activeVanityFetches[guild.id];
+        return vanityData;
+      }).catch(() => {
+        vanityCache[guild.id] = { data: null, timestamp: Date.now() };
+        delete activeVanityFetches[guild.id];
+        return null;
+      });
 
-      return vanityURL;
+      activeVanityFetches[guild.id] = fetchPromise;
+      return fetchPromise;
     }
   }
 };
