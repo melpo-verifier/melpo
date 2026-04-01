@@ -283,7 +283,7 @@ app.post("/api/pm2/instances", async (req, res) => {
 
     const pm2Command = `pm2 start customindex.js --name "${processName}" --time -f -- "${clientId}"`;
 
-    exec(pm2Command, async (error, stdout, stderr) => {
+    exec(pm2Command, async (error, stdout) => {
       if (error) {
         console.error(`Error starting PM2 instance: ${error.message}`);
         return res.status(500).json({ error: "Failed to start bot instance" });
@@ -302,7 +302,7 @@ app.post("/api/pm2/instances", async (req, res) => {
       // Wait a moment for the bot to fully initialize, then register commands
       setTimeout(() => {
         const deployCommand = `node deploy-commands-global.js --clientId "${clientId}"`;
-        exec(deployCommand, (deployError, deployStdout, deployStderr) => {
+        exec(deployCommand, (deployError, deployStdout) => {
           if (deployError) {
             console.error(`Error registering commands for ${clientId}: ${deployError.message}`);
           } else {
@@ -452,14 +452,14 @@ app.delete("/api/pm2/instances/:id", async (req, res) => {
     const pm2Command = `pm2 delete "bot_${ownerId}_${clientId}"`;
 
     const clearCommand = `node deploy-commands-global.js --clientId "${clientId}" --clear`;
-    exec(clearCommand, (clearError, clearStdout, clearStderr) => {
+    exec(clearCommand, (clearError, clearStdout) => {
       if (clearError) {
         console.error(`Error clearing commands for ${clientId}: ${clearError.message}`);
       } else {
         console.log(`Commands cleared for ${clientId}:`, clearStdout);
       }
 
-      exec(pm2Command, (error, stdout, stderr) => {
+      exec(pm2Command, (error, stdout) => {
         if (error) {
           console.error(`Error deleting PM2 instance: ${error.message}`);
           return res.status(500).json({ error: "Failed to delete bot instance" });

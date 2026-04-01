@@ -1,7 +1,6 @@
 const crypto = require("crypto");
 const { createBot } = require("./bot.js");
-const { Instances, UserBilling } = require("./dbObjects.js");
-const cron = require("node-cron");
+const { Instances } = require("./dbObjects.js");
 require("dotenv").config();
 
 const getEncryptionKey = () => {
@@ -23,7 +22,7 @@ function decryptToken(text) {
       decipher.update(encryptedText), 
       decipher.final()
     ]).toString();
-  } catch (err) {
+  } catch {
     console.warn("Decryption failed; using raw value.");
     return text;
   }

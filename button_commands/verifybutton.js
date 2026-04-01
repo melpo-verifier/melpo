@@ -24,7 +24,6 @@ const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
 const { addMessageId } = require("../js/verificationHandler.js");
-const { where } = require("sequelize");
 
 const activeVerifications = new Map();
 
