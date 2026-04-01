@@ -1,5 +1,5 @@
 const { Events } = require("discord.js");
-const { Status } = require("../dbObjects");
+const { Instances } = require("../dbObjects");
 const cron = require("node-cron");
 
 module.exports = {
@@ -10,14 +10,14 @@ module.exports = {
 
     const setPresence = async () => {
       try {
-        const [statusData] = await Status.findOrCreate({
+        const [statusData] = await Instances.findOrCreate({
           where: { client_id: client.user.id },
         });
 
         await client.user.setPresence({
           activities: [
             {
-              name: statusData.name,
+              name: statusData.status_name,
               type: parseInt(statusData.type),
             },
           ],
@@ -33,7 +33,7 @@ module.exports = {
       console.log("custom bot, writing assosiated guild ids to database...");
       const guildids = client.guilds.cache?.map((guild) => guild.id);
       console.log(`Found ${guildids.length} guilds.`);
-      await Status.upsert({
+      await Instances.upsert({
         client_id: client.user.id,
         guilds: guildids,
       });
@@ -44,5 +44,12 @@ module.exports = {
     cron.schedule("0 * * * *", setPresence);
     client.on("reconnecting", setPresence);
     client.on("resume", setPresence);
+
+    process.on("message", (msg) => {
+      if (msg.type === "updatePresence" || msg.topic === "updatePresence") {
+        console.log("Received updatePresence via PM2");
+        setPresence();
+      }
+    });
   },
 };

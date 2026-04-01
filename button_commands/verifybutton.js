@@ -1,6 +1,8 @@
 const {
   Verification,
   InviteTracker,
+  AdTexts,
+  UserBilling,
 } = require("../dbObjects.js");
 const {
   ButtonBuilder,
@@ -22,6 +24,7 @@ const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
 const { addMessageId } = require("../js/verificationHandler.js");
+const { where } = require("sequelize");
 
 const activeVerifications = new Map();
 
@@ -64,7 +67,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
   if (rateLimitMap.has(rateLimitKey)) {
     const timeSinceLastAttempt = Date.now() - rateLimitMap.get(rateLimitKey);
-    const timeLeft = Math.ceil((30000 - timeSinceLastAttempt) / 1000);
+    const timeLeft = Math.ceil((1000 - timeSinceLastAttempt) / 1000); //EDIT THIS BEFORE PUSH
 
     if (timeLeft > 0) {
       return await interaction.editReply({
@@ -1003,6 +1006,30 @@ async function constructApplicationEmbed(
         );
       }
     });
+
+    if (wasTruncated === false) {
+      if (Math.random() < 0.02) {
+        const guild = await client.guilds.fetch(serverId);
+
+        const serverOwner = guild?.ownerId;
+        const isPaidUser = await UserBilling.findOne({ where: { user_id: serverOwner } });
+
+        if(!isPaidUser) {
+          const adTexts = await AdTexts.findAll({
+            type: "application"
+          });
+
+          if (adTexts.length > 0) {
+          const randomAd = adTexts[Math.floor(Math.random() * adTexts.length)];
+          container.addTextDisplayComponents(
+            new TextDisplayBuilder({
+              content: '\n-# ' + randomAd.text,
+            }),
+          );
+          }
+        }
+      }
+    }
 
     const fullText = wasTruncated ? fullTextLines.join('\n') : null
 

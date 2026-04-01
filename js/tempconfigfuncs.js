@@ -151,16 +151,20 @@ async function updateBotLeaves() {
 }
 
 async function createTempApplication(serverID, appData = {}) {
-  const where = appData.applicationId
-    ? { server_id: serverID, applicationId: appData.applicationId }
-    : appData.id
-      ? { server_id: serverID, id: appData.id }
-      : { server_id: serverID, name: appData.name };
+  const where = appData.id
+    ? { server_id: serverID, id: appData.id }
+    : appData.name 
+      ? { server_id: serverID, name: appData.name }
+      : { server_id: serverID, applicationId: appData.applicationId };
 
   // Check if TempApplication already exists
   let tempApp = await TempApplication.findOne({ where });
   
   if (tempApp) {
+    if (appData.applicationId && tempApp.applicationId !== appData.applicationId) {
+      tempApp.applicationId = appData.applicationId;
+      await tempApp.save();
+    }
     return { tempApp, created: false };
   }
 

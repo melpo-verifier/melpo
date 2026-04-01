@@ -253,7 +253,7 @@ module.exports = async ({ interaction, client }) => {
                 flags: [MessageFlags.IsComponentsV2],
                 components: [container, replybutton],
               });
-            } else {
+            } else if (verificationMessage) {
               await verificationMessage.reply({
                 flags: [MessageFlags.IsComponentsV2],
                 components: [container, replybutton],
@@ -302,7 +302,7 @@ module.exports = async ({ interaction, client }) => {
           flags: [MessageFlags.IsComponentsV2],
           components: [container, replybutton],
         });
-      } else {
+      } else if (verificationMessage) {
         await verificationMessage.reply({
           flags: [MessageFlags.IsComponentsV2],
           components: [container, replybutton],

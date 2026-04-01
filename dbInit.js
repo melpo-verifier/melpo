@@ -20,12 +20,14 @@ require("./models/questionid.js")(sequelize, Sequelize.DataTypes);
 require("./models/opt-out.js")(sequelize, Sequelize.DataTypes);
 require("./models/TempConfig.js")(sequelize, Sequelize.DataTypes);
 require("./models/statistics.js")(sequelize, Sequelize.DataTypes);
-require("./models/status.js")(sequelize, Sequelize.DataTypes);
+require("./models/Instances.js")(sequelize, Sequelize.DataTypes);
 require("./models/ArtBoardConfig.js")(sequelize, Sequelize.DataTypes);
 require("./models/ArtLeaderboard.js")(sequelize, Sequelize.DataTypes);
 require("./models/whitelist.js")(sequelize, Sequelize.DataTypes);
 require("./models/Application.js")(sequelize, Sequelize.DataTypes);
 require("./models/TempApplication.js")(sequelize, Sequelize.DataTypes);
+require("./models/adtexts.js")(sequelize, Sequelize.DataTypes);
+require("./models/UserBilling.js")(sequelize, Sequelize.DataTypes);
 
 const force = process.argv.includes("--force") || process.argv.includes("-f");
 

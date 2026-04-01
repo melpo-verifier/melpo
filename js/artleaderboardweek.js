@@ -649,9 +649,9 @@ module.exports = async (client) => {
       if (silver) silver = null;
       if (bronze) bronze = null;
       
-      if (global.gc) {
-        global.gc();
-      }
+      // if (global.gc) {
+      //   setTimeout(() => global.gc(), 1000); // give the event loop a little breathing room before GC
+      // }
     }
   }
 

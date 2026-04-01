@@ -11,7 +11,7 @@ const {
 require("dotenv").config();
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js");
 const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js");
-const { ServerConfig, Verification, Status, Application } = require("./dbObjects.js");
+const { ServerConfig, Verification, Instances, Application } = require("./dbObjects.js");
 const InviteManager = require("./js/dinvite.js");
 const ErrorHandler = require("./js/ErrorHandling.js");
 const RateLimitError = require("./js/RateLimitHandling.js");
@@ -27,7 +27,16 @@ if (process.argv.length > 3 && process.argv[2] === "sharded") {
 
 async function createBot(token) {
   const myIntents = new IntentsBitField();
-  myIntents.add(3276543);
+  myIntents.add(
+    IntentsBitField.Flags.Guilds,
+    IntentsBitField.Flags.GuildMembers,
+    IntentsBitField.Flags.GuildModeration,
+    IntentsBitField.Flags.GuildInvites,
+    IntentsBitField.Flags.GuildMessages,
+    IntentsBitField.Flags.GuildMessageReactions,
+    IntentsBitField.Flags.DirectMessages,
+    IntentsBitField.Flags.MessageContent,
+  );
   const client = new Client({
     partials: [
       Partials.Message,
@@ -42,36 +51,21 @@ async function createBot(token) {
         interval: 3600,
         lifetime: 7200,
       },
-      users: {
-        interval: 3600,
-        filter: () => (user) => user.id !== client.user.id && !user.bot,
-      },
     },
     makeCache: Options.cacheWithLimits({
       MessageManager: {
-        maxSize: 500,
-        keepOverLimit: (message) => {
-          return (
-            message.author?.id === client.user.id ||
-            Date.now() - message.createdTimestamp < 3600000
-          );
-        },
+        maxSize: 50,
+        keepOverLimit: (message) => message.author?.id === client.user.id && message.createdTimestamp > Date.now() - 60 * 60 * 24 * 7,
       },
       UserManager: {
         maxSize: 5000,
         keepOverLimit: (user) => user.id === client.user.id,
       },
       GuildMemberManager: {
-        maxSize: 2000,
+        maxSize: 1000,
       },
       RoleManager: Infinity,
     }),
-    rest: {
-      retries: 3,
-      timeout: 15000,
-      sweepInterval: 30,
-      globalRequestsPerSecond: 50,
-    },
   });
 
   new InviteManager(client);
@@ -126,13 +120,13 @@ async function createBot(token) {
     await updateBotJoins();
 
     try {
-      const status = await Status.findOne({
+      const status = await Instances.findOne({
         where: { client_id: client.user.id },
       });
       const guilds = status?.guilds || [];
       if (!guilds.includes(guild.id)) {
         guilds.push(guild.id);
-        await Status.update(
+        await Instances.update(
           { guilds },
           { where: { client_id: client.user.id } },
         );
@@ -150,12 +144,12 @@ async function createBot(token) {
     await updateBotLeaves();
 
     try {
-      const status = await Status.findOne({
+      const status = await Instances.findOne({
         where: { client_id: client.user.id },
       });
       const guilds = status?.guilds || [];
       const updatedGuilds = guilds.filter((id) => id !== guild.id);
-      await Status.update(
+      await Instances.update(
         { guilds: updatedGuilds },
         { where: { client_id: client.user.id } },
       );

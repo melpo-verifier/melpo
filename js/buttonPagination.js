@@ -95,21 +95,20 @@ module.exports = async (interaction, pages, time = 30 * 1000) => {
 
       mc.resetTimer();
 
-      mc.on("end", async () => {
-        // buttons.components.forEach(c => c.setDisabled(true));
-        try {
-          await msg.edit({
-            embeds: [pages[index]],
-            components: [],
-          });
-        } catch (error) {
-          if (error.code !== 10008) {
-            throw error;
-          }
-        }
-      });
-
       return msg;
+    });
+    mc.on("end", async () => {
+      // buttons.components.forEach(c => c.setDisabled(true));
+      try {
+        await msg.edit({
+          embeds: [pages[index]],
+          components: [],
+        });
+      } catch (error) {
+        if (error.code !== 10008) {
+          throw error;
+        }
+      }
     });
   } catch (err) {
     console.log(err);
