@@ -38,7 +38,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
   const user = await client.users.fetch(userid);
 
   const modal = new ModalBuilder()
-    .setCustomId(`denyModal_${applicationId}`)
+    .setCustomId(`denyModal_${applicationId}_${userid}`)
     .setTitle(`Deny ${user.tag}`);
 
   const denyinput = new TextInputBuilder()
