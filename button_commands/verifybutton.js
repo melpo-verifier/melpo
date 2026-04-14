@@ -94,6 +94,8 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
     // Find the application by ID and validate guild ownership
     const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
+
+    applicationId = application.id;
     
     if (error || !application) {
       return await interaction.editReply({
@@ -375,6 +377,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
           .broadcastEval(Verificationfunc, {
             context: {
               userid: user.id,
+              dmChannelId: dmChannel.id,
               botQuestions: parsedQuestions,
               startverificationid: startverification.id,
               interactionguild: interaction.guild,
@@ -415,6 +418,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
         try {
           const [reason, responses] = await Verificationfunc(client, {
             userid: user.id,
+            dmChannelId: dmChannel.id,
             botQuestions: parsedQuestions,
             startverificationid: startverification.id,
             interactionguild: interaction.guild,
@@ -452,7 +456,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
       async function Verificationfunc(
         c,
-        { userid, botQuestions, startverificationid, cancelbutton, sessionId },
+        { userid, dmChannelId, botQuestions, startverificationid, cancelbutton, sessionId },
       ) {
         return new Promise((resolve, reject) => {
           const {
@@ -476,7 +480,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
           (async () => {
             try {
               const user = await c.users.fetch(userid);
-              const dmChannel = await user.createDM();
+              const dmChannel = await c.channels.fetch(dmChannelId);
               let startverification =
                 await dmChannel.messages.fetch(startverificationid);
 
@@ -893,9 +897,10 @@ module.exports = async ({ interaction, client, applicationId }) => {
     console.error("Verification error:", error);
     // throw error;
 
-    await interaction.user.send({
+    await interaction.followUp({
       content: `An error occurred during the verification process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
-    });
+      flags: MessageFlags.Ephemeral
+    }).catch(() => {});
   } finally {
     activeVerifications.delete(interaction.user.id);
   }
