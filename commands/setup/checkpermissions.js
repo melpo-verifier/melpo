@@ -13,9 +13,9 @@ module.exports = {
       "Check if Melpo has the required permissions to function properly",
     )
     .setContexts(0),
-  async execute({ interaction, client }) {
+  async execute({ interaction }) {
     await interaction.deferReply();
-    const botMember = interaction.guild.members.me;
+    const botMember = await interaction.guild.members.fetchMe();
     if (!botMember) {
       await interaction.reply({
         content: "Unable to fetch bot permissions",
@@ -109,12 +109,15 @@ module.exports = {
         const verifyChannel = interaction.guild.channels.cache.get(
           app.verifychannel,
         );
+        description += `**Verify Channel (${verifyChannel ? verifyChannel : 'Unknown/Deleted'})**\n`;
         if (verifyChannel) {
-          const verifyPerms = verifyChannel.permissionsFor(client.user);
-          description += `**Verify Channel (${verifyChannel})**\n`;
+          const verifyPerms = verifyChannel.permissionsFor(botMember);
           description += `${verifyPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
           description += `${verifyPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${verifyPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          description += `${verifyPerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
+        } else {
+          description += `❌ Channel not found or deleted\n`;
         }
       }
 
@@ -122,15 +125,18 @@ module.exports = {
         const reviewChannel = interaction.guild.channels.cache.get(
           app.reviewchannel,
         );
+        description += `\n**Review Channel (${reviewChannel ? reviewChannel : 'Unknown/Deleted'})**\n`;
         if (reviewChannel) {
-          const reviewPerms = reviewChannel.permissionsFor(client.user);
-          description += `\n**Review Channel (${reviewChannel})**\n`;
+          const reviewPerms = reviewChannel.permissionsFor(botMember);
           description += `${reviewPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          description += `${reviewPerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
+        } else {
+          description += `❌ Channel not found or deleted\n`;
         }
       }
 
@@ -138,15 +144,18 @@ module.exports = {
         const logsChannel = interaction.guild.channels.cache.get(
           app.verifylogs,
         );
+        description += `\n**Verification Logs Channel (${logsChannel ? logsChannel : 'Unknown/Deleted'})**\n`;
         if (logsChannel) {
-          const logsPerms = logsChannel.permissionsFor(client.user);
-          description += `\n**Verification Logs Channel (${logsChannel})**\n`;
+          const logsPerms = logsChannel.permissionsFor(botMember);
           description += `${logsPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          description += `${logsPerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
+        } else {
+          description += `❌ Channel not found or deleted\n`;
         }
       }
 
@@ -154,14 +163,17 @@ module.exports = {
         const welcomeChannel = interaction.guild.channels.cache.get(
           app.verificationwelcomechannel,
         );
+        description += `\n**Verification Welcome Channel (${welcomeChannel ? welcomeChannel : 'Unknown/Deleted'})**\n`;
         if (welcomeChannel) {
-        const welcomePerms = welcomeChannel.permissionsFor(client.user);
-        description += `\n**Verification Welcome Channel (${welcomeChannel})**\n`;
-        description += `${welcomePerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
-        description += `${welcomePerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
-        description += `${welcomePerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          const welcomePerms = welcomeChannel.permissionsFor(botMember);
+          description += `${welcomePerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
+          description += `${welcomePerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
+          description += `${welcomePerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
+          description += `${welcomePerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
+        } else {
+          description += `❌ Channel not found or deleted\n`;
+        }
       }
-    }
     }
 
     description += "\n### Role Hierarchy\n";
@@ -258,7 +270,7 @@ module.exports = {
 
     const embed = new EmbedBuilder()
       .setColor(hasIssues ? 0xff0000 : 0x00ff00)
-      .setTitle("🔍 Advanced Permission Analysis")
+      .setTitle("Permission Check Results")
       .setDescription(description)
       .setFooter({
         text: "✅ = Has Permission/Can Manage | ❌ = Missing Permission/Cannot Manage | ⚠️ = Additional Permission | ℹ️ = Info Only",
