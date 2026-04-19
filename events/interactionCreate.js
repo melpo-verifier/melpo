@@ -191,7 +191,8 @@ async function extractUserId(interaction) {
   if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
     if (
       (interaction.customId.includes("question_") ||
-      interaction.customId.includes("questionModal_"))
+      interaction.customId.includes("questionModal_") ||
+      interaction.customId.includes("denyModal_"))
     ) {
       const userIdMatch = interaction.customId.match(/_(\d+)$/);
       if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) {

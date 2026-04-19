@@ -94,6 +94,8 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
     // Find the application by ID and validate guild ownership
     const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
+
+    applicationId = application.id;
     
     if (error || !application) {
       return await interaction.editReply({
@@ -375,6 +377,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
           .broadcastEval(Verificationfunc, {
             context: {
               userid: user.id,
+              dmChannelId: dmChannel.id,
               botQuestions: parsedQuestions,
               startverificationid: startverification.id,
               interactionguild: interaction.guild,
@@ -415,6 +418,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
         try {
           const [reason, responses] = await Verificationfunc(client, {
             userid: user.id,
+            dmChannelId: dmChannel.id,
             botQuestions: parsedQuestions,
             startverificationid: startverification.id,
             interactionguild: interaction.guild,
@@ -452,7 +456,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
       async function Verificationfunc(
         c,
-        { userid, botQuestions, startverificationid, cancelbutton, sessionId },
+        { userid, dmChannelId, botQuestions, startverificationid, cancelbutton, sessionId },
       ) {
         return new Promise((resolve, reject) => {
           const {
@@ -476,7 +480,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
           (async () => {
             try {
               const user = await c.users.fetch(userid);
-              const dmChannel = await user.createDM();
+              const dmChannel = await c.channels.fetch(dmChannelId);
               let startverification =
                 await dmChannel.messages.fetch(startverificationid);
 
@@ -484,9 +488,10 @@ module.exports = async ({ interaction, client, applicationId }) => {
                 filter: (m) => !m.author.bot,
                 time: 3600000,
               });
-              const cancelcollector = dmChannel.createMessageComponentCollector(
-                { filter: (i) => i.user.id === user.id, time: 3600000 },
-              );
+              const cancelcollector = dmChannel.createMessageComponentCollector({
+                filter: (i) => i.user.id === user.id, 
+                time: 3600000, 
+              });
 
               const responses = [];
               let isProcessing = false;
@@ -572,6 +577,8 @@ module.exports = async ({ interaction, client, applicationId }) => {
                       content: `${numberToEmoji[answerIndex]} ${mcqanswer}`,
                     };
                     responses.push(responseAnswer);
+                    collector.resetTimer();
+                    cancelcollector.resetTimer();
 
                     if (responses.length < botQuestions.length) {
                       const nextQuestionIndex = responses.length;
@@ -750,6 +757,8 @@ module.exports = async ({ interaction, client, applicationId }) => {
                   };
 
                   responses.push(totalcontent);
+                  collector.resetTimer();
+                  cancelcollector.resetTimer();
 
                   if (responses.length < botQuestions.length) {
                     const nextQuestionIndex = responses.length;
@@ -888,9 +897,10 @@ module.exports = async ({ interaction, client, applicationId }) => {
     console.error("Verification error:", error);
     // throw error;
 
-    await interaction.user.send({
+    await interaction.followUp({
       content: `An error occurred during the verification process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
-    });
+      flags: MessageFlags.Ephemeral
+    }).catch(() => {});
   } finally {
     activeVerifications.delete(interaction.user.id);
   }
@@ -906,8 +916,13 @@ async function constructApplicationEmbed(
   appName,
 ) {
   const guild = await client.guilds.fetch(serverId);
-  const guildmember = await guild.members.fetch(user.id);
+  let guildmember = null;
 
+  try {
+    guildmember = await guild.members.fetch(user.id);
+  } catch {
+    return;
+  }
   const invitetracker = await InviteTracker.findOne({
     where: { unique_id: `${user.id}_${serverId}` },
   });
@@ -1079,32 +1094,6 @@ async function processVerificationResult(
     // Process collected responses and send to verification review channel
     updateVerifications();
 
-    const finishEmbedTitle = replaceplaceholder(
-      finishmessage?.title,
-      interaction.user.globalName ?? interaction.user.username,
-      interaction.guild.name,
-    );
-    const finishEmbedDescription = replaceplaceholder(
-      finishmessage?.description,
-      interaction.user.globalName ?? interaction.user.username,
-      interaction.guild.name,
-    );
-      const finishEmbedimage = finishmessage?.image;
-      const finishImageAsset = resolveImage(finishEmbedimage);
-
-    const endEmbed = new EmbedBuilder()
-      .setTitle(
-        finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null,
-      )
-      .setDescription(finishEmbedDescription)
-      .setColor(finishmessage?.color || "#008000")
-      .setFooter({ text: `Application: ${appName}` })
-      .setImage(finishImageAsset.embedUrl);
-
-    dmChannel.send({
-      embeds: [endEmbed],
-    });
-
     user = user || interaction.user;
 
     const { container, attachment } = await constructApplicationEmbed(
@@ -1116,6 +1105,12 @@ async function processVerificationResult(
       pingStaffRoleId,
       appName,
     );
+
+    if(!container) {
+      //try to send image to user:
+      dmChannel.send({ content: "An error occurred while processing your verification. This can happen when you left or have been kicked from the server during your application."  }).catch(() => {});
+      return;
+    }
 
     //create the buttons
     const verify = new ActionRowBuilder().addComponents(
@@ -1153,6 +1148,33 @@ async function processVerificationResult(
     }
 
     channelsent = await verifyLogsChannel.send(sendPayload);
+
+    const finishEmbedTitle = replaceplaceholder(
+      finishmessage?.title,
+      interaction.user.globalName ?? interaction.user.username,
+      interaction.guild.name,
+    );
+    const finishEmbedDescription = replaceplaceholder(
+      finishmessage?.description,
+      interaction.user.globalName ?? interaction.user.username,
+      interaction.guild.name,
+    );
+    const finishEmbedimage = finishmessage?.image;
+    const finishImageAsset = resolveImage(finishEmbedimage);
+
+    const endEmbed = new EmbedBuilder()
+      .setTitle(
+        finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null,
+      )
+      .setDescription(finishEmbedDescription)
+      .setColor(finishmessage?.color || "#008000")
+      .setFooter({ text: `Application: ${appName}` })
+      .setImage(finishImageAsset.embedUrl);
+
+    dmChannel.send({
+      embeds: [endEmbed],
+    });
+
     if (useThreads === true) {
       await channelsent.startThread({
         name: `${user.globalName ?? user.username}'s Verification`,
