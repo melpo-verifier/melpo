@@ -70,6 +70,10 @@ const UserBilling = require("./models/UserBilling.js")(
   sequelize, 
   Sequelize.DataTypes
 );
+const Blacklist = require("./models/blacklist.js")(
+  sequelize, 
+  Sequelize.DataTypes
+);
 
 
 ServerConfig.hasMany(Application, { foreignKey: 'server_id', onDelete: 'CASCADE' });
@@ -92,4 +96,5 @@ module.exports = {
   TempApplication,
   AdTexts,
   UserBilling,
+  Blacklist,
 };

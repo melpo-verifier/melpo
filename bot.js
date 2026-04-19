@@ -11,7 +11,7 @@ const {
 require("dotenv").config();
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js");
 const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js");
-const { ServerConfig, Verification, Instances, Application } = require("./dbObjects.js");
+const { ServerConfig, Verification, Instances, Application, Blacklist } = require("./dbObjects.js");
 const InviteManager = require("./js/dinvite.js");
 const ErrorHandler = require("./js/ErrorHandling.js");
 const RateLimitError = require("./js/RateLimitHandling.js");
@@ -117,6 +117,37 @@ async function createBot(token) {
   console.log("Events loaded.");
 
   client.on("guildCreate", async (guild) => {
+    try {
+      const serverEntry = await Blacklist.findOne({
+        where: { server_id: guild.id, blacklisted: true },
+      });
+
+      let ownerId = guild.ownerId;
+      if (!ownerId) {
+        try {
+          const owner = await guild.fetchOwner();
+          ownerId = owner?.id;
+        } catch (fetchOwnerError) {
+          console.error(`Failed to fetch owner for guild ${guild.id}:`, fetchOwnerError);
+        }
+      }
+
+      const ownerEntry = ownerId
+        ? await Blacklist.findOne({
+            where: { user_id: ownerId, blacklisted: true },
+          })
+        : null;
+
+      if (serverEntry || ownerEntry) {
+        console.log(
+          `Leaving blacklisted guild ${guild.id} (${serverEntry ? "server" : "owner"}).`,
+        );
+        return await guild.leave();
+      }
+    } catch (error) {
+      console.error("Blacklist check failed on guildCreate:", error);
+    }
+
     await updateBotJoins();
 
     try {
