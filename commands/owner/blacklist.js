@@ -53,7 +53,7 @@ module.exports = {
       let guildName = null;
 
       if (serverId) {
-        const results = await interaction.client.shard.broadcastEval(
+        const results = await interaction.client.cluster.broadcastEval(
           (c, id) => {
             const g = c.guilds.cache.get(id);
             if (g) return { ownerId: g.ownerId, name: g.name };
@@ -90,7 +90,7 @@ module.exports = {
           }
         
         try {
-          await interaction.client.shard.broadcastEval(
+          await interaction.client.cluster.broadcastEval(
             (c, id) => {
               const g = c.guilds.cache.get(id);
               if (g) return g.leave();
@@ -108,6 +108,5 @@ module.exports = {
         content: `Server/user ${serverId || userId} has been ${blacklist ? "blacklisted" : "unblacklisted"} for reason: ${reason || "No reason provided"}\n${sendmessage_success ? "The owner has been notified." : "Could not notify the owner."}\nLeft server: ${succesfullLeave ? "Yes" : "No"}`,
       });
     }
-
   },
 };
