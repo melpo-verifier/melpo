@@ -91,6 +91,11 @@ if (!shouldClear) {
   const commandFolders = fs.readdirSync(foldersPath);
 
   for (const folder of commandFolders) {
+    // Skip the 'owner' directory
+    if (folder === "owner") {
+      console.log(`Skipping owner commands.`);
+      continue;
+    }
     const commandsPath = path.join(foldersPath, folder);
     const commandFiles = fs
       .readdirSync(commandsPath)
