@@ -330,7 +330,7 @@ function initializeAPI() {
         return false;
       }
 
-      if (serverCount > 10000 || userCount > 10000000) {
+      if (serverCount > 50000 || userCount > 10000000) {
         console.error("server or usercount too high, aborting API post");
         return false;
       }

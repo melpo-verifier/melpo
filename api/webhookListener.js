@@ -83,31 +83,25 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
       console.log("Using default bot (Melpo) for server");
       clientId = process.env.MELPO_ID;
 
-      let foundShard = null;
+      let targetClusterId = null;
 
-      for (const [shardId, shard] of global.shardManager.shards) {
-        try {
-          const hasGuild = await shard.eval(
-            `this.guilds.cache.has('${guildId}')`,
-          );
-          console.log(`Shard ${shardId}: Guild exists = ${hasGuild}`);
-
-          if (hasGuild) {
-            foundShard = shard;
-            console.log(`Found guild ${guildId} on shard ${shardId}`);
-            break;
-          }
-        } catch (error) {
-          console.error(`Error checking shard ${shardId}:`, error);
-          continue;
-        }
+      try {
+        const checkResults = await global.shardManager.broadcastEval(
+          (client, { guildId }) => client.guilds.cache.has(guildId) ? client.cluster.id : null,
+          { context: { guildId } }
+        );
+        targetClusterId = checkResults.find(id => id !== null);
+      } catch (error) {
+        console.error("Error checking clusters:", error);
       }
 
-      if (!foundShard) {
-        return res.status(404).json({ error: "Guild not found on any shard" });
+      if (targetClusterId === undefined || targetClusterId === null) {
+        return res.status(404).json({ error: "Guild not found on any cluster" });
       }
 
-      const result = await foundShard.eval(
+      console.log(`Found guild ${guildId} on cluster ${targetClusterId}`);
+
+      const [result] = await global.shardManager.broadcastEval(
         async (
           client,
           { guildId, verifyChannelId, embedColor, embedTitle, embedDescription, embedImageAsset, appName, appId, melpoId, path },
@@ -149,17 +143,20 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
           }
         },
         {
-          guildId,
-          verifyChannelId,
-          embedColor,
-          embedTitle,
-          embedDescription,
-          embedImageAsset,
-          appName,
-          appId,
-          melpoId: process.env.MELPO_ID,
-          path: require('path').join(process.cwd(), "/js/verifyChannelUtils.js")
-        },
+          context: {
+            guildId,
+            verifyChannelId,
+            embedColor,
+            embedTitle,
+            embedDescription,
+            embedImageAsset,
+            appName,
+            appId,
+            melpoId: process.env.MELPO_ID,
+            path: require('path').join(process.cwd(), "/js/verifyChannelUtils.js")
+          },
+          cluster: targetClusterId
+        }
       );
 
       if (!result.success) {
