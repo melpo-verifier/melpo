@@ -49,32 +49,63 @@ module.exports = {
       if (reason) {
         blacklistEntry.reason = reason;
       }
-      //add server owner to userId
-      const guild = interaction.client.guilds.cache.get(serverId);
+      let ownerId = null;
+      let guildName = null;
+
+      if (serverId) {
+        const results = await interaction.client.shard.broadcastEval(
+          (c, id) => {
+            const g = c.guilds.cache.get(id);
+            if (g) return { ownerId: g.ownerId, name: g.name };
+            return null;
+          },
+          { context: serverId }
+        );
+        const found = results.find((g) => g !== null);
+        if (found) {
+          ownerId = found.ownerId;
+          guildName = found.name;
+        }
+      }
+
       if (serverId && !userId) {
-        if (guild) {
-          blacklistEntry.user_id = guild.ownerId;
+        if (ownerId) {
+          blacklistEntry.user_id = ownerId;
         }
       }
 
       await blacklistEntry.save();
 
+      let succesfullLeave = false;
+
       //leave server and try and send message to owner
       let sendmessage_success = false;
-      if (guild) {
+      if (ownerId && guildName) {
           try {
-            const owner = await interaction.client.users.fetch(guild.ownerId);
-            await owner.send(`Your server "${guild.name}" has been blacklisted from using Melpo Verifier. Reason: ${reason || "No reason provided"}`);
+            const owner = await interaction.client.users.fetch(ownerId);
+            await owner.send(`Your server "${guildName}" has been blacklisted from using Melpo Verifier. Reason: ${reason || "No reason provided"}`);
             sendmessage_success = true;
           } catch (error) {
-            console.error(`Could not send message to owner of server for blacklisting ${guild.name}:`, error);
+            console.error(`Could not send message to owner of server for blacklisting ${guildName}:`, error);
           }
         
-        await guild.leave();
+        try {
+          await interaction.client.shard.broadcastEval(
+            (c, id) => {
+              const g = c.guilds.cache.get(id);
+              if (g) return g.leave();
+            },
+            { context: serverId }
+          );
+          succesfullLeave = true;
+        } catch (error) {
+          succesfullLeave = false;
+          console.error(`Could not leave blacklisted server ${guildName}:`, error);
+        }
       }
 
       return await interaction.reply({
-        content: `Server/user ${serverId || userId} has been ${blacklist ? "blacklisted" : "unblacklisted"} for reason: ${reason || "No reason provided"}\n${sendmessage_success ? "The owner has been notified." : "Could not notify the owner."}`,
+        content: `Server/user ${serverId || userId} has been ${blacklist ? "blacklisted" : "unblacklisted"} for reason: ${reason || "No reason provided"}\n${sendmessage_success ? "The owner has been notified." : "Could not notify the owner."}\nLeft server: ${succesfullLeave ? "Yes" : "No"}`,
       });
     }
 
