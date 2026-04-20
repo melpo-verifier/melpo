@@ -208,7 +208,7 @@ module.exports = async ({ interaction, client }) => {
       client.user.id === "849613551080701983" ||
       client.user.id === "916372883087974440"
     ) {
-      return client.shard.broadcastEval(
+      return client.cluster.broadcastEval(
         async (
           c,
           {
@@ -266,10 +266,10 @@ module.exports = async ({ interaction, client }) => {
           context: {
             verificationChannelId: verificationChannelId,
             verificationMessageId: verificationMessageId,
-            replybutton: replybutton,
-            container: container,
+            replybutton: replybutton.toJSON(),
+            container: container.toJSON(),
             channelId: channelId,
-          },
+          }
         },
       );
     } else {

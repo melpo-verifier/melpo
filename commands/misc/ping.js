@@ -24,7 +24,7 @@ module.exports = {
     const sysSeconds = Math.round(systemUptime % 60);
 
     const shardId = interaction.guild?.shardId ?? 0;
-    const totalShards = client.shard?.count ?? 1;
+    const totalShards = client.cluster?.info?.TOTAL_SHARDS ?? 1;
 
     await interaction.reply("Pinging...");
     const sent = await interaction.fetchReply();

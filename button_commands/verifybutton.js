@@ -373,20 +373,20 @@ module.exports = async ({ interaction, client, applicationId }) => {
         client.user.id === "849613551080701983" ||
         client.user.id === "916372883087974440"
       ) {
-        await client.shard
+        await client.cluster
           .broadcastEval(Verificationfunc, {
             context: {
               userid: user.id,
               dmChannelId: dmChannel.id,
               botQuestions: parsedQuestions,
               startverificationid: startverification.id,
-              interactionguild: interaction.guild,
-              cancelbutton: cancelbutton,
+              cancelbutton: cancelbutton.toJSON(),
               sessionId: sessionId,
             },
-            shard: 0,
+            cluster: 0,
           })
-          .then(async ([reason, responses]) => {
+          .then(async (results) => {
+            const [reason, responses] = results[0];
             activeVerifications.delete(user.id);
             await processVerificationResult(
               user,
@@ -421,7 +421,6 @@ module.exports = async ({ interaction, client, applicationId }) => {
             dmChannelId: dmChannel.id,
             botQuestions: parsedQuestions,
             startverificationid: startverification.id,
-            interactionguild: interaction.guild,
             cancelbutton: cancelbutton,
             sessionId: sessionId,
           });
@@ -498,7 +497,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
               cancelcollector.on("collect", async (i) => {
                 try {
-                  await i.deferUpdate();
+                  await i.deferUpdate().catch(() => {console.error("Failed to defer update for cancel button")});
 
                   if (isProcessing) {
                     return; // Ignore if already processing
