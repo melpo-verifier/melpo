@@ -1,4 +1,4 @@
-const { ShardingManager } = require("discord.js");
+const { ClusterManager } = require("discord-hybrid-sharding");
 const cron = require("node-cron");
 const {
   InviteTracker,
@@ -176,42 +176,45 @@ cron.schedule("30 3 * * *", async () => {
   await runAllCleanupTasks();
 });
 
-const manager = new ShardingManager("./bot.js", {
+const manager = new ClusterManager("./bot.js", {
+  totalShards: "auto",
+  // totalShards: 3,
+  totalClusters: "auto",
+  shardsPerClusters: 2,
   token: process.env.MELPO_TOKEN,
-  // totalShards: 3, // uncomment this line to set more shards, which is useful for testing
   shardArgs: ["sharded", process.env.MELPO_TOKEN],
 });
 
-let shardsReady = 0;
+let clustersReady = 0;
 
-manager.on("shardCreate", (shard) => {
-  console.log(`Launched shard ${shard.id}`);
+manager.on("clusterCreate", (cluster) => {
+  console.log(`Launched cluster ${cluster.id}`);
 
-  shard.on("death", (process) => {
+  cluster.on("death", (process) => {
     console.log(
-      `[${new Date().toISOString()}] Shard ${shard.id} died with code ${process.exitCode}`,
+      `[${new Date().toISOString()}] Cluster ${cluster.id} died with code ${process?.exitCode}`,
     );
   });
 
-  shard.on("disconnect", () => {
-    console.log(`[${new Date().toISOString()}] Shard ${shard.id} disconnected`);
+  cluster.on("disconnect", () => {
+    console.log(`[${new Date().toISOString()}] Cluster ${cluster.id} disconnected`);
   });
 
-  shard.on("reconnecting", () => {
-    console.log(`[${new Date().toISOString()}] Shard ${shard.id} reconnecting`);
+  cluster.on("reconnecting", () => {
+    console.log(`[${new Date().toISOString()}] Cluster ${cluster.id} reconnecting`);
   });
 
-  shard.on("ready", async () => {
-    shardsReady++;
+  cluster.on("ready", async () => {
+    clustersReady++;
     console.log(
-      `Shard ${shard.id} ready (${shardsReady}/${manager.totalShards})`,
+      `Cluster ${cluster.id} ready (${clustersReady}/${manager.totalClusters})`,
     );
 
-    if (shardsReady === manager.totalShards) {
+    if (clustersReady === manager.totalClusters) {
       setTimeout(initializeAPI, 5000);
 
       setTimeout(async () => {
-        console.log("All shards are ready. Collecting guild IDs...");
+        console.log("All clusters are ready. Collecting guild IDs...");
         try {
           const allGuildIds = await manager.broadcastEval(async (client) =>
             client.guilds.cache.map((guild) => guild.id),
@@ -219,7 +222,7 @@ manager.on("shardCreate", (shard) => {
 
           const uniqueGuildIds = [...new Set(allGuildIds.flat())];
           console.log(
-            `Collected ${uniqueGuildIds.length} unique guild IDs from all shards.`,
+            `Collected ${uniqueGuildIds.length} unique guild IDs from all clusters.`,
           );
 
           await Instances.upsert({
@@ -229,12 +232,14 @@ manager.on("shardCreate", (shard) => {
 
           console.log("Guild IDs successfully saved to the database.");
         } catch (error) {
-          console.error("Failed to collect guild IDs from shards:", error);
+          console.error("Failed to collect guild IDs from clusters:", error);
         }
       }, 5000);
     }
   });
 });
+
+
 
 manager.spawn();
 global.shardManager = manager;
@@ -278,21 +283,22 @@ function initializeAPI() {
       voidbots: process.env.VOIDBOTS,
     },
     serverCount: async () => {
-      let serverCount = 0;
-      for (const shard of manager.shards.values()) {
-        serverCount += await shard.eval("this.guilds.cache.size");
+      try {
+        const counts = await manager.broadcastEval(c => c.guilds.cache.size);
+        return counts.reduce((a, b) => a + b, 0);
+      } catch {
+        return 0;
       }
-      return serverCount;
     },
     userCount: async () => {
-      let userCount = 0;
-      for (const shard of manager.shards.values()) {
-        const users = await shard.eval(`
-                    [...this.guilds.cache.values()].reduce((acc, guild) => acc + guild.memberCount, 0)
-                `);
-        userCount += users;
+      try {
+        const counts = await manager.broadcastEval(c => 
+          [...c.guilds.cache.values()].reduce((acc, guild) => acc + guild.memberCount, 0)
+        );
+        return counts.reduce((a, b) => a + b, 0);
+      } catch {
+        return 0;
       }
-      return userCount;
     },
     voiceConnections: async () => {
       let voiceConnections = 0;
@@ -304,16 +310,13 @@ function initializeAPI() {
   // Test counts before posting
   async function validateCounts() {
     try {
-      let serverCount = 0;
-      let userCount = 0;
+      const serverCounts = await manager.broadcastEval(c => c.guilds.cache.size);
+      const serverCount = serverCounts.reduce((a, b) => a + b, 0);
 
-      for (const shard of manager.shards.values()) {
-        serverCount += await shard.eval("this.guilds.cache.size");
-        const users = await shard.eval(`
-                    [...this.guilds.cache.values()].reduce((acc, guild) => acc + guild.memberCount, 0)
-                `);
-        userCount += users;
-      }
+      const userCounts = await manager.broadcastEval(c => 
+        [...c.guilds.cache.values()].reduce((acc, guild) => acc + guild.memberCount, 0)
+      );
+      const userCount = userCounts.reduce((a, b) => a + b, 0);
 
       const shardCount = manager.totalShards;
 

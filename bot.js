@@ -19,6 +19,8 @@ const CommandLoader = require("./js/CommandLoader.js");
 // const MemoryManager = require("./js/MemoryManager.js");
 const artleaderboardweek = require("./js/artleaderboardweek.js");
 
+const { ClusterClient, getInfo } = require('discord-hybrid-sharding');
+
 if (process.argv.length > 3 && process.argv[2] === "sharded") {
   console.log("sharded arrived!");
   const token = process.argv[3];
@@ -37,7 +39,7 @@ async function createBot(token) {
     IntentsBitField.Flags.DirectMessages,
     IntentsBitField.Flags.MessageContent,
   );
-  const client = new Client({
+  const clientOptions = {
     partials: [
       Partials.Message,
       Partials.Channel,
@@ -66,7 +68,19 @@ async function createBot(token) {
       },
       RoleManager: Infinity,
     }),
-  });
+  };
+
+  const isSharded = process.argv.includes("sharded");
+  if (isSharded) {
+    clientOptions.shards = getInfo().SHARD_LIST;
+    clientOptions.shardCount = getInfo().TOTAL_SHARDS;
+  }
+
+  const client = new Client(clientOptions);
+
+  if (isSharded) {
+    client.cluster = new ClusterClient(client);
+  }
 
   new InviteManager(client);
 

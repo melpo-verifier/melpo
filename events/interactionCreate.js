@@ -2,7 +2,6 @@ const { Events, MessageFlags } = require("discord.js");
 const {
   updateCommandUsage,
   updateComponentUsage,
-  getApplicationByIdWithFallback,
 } = require("../js/tempconfigfuncs.js");
 const ErrorHandler = require("../js/ErrorHandling.js");
 
@@ -74,13 +73,6 @@ module.exports = {
           } else {
             applicationId = parsed;
           }
-        }
-      }
-
-      if (!applicationId && !tempApplicationId && interaction.guild) {
-        const { application } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
-        if (application) {
-          applicationId = application.id;
         }
       }
       

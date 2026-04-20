@@ -7,6 +7,19 @@ module.exports = {
   once: true,
   async execute(client) {
     console.log(`Ready! Logged in as ${client.user.tag}`);
+    
+    //only run if not a sharded bot
+    if (!process.argv.includes("sharded")) {
+      console.log("custom bot, writing assosiated guild ids to database...");
+      const guildids = client.guilds.cache?.map((guild) => guild.id);
+      console.log(`Found ${guildids.length} guilds.`);
+      await Instances.upsert({
+        client_id: client.user.id,
+        guilds: guildids,
+      });
+    } else {
+      client.cluster.triggerReady();
+    }
 
     const setPresence = async () => {
       try {
@@ -27,17 +40,6 @@ module.exports = {
         console.error("Failed to set presence:", error);
       }
     };
-
-    //only run if not a sharded bot
-    if (!process.argv.includes("sharded")) {
-      console.log("custom bot, writing assosiated guild ids to database...");
-      const guildids = client.guilds.cache?.map((guild) => guild.id);
-      console.log(`Found ${guildids.length} guilds.`);
-      await Instances.upsert({
-        client_id: client.user.id,
-        guilds: guildids,
-      });
-    }
 
     await setPresence();
 

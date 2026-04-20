@@ -52,7 +52,7 @@ module.exports = {
       const embeds = [];
 
       if (type === "system" || type === "all") {
-        embeds.push(await getSystemPerformanceEmbed(client));
+        embeds.push(await getSystemPerformanceEmbed(client, interaction));
       }
 
       if (type === "usage" || type === "all") {
@@ -74,7 +74,7 @@ module.exports = {
   },
 };
 
-async function getSystemPerformanceEmbed(client) {
+async function getSystemPerformanceEmbed(client, interaction) {
   const memUsage = process.memoryUsage();
   const cpuUsage = process.cpuUsage();
   const uptime = process.uptime();
@@ -109,8 +109,8 @@ async function getSystemPerformanceEmbed(client) {
       {
         name: "🌐 Network",
         value: `**WebSocket Ping:** ${client.ws.ping}ms
-                    **Shard Count:** ${client.shard?.count || 1}
-                    **Current Shard:** ${client.shard?.ids[0] || 0}`,
+                    **Shard Count:** ${client.cluster?.info?.TOTAL_SHARDS || 1}
+                    **Current Shard:** ${interaction.guild?.shardId || 0}`,
         inline: true,
       },
       {
