@@ -95,14 +95,14 @@ module.exports = async ({ interaction, client, applicationId }) => {
     // Find the application by ID and validate guild ownership
     const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
 
-    applicationId = application.id;
-    
     if (error || !application) {
       return await interaction.editReply({
-        content: `This verification button is not configured correctly. Please contact the server staff. (${error || "Application not found"})`,
+        content: `This verification button or server setup is not configured correctly. Please contact the server staff. (${error || "Application not found"})`,
         flags: MessageFlags.Ephemeral,
       });
     }
+
+    applicationId = application.id;
 
     const appName = application.name;
     const {
@@ -1095,7 +1095,7 @@ async function processVerificationResult(
 
     user = user || interaction.user;
 
-    const { container, attachment } = await constructApplicationEmbed(
+    const containerResult = await constructApplicationEmbed(
       user,
       botQuestions,
       responses,
@@ -1105,11 +1105,13 @@ async function processVerificationResult(
       appName,
     );
 
-    if(!container) {
+    if(!containerResult || !containerResult.container) {
       //try to send image to user:
       dmChannel.send({ content: "An error occurred while processing your verification. This can happen when you left or have been kicked from the server during your application."  }).catch(() => {});
       return;
     }
+
+    const { container, attachment } = containerResult;
 
     //create the buttons
     const verify = new ActionRowBuilder().addComponents(

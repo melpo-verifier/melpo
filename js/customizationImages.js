@@ -194,8 +194,14 @@ async function promoteCustomizationImage(image) {
     CacheControl: "public, max-age=31536000, immutable",
   });
 
-  await r2Client.send(copyCommand);
-  await deleteImage(image);
+  try {
+    await r2Client.send(copyCommand);
+    await deleteImage(image);
+  } catch (error) {
+    if (error.name !== "NoSuchKey" && error.Code !== "NoSuchKey") {
+      console.error(`Failed to promote image ${image.key}:`, error);
+    }
+  }
 
   return serializeImage({
     ...image,
