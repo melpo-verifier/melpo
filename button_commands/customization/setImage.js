@@ -59,6 +59,14 @@ module.exports = async ({ interaction, context }) => {
         return;
       }
 
+      if (!collectedimage.startsWith("http://") && !collectedimage.startsWith("https://")) {
+        await interaction.followUp({
+          content: "Please provide a valid image file or full image URL.",
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
+
       const imageAsset = await fetchImage(collectedimage);
       const uploadedImage = await uploadCustomizationImage({
         serverId: interaction.guild.id,
@@ -149,9 +157,16 @@ async function fetchImage(url) {
   };
 
   const fetch = (await import("node-fetch")).default;
-  const response = await fetch(url, { size: 15 * 1024 * 1024 });
+  
+  let response;
+  try {
+    response = await fetch(url, { size: 15 * 1024 * 1024 });
+  } catch (err) {
+    throw new Error("Invalid image URL or failed to connect.");
+  }
+
   if (!response.ok) {
-    throw new Error("Failed to fetch image");
+    throw new Error("Failed to fetch image. Make sure the URL is public and valid.");
   }
 
   const contentType = response.headers.get("content-type");

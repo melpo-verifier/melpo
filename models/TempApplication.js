@@ -49,6 +49,9 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
+    verifymessage_id: { 
+      type: DataTypes.STRING,
+    },
     pingrole: {
       type: DataTypes.JSONB,
       defaultValue: [],

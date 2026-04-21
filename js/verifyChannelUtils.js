@@ -15,7 +15,7 @@ async function findVerifyMessage(verifyChannelObj, botId, embedConfig) {
   const verificationMessages = await verifyChannelObj.messages.fetch({
     limit: 50,
   });
-  return verificationMessages.find(
+  return verificationMessages?.find?.(
     (m) =>
       m.author.id === botId &&
       m.embeds.length > 0 &&
@@ -47,13 +47,30 @@ async function updateVerifyMessage(opts) {
     botId,
     embedConfig,
     button,
+    messageId,
   } = opts;
 
-  const verificationMessage = await findVerifyMessage(
-    verifyChannelObj,
-    botId,
-    embedConfig,
-  );
+  let verificationMessage = null;
+
+  if (messageId) {
+    try {
+      verificationMessage = await verifyChannelObj.messages.fetch(messageId);
+    } catch {
+      verificationMessage = null;
+    }
+    
+    if (verificationMessage && verificationMessage.author.id !== botId) {
+      verificationMessage = null;
+    }
+  }
+
+  if (!verificationMessage) {
+    verificationMessage = await findVerifyMessage(
+      verifyChannelObj,
+      botId,
+      embedConfig,
+    );
+  }
 
   const embed = new EmbedBuilder()
     .setColor(isValidHexColor(embedConfig.color) ? embedConfig.color : DEFAULT_EMBED_COLOR)
@@ -75,7 +92,7 @@ async function updateVerifyMessage(opts) {
       embeds: [embed],
       components: [row],
     });
-
+    
     return {
       action: "created",
       message: newMessage,

@@ -54,11 +54,30 @@ module.exports = async ({ interaction, client, context }) => {
     });
   }
 
+  if (questions.length === 0) {
+    return interaction.reply({
+      content: "You need to add at least one question.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const verifyChannelObj = interaction.guild.channels.cache.get(verifyChannel);
+  if (!verifyChannelObj) {
+    return interaction.reply({
+      content: "The user verification channel has been deleted. Please set up the user verification channel again.",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  await interaction.deferUpdate();
+
   const verifychannelembed = tempApp.verifychannelembed || {};
   const startmessage = tempApp.startmessage || {};
   const finishmessage = tempApp.finishmessage || {};
   const verifymessage = tempApp.verifymessage || {};
   const verificationwelcomemessage = tempApp.verificationwelcomemessage || {};
+
+
 
   await finalizeCustomizationImage(
     tempApp,
@@ -97,13 +116,6 @@ module.exports = async ({ interaction, client, context }) => {
   cleanConfig(verifymessage);
   cleanConfig(verificationwelcomemessage);
 
-  if (questions.length === 0) {
-    return interaction.reply({
-      content: "You need to add at least one question.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
   const imageCategories = [
     "verifychannelembed",
     "startmessage",
@@ -128,7 +140,7 @@ module.exports = async ({ interaction, client, context }) => {
     'questions', 'reviewchannel', 'verifylogs', 'verifychannel', 'verifiedrole',
     'verifychannelembed', 'startmessage', 'finishmessage', 'verifymessage',
     'verificationwelcomemessage', 'questionpingrole', 'unverifiedrole', 'pingrole',
-    'managerrole', 'verificationwelcomechannel', 'usethreads'
+    'managerrole', 'verificationwelcomechannel', 'usethreads', 'verifymessage_id'
   ];
 
   for (const field of fields) {
@@ -173,21 +185,13 @@ module.exports = async ({ interaction, client, context }) => {
     }
   }
 
-  const verifyChannelObj = interaction.guild.channels.cache.get(verifyChannel);
-  if (!verifyChannelObj) {
-    return interaction.reply({
-      content: "The user verification channel has been deleted. Please set up the user verification channel again.",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
-
   const embedColor = isValidHexColor(finalApp?.verifychannelembed?.color) ? finalApp.verifychannelembed.color : (tempApp?.verifychannelembed?.color ?? "#3f7ff1");
-  const embedTitle = finalApp?.verifychannelembed?.title ?? tempApp?.verifychannelembed?.title ?? "Verification";
+  const embedTitle = finalApp?.verifychannelembed?.title ?? tempApp?.verifychannelembed?.title ?? null;
   const embedDescription = finalApp?.verifychannelembed?.description ?? tempApp?.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
   const embedImage = finalApp?.verifychannelembed?.image ?? tempApp?.verifychannelembed?.image;
   const embedImageAsset = resolveImage(embedImage);
 
-  await updateVerifyMessage({
+  const result = await updateVerifyMessage({
     verifyChannelObj,
     botId: client.user.id,
     embedConfig: {
@@ -197,11 +201,17 @@ module.exports = async ({ interaction, client, context }) => {
       imageUrl: embedImageAsset.embedUrl,
       footer: tempApp.name,
     },
+    messageId: finalApp.verifymessage_id,
     button: {
       customId: `verifybutton_${finalApp.id}`,
       label: "Apply",
     },
   });
+
+  if (result?.message?.id && result.message.id !== finalApp.verifymessage_id) {
+    finalApp.verifymessage_id = result.message.id;
+    await finalApp.save().catch(e => console.error("Error saving verify message ID", e));
+  }
 
   await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
 
@@ -219,7 +229,7 @@ module.exports = async ({ interaction, client, context }) => {
     );
   }
 
-  await interaction.update({
+  await interaction.editReply({
     embeds: [finishembed],
     components: [],
     files: [],
