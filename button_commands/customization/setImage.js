@@ -161,7 +161,7 @@ async function fetchImage(url) {
   let response;
   try {
     response = await fetch(url, { size: 15 * 1024 * 1024 });
-  } catch (err) {
+  } catch {
     throw new Error("Invalid image URL or failed to connect.");
   }
 
