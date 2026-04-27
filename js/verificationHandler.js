@@ -14,7 +14,7 @@ const {
   ButtonBuilder,
   ActionRowBuilder,
 } = require("discord.js");
-const { Verification, InviteTracker } = require("../dbObjects.js");
+const { Verification, InviteTracker, Submissions } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
@@ -121,15 +121,15 @@ async function checkManagerPermission(interaction, application) {
 // Check if interaction is in the review channel or a thread under it
 function isInReviewChannel(interaction, reviewChannelId) {
   if (!reviewChannelId) return true;
-  
+
   // Direct channel match
   if (interaction.channel.id === reviewChannelId) return true;
-  
+
   // Check if in a thread under the review channel
   if (interaction.channel.isThread && interaction.channel.parentId === reviewChannelId) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -171,7 +171,7 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
       await user.roles.remove(roleId).catch(
         (err) => {
           if (err.code === 10011) {
-            interaction.channel.send(`Unknown role ${roleId} during removal, skipping. Please reconfigure your roles in setup.`).catch(() => {});
+            interaction.channel.send(`Unknown role ${roleId} during removal, skipping. Please reconfigure your roles in setup.`).catch(() => { });
           } else {
             console.error(`Failed to remove role ${roleId}: ${err.message}`);
           }
@@ -185,7 +185,7 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
       await user.roles.add(roleId).catch(
         (err) => {
           if (err.code === 10011) {
-            interaction.channel.send(`Unknown role ${roleId} during addition, skipping. Please reconfigure your roles in setup.`).catch(() => {});
+            interaction.channel.send(`Unknown role ${roleId} during addition, skipping. Please reconfigure your roles in setup.`).catch(() => { });
           } else {
             console.error(`Failed to add role ${roleId}: ${err.message}`);
           }
@@ -320,8 +320,8 @@ function createLeftV2Component(message, memberId) {
         const fullContent = content + statusSuffix;
         const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
         const truncatedContent = available < fullContent.length
-            ? fullContent.slice(0, Math.max(available - 3, 0)) + "..."
-            : fullContent;
+          ? fullContent.slice(0, Math.max(available - 3, 0)) + "..."
+          : fullContent;
 
         totalTextLength += truncatedContent.length;
 
@@ -343,8 +343,8 @@ function createLeftV2Component(message, memberId) {
         if (available <= 0) continue;
 
         const content = available < component.content.length
-            ? component.content.slice(0, Math.max(available - 3, 0)) + "..."
-            : component.content;
+          ? component.content.slice(0, Math.max(available - 3, 0)) + "..."
+          : component.content;
 
         totalTextLength += content.length;
 
@@ -423,25 +423,7 @@ function createDisabledButtons() {
 async function processText(text, user, interaction, originalEmbed, verifiedRoles, appName = null) {
   if (!text) return null;
 
-  // Handle question placeholders
-  if (text.toLowerCase().includes("{q") && originalEmbed) {
-    const regex = /\{q[0-9]\}/gi;
-    const matches = text.match(regex);
-
-    if (matches) {
-      matches.forEach((match) => {
-        const questionNumber = match.slice(2, -1);
-        const field = originalEmbed.fields?.find((field) =>
-          field.value.startsWith(`**${questionNumber}.**`),
-        );
-
-        if (field) {
-          const answer = field.value.split("_ _")[1]?.trim() || "No answer provided";
-          text = text.replace(new RegExp(match, "gi"), answer);
-        }
-      });
-    }
-  } else if (
+  if (
     text.toLowerCase().includes("{q") &&
     interaction.message?.flags?.has(MessageFlags.IsComponentsV2)
   ) {
@@ -451,11 +433,13 @@ async function processText(text, user, interaction, originalEmbed, verifiedRoles
     if (matches) {
       matches.forEach((match) => {
         const questionNumber = parseInt(match.slice(2, -1));
-        const component = interaction.message.components[0]?.components[questionNumber + 1];
+        const component = interaction.message.components[0]?.components?.find(c => c.data?.content?.startsWith(`**${questionNumber}.**`))
 
         if (component && component.content) {
-          const answer = component.content.split("_ _")[1]?.trim() || "No answer provided";
+          const answer = component.content.split("_ _")[1]?.trim() || "";
           text = text.replace(new RegExp(match, "gi"), answer);
+        } else {
+          text = text.replace(new RegExp(match, "gi"), "");
         }
       });
     }
@@ -578,24 +562,24 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
   await user.send({
     embeds: [finalEmbed],
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // Send denial DM to user
 async function sendDenyDM(modname, user, application, guildName, reason = null) {
   const description = application.denymessage?.description
     ? application.denymessage.description
-        .replace(/{modname}/gi, modname)
-        .replace(/\${interaction.guild.name}/gi, guildName)
-        .replace(/{appName}/gi, application.name)
+      .replace(/{modname}/gi, modname)
+      .replace(/\${interaction.guild.name}/gi, guildName)
+      .replace(/{appName}/gi, application.name)
     : `Your application into **${guildName}** has been denied.`;
   const denyEmbed = new EmbedBuilder()
     .setColor(application.denymessage?.color || "#EB2121")
     .setTitle(application.denymessage?.title || "Application Denied")
     .setDescription(description + `${reason ? `\n**Reason:** ${reason}` : ""}`)
-    // .setDescription(
-    //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
-    // );
+  // .setDescription(
+  //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
+  // );
 
   try {
     await user.send({ embeds: [denyEmbed] });
@@ -943,17 +927,26 @@ async function processLeaveMessages(options) {
 }
 
 // Clean up verification data from database
-async function cleanupVerificationData(verification, guildId, applicationId = null) {
+async function cleanupVerificationData(verification, guildId, memberId, applicationId = null) {
+
+
   const guildData = verification?.guildVerifications?.[guildId];
   if (!guildData) return;
 
   if (applicationId != null && !Array.isArray(guildData)) {
+
+    await Submissions.destroy({
+      where: { user_id: memberId, app_id: String(applicationId) },
+    }).catch((e) => { console.error("Error deleting submission:", e); });
     delete guildData[applicationId];
     if (Object.keys(guildData).length === 0) {
       delete verification.guildVerifications[guildId];
     }
   } else {
     delete verification.guildVerifications[guildId];
+    await Submissions.destroy({
+      where: { user_id: memberId, guild_id: guildId },
+    }).catch((e) => { console.error("Error deleting submission:", e); });
   }
 
   verification.changed("guildVerifications", true);
@@ -1035,7 +1028,7 @@ async function verifyUser(options) {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, application.id);
+    await cleanupVerificationData(verification, interaction.guild.id, userId, application.id);
   }
 
   // Send welcome message
@@ -1109,7 +1102,7 @@ async function denyUser(options) {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, application.id);
+    await cleanupVerificationData(verification, interaction.guild.id, userId, application.id);
   }
 
   // Send deny DM

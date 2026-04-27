@@ -168,5 +168,5 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   }
 
   // Cleanup verification data for entire guild (user is kicked from server)
-  await cleanupVerificationData(verification, interaction.guild.id);
+  await cleanupVerificationData(verification, interaction.guild.id, userid);
 };

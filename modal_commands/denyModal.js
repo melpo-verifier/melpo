@@ -96,7 +96,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, applicationId);
+    await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId);
   }
 
   // Send denial DM

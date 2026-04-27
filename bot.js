@@ -336,7 +336,7 @@ async function createBot(token) {
     }
 
     try {
-      await cleanupVerificationData(verification, member.guild.id);
+      await cleanupVerificationData(verification, member.guild.id, member.id);
     } catch (error) {
       console.error("Failed to update verification:", error);
     }

@@ -3,6 +3,7 @@ const {
   InviteTracker,
   AdTexts,
   UserBilling,
+  Submissions,
 } = require("../dbObjects.js");
 const {
   ButtonBuilder,
@@ -24,10 +25,11 @@ const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
 const { addMessageId } = require("../js/verificationHandler.js");
+const { encryptData, decryptData } = require("../js/DBFunctions.js");
 
 const activeVerifications = new Map();
-
 const rateLimitMap = new Map();
+const rateLimitMS = 15000;
 
 setInterval(() => {
   const now = Date.now();
@@ -66,7 +68,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
   if (rateLimitMap.has(rateLimitKey)) {
     const timeSinceLastAttempt = Date.now() - rateLimitMap.get(rateLimitKey);
-    const timeLeft = Math.ceil((1000 - timeSinceLastAttempt) / 1000); //EDIT THIS BEFORE PUSH
+    const timeLeft = Math.ceil((rateLimitMS - timeSinceLastAttempt) / 1000);
 
     if (timeLeft > 0) {
       return await interaction.editReply({
@@ -78,7 +80,15 @@ module.exports = async ({ interaction, client, applicationId }) => {
     }
   }
 
-  // Check if the user already has an active verification session
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+  if (!encryptionKey) {
+    console.error("ENCRYPTION_KEY is not configured!!");
+    return await interaction.editReply({
+      content: "Oops! An error occured, we're trying to fix this as soon as possible!",
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
   if (activeVerifications.has(interaction.user.id)) {
     return await interaction.editReply({
       content: `<@${interaction.user.id}>, you already have an active application session! Please complete or cancel it before starting a new one.`,
@@ -144,8 +154,14 @@ module.exports = async ({ interaction, client, applicationId }) => {
           throw new Error(`Invalid question ${index + 1}: Not a string or object`);
         }
 
-        //parse the internal mcq and regex
-        parsed.mcq = Array.isArray(parsed.mcq) ? parsed.mcq : [];
+        if (!parsed.id) {
+          parsed.id = `question-${index}`;
+        }
+
+        // parse the internal mcq and regex
+        parsed.mcq = Array.isArray(parsed.mcq)
+          ? parsed.mcq.map((option) => (typeof option === "string" ? { label: option } : option))
+          : [];
         parsed.regexBranches = Array.isArray(parsed.regexBranches) ? parsed.regexBranches : [];
 
         if (!parsed.content || parsed.content.trim().length === 0) {
@@ -196,16 +212,42 @@ module.exports = async ({ interaction, client, applicationId }) => {
 
     if (
       activeVerifications.has(user.id) &&
-      activeVerifications.get(user.id).startTime + 3600000 < Date.now()
+      activeVerifications.get(user.id).startTime + 4 * 3600000 < Date.now()
     ) {
       console.error(
-        "User has an active application session but it has been more than an hour. Clearing the session. THIS SHOULDNT HAPPEN",
+        "User has an active application session but it has been more than 4 hours. Clearing the session. THIS SHOULDNT HAPPEN",
       );
       activeVerifications.delete(user.id);
     }
 
-    // Generate a unique identifier for this verification session
-    const sessionId = uuidv4();
+    const configId = String(applicationId)
+    const dbObjectsPath = require.resolve("../dbObjects.js")
+    const DBFunctionsPath = require.resolve("../js/DBFunctions.js")
+    let resumeState = null
+    let sessionId = uuidv4()
+
+    const pendingProgressRecords = await Submissions.findAll({
+      where: {
+        user_id: user.id,
+        guild_id: guildId,
+        app_id: configId,
+        status: "pending",
+      },
+      order: [["updatedAt", "DESC"]]
+    })
+
+    for (const progressRecord of pendingProgressRecords) {
+      const payload = decryptData(progressRecord.data, encryptionKey)
+      if (!payload) {
+        continue
+      }
+
+      if (payload.currentQuestionId) {
+        resumeState = payload
+        sessionId = progressRecord.message_id
+        break
+      }
+    }
 
     // Create DM channel and send start Embed
     try {
@@ -290,6 +332,12 @@ module.exports = async ({ interaction, client, applicationId }) => {
               botQuestions: parsedQuestions,
               cancelbutton: cancelbutton.toJSON(),
               sessionId: sessionId,
+              guildId,
+              configId,
+              dbObjectsPath,
+              DBFunctionsPath,
+              encryptionKey,
+              resumeState,
 
             },
             cluster: 0,
@@ -312,6 +360,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
               application.usethreads,
               appName,
               applicationId,
+              sessionId,
             );
           })
           .catch(async (error) => {
@@ -322,6 +371,10 @@ module.exports = async ({ interaction, client, applicationId }) => {
             ) {
               throw error;
             }
+
+            await Submissions.destroy({
+              where: { message_id: sessionId },
+            }).catch(() => { });
           });
       } else { //non sharded instances
         try {
@@ -331,6 +384,12 @@ module.exports = async ({ interaction, client, applicationId }) => {
             botQuestions: parsedQuestions,
             cancelbutton: cancelbutton,
             sessionId: sessionId,
+            guildId,
+            configId,
+            dbObjectsPath,
+            DBFunctionsPath,
+            encryptionKey,
+            resumeState,
           });
 
           activeVerifications.delete(user.id);
@@ -349,6 +408,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
             application.usethreads,
             appName,
             applicationId,
+            sessionId,
           );
         } catch (error) {
           if (
@@ -357,6 +417,11 @@ module.exports = async ({ interaction, client, applicationId }) => {
           ) {
             throw error;
           }
+
+          await Submissions.destroy({
+            where: { message_id: sessionId },
+          }).catch(() => { });
+
           activeVerifications.delete(user.id);
         }
       }
@@ -398,7 +463,7 @@ async function constructApplicationEmbed(
     })
   ]);
 
-  const headerText = `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`;
+  const headerText = `${pingStaffRoleId ? pingStaffRoleId?.map((role) => `<@&${role}>`).join(", ") + "\n" : ""}### ${user.globalName ?? user.username}'s ${appName}\n[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(guildmember?.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`;
 
   const container = new ContainerBuilder({
     accent_color: 4161521,
@@ -429,14 +494,15 @@ async function constructApplicationEmbed(
     let wasTruncated = false;
     const fullTextLines = [];
 
-    answers.forEach((answer, index) => {
-      absoluteTotalCharacterCount += questions[index].content.length + (answer.content?.length || 0);
+    answers.forEach((answer) => {
+      absoluteTotalCharacterCount += answer.questionContent.length + (answer.content?.length || 0);
     });
 
     answers.forEach((answer, index) => {
-      const questioncontent = questions[index].content.replace(/(\*\*|__|\*|~~|`|>)/g, "");
+      const questioncontent = answer.questionContent.replace(/(\*\*|__|\*|~~|`|>)/g, "");
       const rawContent = answer.content || "No answer provided";
-      fullTextLines.push(`Q${index + 1}: ${questioncontent}`);
+      const questionNumber = questions.findIndex(q => q.id === answer.questionId) + 1 || (index + 1);
+      fullTextLines.push(`Q${questionNumber}: ${questioncontent}`);
       fullTextLines.push(`Answer: ${rawContent}`);
       if (answer.attachments && answer.attachments.length > 0) {
         fullTextLines.push(`Attachments: ${answer.attachments.join(', ')}`);
@@ -448,7 +514,7 @@ async function constructApplicationEmbed(
         return;
       }
 
-      const questionText = absoluteTotalCharacterCount >= MAX_TOTAL_CHARACTERS ? `**${index + 1}.** **${questioncontent.slice(0, 10)}...**` : `**${index + 1}.** **${questioncontent}**`;
+      const questionText = absoluteTotalCharacterCount >= MAX_TOTAL_CHARACTERS ? `**${questionNumber}.** **${questioncontent.slice(0, 10)}...**` : `**${questionNumber}.** **${questioncontent}**`;
       const answertext = answer.content || "No answer provided";
 
       let formattedField = [
@@ -496,21 +562,18 @@ async function constructApplicationEmbed(
       if (Math.random() < 0.02) {
 
         const serverOwner = guild?.ownerId;
-        const isPaidUser = await UserBilling.findOne({ where: { user_id: serverOwner } });
+        const [isPaidUser, adTexts] = await Promise.all([
+          UserBilling.findOne({ where: { user_id: serverOwner } }),
+          AdTexts.findAll({ where: { type: "application" } }),
+        ]);
 
-        if (!isPaidUser) {
-          const adTexts = await AdTexts.findAll({
-            where: { type: "application" }
-          });
-
-          if (adTexts.length > 0) {
-            const randomAd = adTexts[Math.floor(Math.random() * adTexts.length)];
-            container.addTextDisplayComponents(
-              new TextDisplayBuilder({
-                content: '\n-# ' + randomAd.text,
-              }),
-            );
-          }
+        if (!isPaidUser && adTexts.length > 0) {
+          const randomAd = adTexts[Math.floor(Math.random() * adTexts.length)];
+          container.addTextDisplayComponents(
+            new TextDisplayBuilder({
+              content: '\n-# ' + randomAd.text,
+            }),
+          );
         }
       }
     }
@@ -559,6 +622,7 @@ async function processVerificationResult(
   useThreads,
   appName,
   applicationId,
+  sessionId,
 ) {
   if (reason === "completed") {
     // Process collected responses and send to verification review channel
@@ -621,6 +685,32 @@ async function processVerificationResult(
 
     channelsent = await verifyLogsChannel.send(sendPayload);
 
+    try {
+      const encryptionKey = process.env.ENCRYPTION_KEY
+      const finalPayload = {
+        responses,
+        submittedForReview: true,
+        reviewMessageId: channelsent.id,
+      };
+
+      await Submissions.upsert({
+        message_id: channelsent.id,
+        user_id: user.id,
+        guild_id: guildId,
+        app_id: String(applicationId),
+        status: "completed",
+        data: encryptData(finalPayload, encryptionKey),
+      });
+
+      if (sessionId && sessionId !== channelsent.id) {
+        await Submissions.destroy({
+          where: { message_id: sessionId },
+        });
+      }
+    } catch (progressError) {
+      console.error("Error saving final application progress:", progressError);
+    }
+
     const finishEmbedTitle = replaceplaceholder(
       finishmessage?.title,
       interaction.user.globalName ?? interaction.user.username,
@@ -645,6 +735,8 @@ async function processVerificationResult(
 
     await dmChannel.send({
       embeds: [endEmbed],
+    }).catch((err) => {
+      console.error(`Failed to send completion DM to user ${user.id}:`, err);
     });
 
     if (useThreads === true) {
@@ -682,7 +774,18 @@ function replaceplaceholder(string, globalUserName, guildName) {
 
 async function Verificationfunc(
   c,
-  { userid, dmChannelId, botQuestions, cancelbutton, sessionId },
+  {
+    userid,
+    dmChannelId,
+    botQuestions,
+    cancelbutton,
+    sessionId,
+    guildId,
+    configId,
+    dbObjectsPath,
+    DBFunctionsPath,
+    resumeState,
+  },
 ) {
   return new Promise((resolve, reject) => {
     const {
@@ -691,6 +794,7 @@ async function Verificationfunc(
       EmbedBuilder,
       StringSelectMenuBuilder,
     } = require("discord.js");
+    const { Submissions } = require(dbObjectsPath || "../dbObjects.js");
 
     const numberToEmoji = [
       "1️⃣",
@@ -705,7 +809,57 @@ async function Verificationfunc(
       "🔟",
     ];
 
-    // Map question IDs
+    const { encryptData } = require(DBFunctionsPath);
+
+    async function saveProgress(
+      responses,
+      currentQuestionId,
+      currentQuestionIndex,
+      currentMessageId,
+      currentQuestion,
+      submittedForReview = false,
+    ) {
+      const transcript = [...responses];
+
+      if (currentQuestion) {
+        const alreadyTracked = transcript.some((entry) => entry.questionId === currentQuestion.id && entry.content == null);
+        if (!alreadyTracked) {
+          transcript.push({
+            questionId: currentQuestion.id,
+            questionContent: currentQuestion.content,
+            content: null,
+            attachments: [],
+          });
+        }
+      }
+
+      const payload = {
+        questionObjects: botQuestions,
+        transcript,
+        responses,
+        currentQuestionId,
+        currentQuestionIndex,
+        currentMessageId,
+        dmChannelId,
+        submittedForReview,
+      };
+
+      await Submissions.upsert({
+        message_id: sessionId,
+        user_id: userid,
+        guild_id: guildId,
+        app_id: String(configId),
+        status: "pending",
+        data: encryptData(payload),
+      });
+    }
+
+    async function clearProgress() {
+      await Submissions.destroy({
+        where: { message_id: sessionId },
+      }).catch(() => { });
+    }
+
     const questionMap = new Map();
     const questionIndexMap = new Map();
     botQuestions.forEach((question, index) => {
@@ -772,10 +926,11 @@ async function Verificationfunc(
       if (Object.prototype.hasOwnProperty.call(currentQuestion, "nextQuestionId")) {
         return resolveNextQuestionId(currentQuestion.nextQuestionId, currentQuestionIndex);
       }
+
       return getSequentialNextQuestionId(currentQuestionIndex);
     }
 
-    function createQuestionEmbed(question, responselength,) {
+    function createQuestionEmbed(question, responselength) {
       const DMEmbed = new EmbedBuilder()
         .setColor("#3f7ff1")
         .setFooter({
@@ -845,7 +1000,7 @@ async function Verificationfunc(
       try {
         const user = await c.users.fetch(userid);
         const dmChannel = await c.channels.fetch(dmChannelId);
-        let startverification;
+        let activeQuestionMessage;
 
         // Get the first question
         const firstQuestion = botQuestions[0];
@@ -854,12 +1009,48 @@ async function Verificationfunc(
           return;
         }
 
-        // Send the first question
-        const { DMEmbed, actionRow } = createQuestionEmbed(firstQuestion, 0);
-        startverification = await dmChannel.send({
-          embeds: [DMEmbed],
-          components: [actionRow, cancelbutton].filter(Boolean),
-        });
+        const restoredResponses = Array.isArray(resumeState?.responses) ? resumeState.responses : [];
+        const restoredQuestionId = resumeState?.currentQuestionId;
+
+        const startingQuestion =
+          (restoredQuestionId && questionMap.get(restoredQuestionId)) || firstQuestion;
+
+        const responses = restoredResponses;
+        let processingQueue = Promise.resolve();
+        let currentQuestionId = startingQuestion.id;
+        let currentQuestionIndex = questionIndexMap.get(startingQuestion.id) ?? 0;
+
+        if (resumeState?.currentQuestionId && resumeState?.currentMessageId) {
+          activeQuestionMessage = await dmChannel.messages.fetch(resumeState.currentMessageId).catch(() => null);
+          const continueEmbed = new EmbedBuilder()
+            .setDescription(
+              "Melpo has been restarted to update it's system.\nTo ensure no interruptions, I'm resuming your application from where you left off.\nPlease continue by answering the last asked question.",
+            )
+            .setColor("#3f7ff1");
+
+          await dmChannel.send({
+            embeds: [continueEmbed],
+          })
+        }
+
+        // if no activeQuestionMessage message, send question again.
+        if (!activeQuestionMessage) {
+          const { DMEmbed, actionRow } = createQuestionEmbed(startingQuestion, responses.length);
+          activeQuestionMessage = await dmChannel.send({
+            content: resumeState?.currentQuestionId ? "Resuming your previous application from where you left off." : undefined,
+            embeds: [DMEmbed],
+            components: [actionRow, cancelbutton].filter(Boolean),
+          });
+        }
+
+        await saveProgress(
+          responses,
+          currentQuestionId,
+          currentQuestionIndex,
+          activeQuestionMessage.id,
+          startingQuestion,
+          false,
+        );
 
         const collector = dmChannel.createMessageCollector({
           filter: (m) => !m.author.bot,
@@ -870,23 +1061,11 @@ async function Verificationfunc(
           time: 3600000,
         });
 
-        const responses = [];
-        let isProcessing = false;
-        let processingQueue = Promise.resolve();
-        let currentQuestionId = firstQuestion.id;
-        let currentQuestionIndex = questionIndexMap.get(firstQuestion.id) ?? 0;
-
         // Handle button interactions
         cancelcollector.on("collect", async (i) => {
           processingQueue = processingQueue.then(async () => {
             try {
               await i.deferUpdate().catch(() => { console.error("Failed to defer update for cancel button") });
-
-              if (isProcessing) {
-                return; // Ignore if already processing
-              }
-
-              isProcessing = true;
 
               // handle cancel button
               if (i.customId === `cancelverification-${sessionId}`) {
@@ -899,9 +1078,12 @@ async function Verificationfunc(
                   )
                   .setColor("#ff0000");
 
-                await startverification.edit({
+                await activeQuestionMessage.edit({
                   embeds: [cancelEmbed],
                   components: [],
+                });
+                await clearProgress().catch((err) => {
+                  console.error("Failed to clear progress on cancel:", err);
                 });
                 reject(new Error("Application was canceled"));
                 return;
@@ -913,7 +1095,6 @@ async function Verificationfunc(
 
                 if (!currentQuestion) {
                   console.error(`Question with ID ${currentQuestionId} not found`);
-                  isProcessing = false;
                   return;
                 }
 
@@ -924,7 +1105,6 @@ async function Verificationfunc(
                   console.error(
                     `Invalid MCQ question at index ${currentQuestionId}`,
                   );
-                  isProcessing = false;
                   return;
                 }
 
@@ -938,7 +1118,6 @@ async function Verificationfunc(
                     console.error(
                       `Invalid answer index ${selectedOptionIndex} for question ${currentQuestionId}`,
                     );
-                    isProcessing = false;
                     return;
                   }
 
@@ -967,19 +1146,22 @@ async function Verificationfunc(
                   }
                 }
 
-                const answerEmbed = new EmbedBuilder(startverification.embeds[0],)
+                const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0],)
                   .setColor("#008000")
                   .addFields({
                     name: `Answer`,
                     value: fieldValue,
                   });
 
-                await startverification.edit({
+                await activeQuestionMessage.edit({
                   embeds: [answerEmbed],
                   components: [],
                 });
 
                 const responseAnswer = {
+                  questionId: currentQuestion.id,
+                  questionContent: currentQuestion.content,
+                  mcqIndex: selectedOptions.length > 0 ? selectedOptions.map((option) => option.index) : [selectedOptionIndex],
                   content: fieldValue,
                 };
                 responses.push(responseAnswer);
@@ -997,6 +1179,7 @@ async function Verificationfunc(
 
                 // Check if it reached the end
                 if (nextQuestionId === null || nextQuestionId === "end") {
+                  await clearProgress();
                   cancelcollector.stop("completed");
                   collector.stop("completed");
                   return;
@@ -1016,10 +1199,19 @@ async function Verificationfunc(
 
                 const { DMEmbed, actionRow } = createQuestionEmbed(nextQuestion, responses.length);
 
-                startverification = await dmChannel.send({
+                activeQuestionMessage = await dmChannel.send({
                   embeds: [DMEmbed],
                   components: [actionRow, cancelbutton].filter(Boolean),
                 });
+
+                await saveProgress(
+                  responses,
+                  currentQuestionId,
+                  currentQuestionIndex,
+                  activeQuestionMessage.id,
+                  nextQuestion,
+                  false,
+                );
               }
             } catch (error) {
               console.error(
@@ -1033,9 +1225,15 @@ async function Verificationfunc(
               } catch (dmError) {
                 console.error("Failed to send error message:", dmError);
               }
-            } finally {
-              isProcessing = false;
+              collector.stop("error");
+              cancelcollector.stop("error");
+              reject(error);
             }
+          }).catch((error) => {
+            console.error(`Unhandled processing error for user ${userid}:`, error);
+            collector.stop("error");
+            cancelcollector.stop("error");
+            reject(error);
           });
         });
 
@@ -1044,22 +1242,13 @@ async function Verificationfunc(
           processingQueue = processingQueue.then(async () => {
 
             try {
-              if (isProcessing) {
-                return;
-              }
-
-              isProcessing = true;
-
               const currentQuestion = questionMap.get(currentQuestionId);
 
               if (!currentQuestion) {
-                isProcessing = false;
                 return;
               }
 
-
               if (currentQuestion.mcq && currentQuestion.mcq.length > 0) {
-                isProcessing = false;
                 return;
               }
 
@@ -1087,17 +1276,19 @@ async function Verificationfunc(
               }
 
               const answerEmbed = new EmbedBuilder(
-                startverification.embeds[0],
+                activeQuestionMessage.embeds[0],
               )
                 .setColor("#008000")
                 .addFields({ name: `Answer`, value: answercontent });
 
-              await startverification.edit({
+              await activeQuestionMessage.edit({
                 embeds: [answerEmbed],
                 components: [],
               });
 
               totalcontent = {
+                questionId: currentQuestion.id,
+                questionContent: currentQuestion.content,
                 content: totalcontent,
                 attachments: collected.attachments?.map(
                   (attachment) => attachment.url,
@@ -1113,6 +1304,7 @@ async function Verificationfunc(
 
               // Check if it reached the end
               if (nextQuestionId === null || nextQuestionId === "end") {
+                await clearProgress();
                 collector.stop("completed");
                 cancelcollector.stop("completed");
                 return;
@@ -1131,10 +1323,19 @@ async function Verificationfunc(
               currentQuestionIndex = questionIndexMap.get(nextQuestionId) ?? (currentQuestionIndex + 1);
 
               const { DMEmbed, actionRow } = createQuestionEmbed(nextQuestion, responses.length);
-              startverification = await dmChannel.send({
+              activeQuestionMessage = await dmChannel.send({
                 embeds: [DMEmbed],
                 components: [actionRow, cancelbutton].filter(Boolean),
               });
+
+              await saveProgress(
+                responses,
+                currentQuestionId,
+                currentQuestionIndex,
+                activeQuestionMessage.id,
+                nextQuestion,
+                false,
+              );
             } catch (error) {
               console.error(
                 `Error handling text message for user ${userid}:`,
@@ -1145,9 +1346,15 @@ async function Verificationfunc(
                   "An error occurred processing your answer. Please try again.",
                 )
                 .catch(() => { });
-            } finally {
-              isProcessing = false;
+              collector.stop("error");
+              cancelcollector.stop("error");
+              reject(error);
             }
+          }).catch((error) => {
+            console.error(`Unhandled text processing error for user ${userid}:`, error);
+            collector.stop("error");
+            cancelcollector.stop("error");
+            reject(error);
           });
         });
 
@@ -1161,6 +1368,7 @@ async function Verificationfunc(
             if (reason === "completed") {
               resolve([reason, responses]);
             } else if (reason === "canceled") {
+              await clearProgress();
               reject(new Error("Verification was canceled"));
             } else if (reason === "time") {
               const timeoutEmbed = new EmbedBuilder()
@@ -1173,7 +1381,10 @@ async function Verificationfunc(
               await dmChannel
                 .send({ embeds: [timeoutEmbed] })
                 .catch(() => { });
+              await clearProgress();
               reject(new Error("Verification timed out"));
+            } else if (reason === "error") {
+              reject(new Error("Verification ended due to an internal error"));
             } else {
               reject(
                 new Error(`Verification ended unexpectedly: ${reason}`),
@@ -1193,3 +1404,142 @@ async function Verificationfunc(
     })();
   });
 }
+
+async function resumeApplication(client) {
+  if (client.cluster && client.cluster.id !== 0) {
+    return;
+  }
+
+  if (!process.env.ENCRYPTION_KEY) {
+    console.error("ENCRYPTION_KEY is not configured!!");
+    return;
+  }
+
+  const pendingRows = await Submissions.findAll({
+    where: { status: "pending" },
+    order: [["updatedAt", "ASC"]],
+  });
+
+  for (const progressRow of pendingRows) {
+    try {
+      if (activeVerifications.has(progressRow.user_id)) {
+        continue;
+      }
+
+      const payload = decryptData(
+        progressRow.data,
+        process.env.ENCRYPTION_KEY,
+      );
+
+      if (
+        !payload ||
+        payload.submittedForReview === true ||
+        !payload.currentQuestionId ||
+        !payload.currentMessageId ||
+        !payload.dmChannelId ||
+        !Array.isArray(payload.questionObjects) ||
+        payload.questionObjects.length === 0
+      ) {
+        continue;
+      }
+
+      const [guild, user] = await Promise.all([
+        client.guilds.fetch(progressRow.guild_id).catch(() => null),
+        client.users.fetch(progressRow.user_id).catch(() => null),
+      ]);
+
+      if (!guild || !user) {
+        continue;
+      }
+
+      const { application, error } = await getApplicationByIdWithFallback(
+        progressRow.app_id,
+        progressRow.guild_id,
+      );
+
+      if (error || !application) {
+        continue;
+      }
+
+      const verifyLogsChannel = guild.channels.cache.get(application.reviewchannel);
+      if (!verifyLogsChannel) {
+        continue;
+      }
+
+      const cancelbutton = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`cancelverification-${progressRow.message_id}`)
+          .setLabel("Cancel")
+          .setStyle("Danger"),
+      );
+
+      const dmChannel = await client.channels.fetch(payload.dmChannelId).catch(() => null);
+      if (!dmChannel) {
+        continue;
+      }
+
+      const pseudoInteraction = {
+        guild,
+        user,
+      };
+
+      activeVerifications.set(progressRow.user_id, {
+        sessionId: progressRow.message_id,
+        startTime: Date.now(),
+      });
+
+      void (async () => {
+        try {
+          const [reason, responses] = await Verificationfunc(client, {
+            userid: progressRow.user_id,
+            dmChannelId: payload.dmChannelId,
+            botQuestions: payload.questionObjects,
+            cancelbutton,
+            sessionId: progressRow.message_id,
+            guildId: progressRow.guild_id,
+            configId: progressRow.app_id,
+            dbObjectsPath: require.resolve("../dbObjects.js"),
+            DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
+            encryptionKey: process.env.ENCRYPTION_KEY,
+            resumeState: payload,
+          });
+
+          if (reason === "completed") {
+            await processVerificationResult(
+              user,
+              reason,
+              responses,
+              pseudoInteraction,
+              payload.questionObjects,
+              dmChannel,
+              application.pingrole,
+              progressRow.guild_id,
+              verifyLogsChannel,
+              application.finishmessage,
+              client,
+              application.usethreads,
+              application.name,
+              progressRow.app_id,
+              progressRow.message_id,
+            );
+          }
+        } catch (error) {
+          console.error(
+            `Failed to resume application progress ${progressRow.message_id}:`,
+            error,
+          );
+        } finally {
+          activeVerifications.delete(progressRow.user_id);
+        }
+      })();
+    } catch (error) {
+      console.error(
+        `Failed to resume application progress ${progressRow.message_id}:`,
+        error,
+      );
+      activeVerifications.delete(progressRow.user_id);
+    }
+  }
+}
+
+module.exports.resumeApplication = resumeApplication;

@@ -74,6 +74,10 @@ const Blacklist = require("./models/blacklist.js")(
   sequelize, 
   Sequelize.DataTypes
 );
+const Submissions = require("./models/Submissions.js")(
+  sequelize,
+  Sequelize.DataTypes,
+);
 
 
 ServerConfig.hasMany(Application, { foreignKey: 'server_id', onDelete: 'CASCADE' });
@@ -97,4 +101,5 @@ module.exports = {
   AdTexts,
   UserBilling,
   Blacklist,
+  Submissions,
 };
