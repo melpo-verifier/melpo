@@ -38,9 +38,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
+app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req, res) => {
   console.log(req.params);
-  const { guildId, appId } = req.params;
+  const { guildId, appId, webhookUpdated } = req.params;
 
   if (!guildId) {
     return res.status(400).json({ error: "Missing guildId" });
@@ -61,8 +61,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
   const appName = application.name;
 
   const embedColor = application.verifychannelembed?.color || "#3f7ff1";
-  const embedTitle = application.verifychannelembed?.title ?? "Verification";
-  const embedDescription = application.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
+  const embedTitle = application.verifychannelembed?.title?.length > 0 ? application.verifychannelembed.title : null;
+  const embedDescription = application.verifychannelembed?.description?.length > 0 ? application.verifychannelembed.description : null;
   const embedImage = application.verifychannelembed?.image;
   const embedImageAsset = resolveImage(embedImage);
 
@@ -105,7 +105,7 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
       const [result] = await global.shardManager.broadcastEval(
         async (
           client,
-          { guildId, verifyChannelId, embedColor, embedTitle, embedDescription, embedImageAsset, appName, appId, verifyMessageId, melpoId, path },
+          { guildId, verifyChannelId, embedColor, embedTitle, embedDescription, embedImageAsset, appName, appId, verifyMessageId, melpoId, path, webhookUpdated },
         ) => {
           const { updateVerifyMessage } = require(path);
 
@@ -137,10 +137,14 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
                 customId: `verifybutton_${appId}`,
                 label: "Apply",
               },
+              appId: appId,
+              webhookUpdated: webhookUpdated
             });
 
-            return { success: true, action: result.action, messageId: result.message?.id };
+            console.log(result)
+            return { success: true, action: result.action, messageId: result.messageId };
           } catch (error) {
+            console.log("Error in updateVerifyMessage:", error);
             return { success: false, error: error.message };
           }
         },
@@ -156,7 +160,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
             appId,
             verifyMessageId,
             melpoId: process.env.MELPO_ID,
-            path: require('path').join(process.cwd(), "/js/verifyChannelUtils.js")
+            path: require('path').join(process.cwd(), "/js/verifyChannelUtils.js"),
+            webhookUpdated: webhookUpdated
           },
           cluster: targetClusterId
         }
@@ -166,7 +171,9 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
         return res.status(404).json({ error: result.error });
       }
 
+      console.log(result)
       if (result.messageId && result.messageId !== application.verifymessage_id) {
+        console.log(result.messageId)
         application.verifymessage_id = result.messageId;
         await application.save().catch(e => console.error("Error saving verify message ID", e));
       }
@@ -230,6 +237,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
                   customId: `verifybutton_${appId}`,
                   label: "Apply",
                 },
+                appId: appId,
+                webhookUpdated: webhookUpdated
               });
 
               if (result.messageId && result.messageId !== application.verifymessage_id) {

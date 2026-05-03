@@ -198,7 +198,7 @@ module.exports = async ({ interaction, client }) => {
       .addFields({ name: "Answer", value: answercontent })
       .setColor("#008000");
 
-    await interaction.message.edit({
+    await interaction.editReply({
       components: [disabledconfirmrow],
       embeds: [answerform],
     });

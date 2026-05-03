@@ -4,6 +4,7 @@ const {
   AdTexts,
   UserBilling,
   Submissions,
+  GuildWebhook,
 } = require("../dbObjects.js");
 const {
   ButtonBuilder,
@@ -20,6 +21,7 @@ const {
   SectionBuilder,
   AttachmentBuilder,
   FileBuilder,
+  WebhookClient,
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
@@ -361,6 +363,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
               appName,
               applicationId,
               sessionId,
+              application
             );
           })
           .catch(async (error) => {
@@ -409,6 +412,7 @@ module.exports = async ({ interaction, client, applicationId }) => {
             appName,
             applicationId,
             sessionId,
+            application
           );
         } catch (error) {
           if (
@@ -623,6 +627,7 @@ async function processVerificationResult(
   appName,
   applicationId,
   sessionId,
+  application,
 ) {
   if (reason === "completed") {
     // Process collected responses and send to verification review channel
@@ -645,6 +650,9 @@ async function processVerificationResult(
       await dmChannel.send({ content: "An error occurred while processing your verification. This can happen when you left or have been kicked from the server during your application." }).catch(() => { });
       return;
     }
+
+    const path = require('path');
+    const { sendWebhookMessage } = require(path.join(process.cwd(), "js/messageHelper.js"));
 
     const { container, attachment } = containerResult;
 
@@ -683,7 +691,15 @@ async function processVerificationResult(
       sendPayload.files = [attachment];
     }
 
-    channelsent = await verifyLogsChannel.send(sendPayload);
+    const threadName = `${user.globalName ?? user.username}'s Verification`;
+
+    channelsent = await sendWebhookMessage(verifyLogsChannel, application, sendPayload, threadName)
+
+    // if (useThreads === true) {
+    //   await channelsent.startThread({
+    //     name: `${user.globalName ?? user.username}'s Verification`,
+    //   });
+    // }
 
     try {
       const encryptionKey = process.env.ENCRYPTION_KEY
@@ -739,11 +755,7 @@ async function processVerificationResult(
       console.error(`Failed to send completion DM to user ${user.id}:`, err);
     });
 
-    if (useThreads === true) {
-      await channelsent.startThread({
-        name: `${user.globalName ?? user.username}'s Verification`,
-      });
-    }
+    
 
     try {
       const [verification, created] = await Verification.findOrCreate({
@@ -1521,6 +1533,7 @@ async function resumeApplication(client) {
               application.name,
               progressRow.app_id,
               progressRow.message_id,
+              application
             );
           }
         } catch (error) {

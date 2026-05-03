@@ -149,6 +149,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         welcomeMessage,
         originalEmbed,
         verifiedRoles,
+        application
       );
     } catch (error) {
       await interaction.followUp({

@@ -19,6 +19,7 @@ const {
   getMessageIds,
 } = require("../../js/verificationHandler.js");
 const { getLatestSubmissionByUser } = require("../../js/DBFunctions.js");
+const { sendWebhookMessage } = require("../../js/messageHelper.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -247,6 +248,13 @@ module.exports = {
           useRateLimiting: true,
         });
 
+        const payload = {
+          content: `<@${userID}> `,
+          embeds: [
+            createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED)
+          ],
+        };
+
         // If no messages and separate log channel, send "no application" embed
         if (
           application.verifylogs &&
@@ -255,19 +263,16 @@ module.exports = {
         ) {
           const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
           if (logChannel) {
-            const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED);
             await rateLimitedOperation(async () => {
-              await logChannel.send({ content: `<@${userID}>`, embeds: [embed] });
+              await sendWebhookMessage(logChannel, application, payload);
             });
           }
         } else if (
           !application.verifylogs &&
           (!messageids || messageids.length === 0)
         ) {
-          // No log channel, no messages - create embed in current channel
-          const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED);
           await rateLimitedOperation(async () => {
-            await interaction.channel.send({ embeds: [embed] });
+            await sendWebhookMessage(interaction.channel, application, payload);
           });
         }
 
@@ -279,7 +284,7 @@ module.exports = {
         // Send welcome message
         if (welcomeChannel && welcomeMessage) {
           try {
-            await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, null, verifiedRoles);
+            await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, null, verifiedRoles, application);
           } catch (error) {
             console.error("Error sending welcome message:", error);
           }

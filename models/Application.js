@@ -17,6 +17,18 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false,
     },
+    custom_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    custom_avatar_url: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    branding_enabled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
     questions: {
       type: DataTypes.JSONB,
       defaultValue: [],
@@ -41,8 +53,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verifymessage_id: {
-      type: DataTypes.STRING,
+    deniedrole: {
+      type: DataTypes.JSONB,
+      defaultValue: [],
+    },
+    maxdenials: {
+      type: DataTypes.INTEGER,
+      defaultValue: null,
+      allowNull: true,
     },
     pingrole: {
       type: DataTypes.JSONB,
@@ -53,8 +71,11 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: [],
     },
     unverifiedrole: {
-      type: DataTypes.JSONB, 
+      type: DataTypes.JSONB,
       defaultValue: [],
+    },
+    verifymessage_id: {
+      type: DataTypes.STRING,
     },
     verifyfilter: {
       type: DataTypes.JSONB,

@@ -13,9 +13,11 @@ const {
   AttachmentBuilder,
   ButtonBuilder,
   ActionRowBuilder,
+  WebhookClient,
 } = require("discord.js");
-const { Verification, InviteTracker, Submissions } = require("../dbObjects.js");
+const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
+const { decryptData } = require("./DBFunctions.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
   const guildData = verification?.guildVerifications?.[guildId];
@@ -486,7 +488,7 @@ function getMentions(content) {
 }
 
 // Send welcome message to channel
-async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, originalEmbed, verifiedRoles) {
+async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, originalEmbed, verifiedRoles, application) {
   if (!welcomeChannel || !welcomeMessage) return;
 
   const channel = interaction.guild.channels.cache.get(welcomeChannel);
@@ -535,6 +537,39 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
       });
     } else {
       welcomeEmbed.setThumbnail(user.user.displayAvatarURL({ dynamic: true, size: 512 }));
+    }
+
+    if (application.branding_enabled === true) {
+      const webhook = await GuildWebhook.findOne({ where: { channel_id: channel.id } });
+      if (webhook) {
+        try {
+          const webhookData = decryptData(String(webhook.encrypted_token));
+          if (!webhookData || !webhookData.id || !webhookData.token) {
+            throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`);
+          }
+
+          const client = new WebhookClient({
+            id: webhookData.id,
+            token: webhookData.token
+          });
+
+          const name = application.custom_name || "Melpo Verifier";
+          const avatarURL = application.custom_avatar_url || null;
+          await client.send({
+            username: name,
+            avatarURL: avatarURL,
+            content: messageContent || null,
+            embeds: [welcomeEmbed],
+          });
+          return;
+        } catch (error) {
+          interaction.followUp({
+            content: `Welcome channel webhook error: ${error.message}`,
+            flags: MessageFlags.Ephemeral,
+          }).catch(() => { });
+          console.error("Error sending welcome webhook:", error.message);
+        }
+      }
     }
 
     await channel.send({
@@ -687,6 +722,8 @@ async function processLogMessages(options) {
         });
       }
 
+
+
       const messages = [];
       for (const messageId of messageids) {
         try {
@@ -707,6 +744,25 @@ async function processLogMessages(options) {
 
       messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
+      let webhookClient = null;
+      if (application.branding_enabled) {
+        const webhookRecord = await GuildWebhook.findOne({
+          where: { channel_id: logChannel.id },
+        });
+
+        if (webhookRecord) {
+          try {
+            const webhookData = decryptData(String(webhookRecord.encrypted_token));
+            webhookClient = new WebhookClient({
+              id: webhookData.id,
+              token: webhookData.token,
+            });
+          } catch (e) {
+            console.error("Failed to decrypt webhook token:", e);
+          }
+        }
+      }
+
       for (const message of messages) {
         if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -716,34 +772,63 @@ async function processLogMessages(options) {
             const tempMsg = { ...message, components: [preparedContainer] };
             const editedContainer = handleV2Edit(interaction, tempMsg, status, reason);
 
+            const sendPayload = {
+              flags: [MessageFlags.IsComponentsV2],
+              components: [editedContainer],
+              files: files || [],
+            };
+
             let threadEmbed;
             if (message.thread) {
               threadEmbed = await createThreadSummary(message.thread, client, status);
             }
 
-            const sendOp = async () => {
-              const payload = {
-                flags: [MessageFlags.IsComponentsV2],
-                components: [editedContainer],
-              };
-              if (files) {
-                payload.files = files;
-              }
-              return logChannel.send(payload);
-            };
+            // const sendOp = async () => {
+            //   const payload = {
+            //     flags: [MessageFlags.IsComponentsV2],
+            //     components: [editedContainer],
+            //   };
+            //   if (files) {
+            //     payload.files = files;
+            //   }
+            //   return logChannel.send(payload);
+            // };
 
-            const sendmessage = useRateLimiting
-              ? await rateLimitedOperation(sendOp)
-              : await sendOp();
-
-            const threadOp = async () =>
-              sendmessage.startThread({
-                name: `${user.user?.username || user.username}'s log`,
+            // const sendmessage = useRateLimiting
+            //   ? await rateLimitedOperation(sendOp)
+            //   : await sendOp();
+            let sentMessage;
+            if (webhookClient) {
+              // Webhooks use the user's branding
+              sentMessage = await webhookClient.send({
+                ...sendPayload,
+                username: application.custom_name || client.user.username,
+                avatarURL: application.custom_avatar_url || client.user.displayAvatarURL(),
               });
+            } else {
+              // Normal bot message fallback
+              const sendOp = async () => logChannel.send(sendPayload);
+              sentMessage = useRateLimiting ? await rateLimitedOperation(sendOp) : await sendOp();
+            }
 
-            const threadchannel = useRateLimiting
-              ? await rateLimitedOperation(threadOp)
-              : await threadOp();
+            // const threadOp = async () =>
+            //   sendmessage.startThread({
+            //     name: `${user.user?.username || user.username}'s log`,
+            //   });
+
+            // const threadchannel = useRateLimiting
+            //   ? await rateLimitedOperation(threadOp)
+            //   : await threadOp();
+
+            const messageToThread = webhookClient
+              ? await logChannel.messages.fetch(sentMessage.id)
+              : sentMessage;
+
+            const threadOp = async () => messageToThread.startThread({
+              name: `${user.user?.username || user.username}'s log`,
+            });
+
+            const threadchannel = useRateLimiting ? await rateLimitedOperation(threadOp) : await threadOp();
 
             if (threadEmbed) {
               const embedOp = async () => threadchannel.send({ embeds: [threadEmbed] });
@@ -771,6 +856,18 @@ async function processLogMessages(options) {
     }
   } else {
     if (messageids && messageids.length > 0) {
+
+      let webhookClient = null;
+      if (application.branding_enabled) {
+        const webhookRecord = await GuildWebhook.findOne({
+          where: { channel_id: interaction.channelId },
+        });
+        if (webhookRecord) {
+          const webhookData = decryptData(String(webhookRecord.encrypted_token));
+          webhookClient = new WebhookClient({ id: webhookData.id, token: webhookData.token });
+        }
+      }
+
       for (const messageId of messageids) {
         // Skip the current message if being handled separately
         if (messageId === interaction.message?.id) continue;
@@ -783,38 +880,31 @@ async function processLogMessages(options) {
 
           if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          if (message && message.author.id === client.user.id) {
-            const footerText = message.embeds?.[0]?.footer?.text || "";
-            const alreadyProcessed =
-              footerText.includes("Verified") || footerText.includes("Denied") || footerText.includes("Kicked");
+          if (message) {
+            const isWebhookMessage = !!message.webhookId;
 
-            if (!alreadyProcessed) {
-              if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-                const editedContainer = handleV2Edit(interaction, message, status, reason);
-                const editOp = async () =>
-                  message.edit({
-                    flags: [MessageFlags.IsComponentsV2],
-                    components: [editedContainer],
-                  });
-                useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
-              } else if (message.embeds && message.embeds[0]) {
-                const originalembed = message.embeds[0];
-
-                const Embed = new EmbedBuilder(originalembed)
-                  .setColor(color)
-                  .setTitle((originalembed.title || "Verification") + ` (${statusText})`)
-                  .setFooter({
-                    text: `${actionText} by ${interaction.user.username} | ${originalembed?.footer?.text || user.id}`,
-                  });
-
-                if (reason) {
-                  Embed.setDescription(`**Denied for reason:** ${reason}`);
-                }
-
-                const editOp = async () => message.edit({ embeds: [Embed], components: [] });
+            if (message.flags?.has(MessageFlags.IsComponentsV2)) {
+              const editedContainer = handleV2Edit(interaction, message, status, reason);
+              const payload = {
+                flags: [MessageFlags.IsComponentsV2],
+                components: [editedContainer],
+              }
+              // const editOp = async () =>
+              //   message.edit({
+              //     flags: [MessageFlags.IsComponentsV2],
+              //     components: [editedContainer],
+              //   });
+              // useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
+              if (isWebhookMessage && webhookClient) {
+                // If it's a webhook message, we MUST use the webhook client to edit
+                await webhookClient.editMessage(message.id, payload);
+              } else {
+                // Normal bot message edit
+                const editOp = async () => message.edit(payload);
                 useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
               }
             }
+
           }
         } catch (error) {
           if (error.code === 10008) {

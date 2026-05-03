@@ -78,6 +78,10 @@ const Submissions = require("./models/Submissions.js")(
   sequelize,
   Sequelize.DataTypes,
 );
+const GuildWebhook = require("./models/GuildWebhook.js")(
+  sequelize,
+  Sequelize.DataTypes,
+);
 
 
 ServerConfig.hasMany(Application, { foreignKey: 'server_id', onDelete: 'CASCADE' });
@@ -102,4 +106,5 @@ module.exports = {
   UserBilling,
   Blacklist,
   Submissions,
+  GuildWebhook,
 };
