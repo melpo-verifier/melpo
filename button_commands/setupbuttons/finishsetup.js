@@ -202,10 +202,6 @@ module.exports = async ({ interaction, client, context }) => {
       footer: tempApp.name,
     },
     messageId: finalApp.verifymessage_id,
-    button: {
-      customId: `verifybutton_${finalApp.id}`,
-      label: "Apply",
-    },
     appId: finalApp.id,
   });
 

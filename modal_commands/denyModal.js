@@ -1,15 +1,18 @@
 const { MessageFlags } = require("discord.js");
-const { Verification } = require("../dbObjects.js");
+const { Verification, Submissions } = require("../dbObjects.js");
 const {
   handleV2Edit,
+  validateRoles,
   VerificationStatus,
   relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
   sendDenyDM,
+  applyRoles,
   getMessageIds,
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
+const { isPremiumServer } = require("../js/DBFunctions.js");
 
 module.exports = async ({ interaction, client, userid, applicationId }) => {
   if (userid && userid.includes(" | ")) {
@@ -44,6 +47,40 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
     member = { user, id: userid };
   }
 
+  let rolesToApply = [];
+  console.log(application.deniedrole)
+
+  //check deny count if there exists a threshold, if it meets threshold apply deny role if it exists
+  if (application.maxdenials && application.deniedrole?.length > 0 && await isPremiumServer(interaction.guild.id)) {
+    //check if premium is active
+
+    const denyCount = await Submissions.count({
+      where: { user_id: userid, guild_id: interaction.guild.id, app_id: String(applicationId), status: "denied" },
+    });
+    if (denyCount + 1 >= application.maxdenials) {
+      rolesToApply.push(application.deniedrole);
+    }
+  } else if (application.deniedrole?.length > 0) {
+    rolesToApply.push(application.deniedrole);
+  }
+
+  if(rolesToApply.length > 0) {
+    // Validate roles
+    const roleErrors = await validateRoles(
+      interaction,
+      rolesToApply,
+      null,
+    );
+    if (roleErrors.length > 0) {
+      return await interaction.followUp({
+        content: roleErrors[0],
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+    await applyRoles(member, rolesToApply, null, interaction);
+  }
+
   // Process log messages
   try {
     await processLogMessages({
@@ -62,7 +99,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
       await interaction.followUp({
         content: "Warning: Could not process log messages due to missing permissions.",
         flags: MessageFlags.Ephemeral,
-      }).catch(() => {});
+      }).catch(() => { });
     } else {
       throw logError;
     }
@@ -75,8 +112,8 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
       const tempMsg = { ...interaction.message, components: [container] };
       const deniedContainer = handleV2Edit(
-        interaction, 
-        tempMsg, 
+        interaction,
+        tempMsg,
         VerificationStatus.DENIED,
         reason
       );
@@ -94,6 +131,13 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
     }
   }
 
+
+  //mark submission as denied
+  await Submissions.update(
+    { status: "denied" },
+    { where: { message_id: interaction.message.id, status: "completed" } }
+  ).catch((e) => { console.error("Error updating submission status:", e); });
+
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
     await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId);
@@ -109,7 +153,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
     });
   } else {
     await interaction.followUp({
-      content: `✅ User denied successfully!`,
+      content: `✅ User denied successfully!${rolesToApply.length > 0 ? `\nThe deny role(s) has been applied to the user.` : ""}`,
       flags: MessageFlags.Ephemeral,
     });
   }

@@ -1,5 +1,7 @@
 const { Submissions } = require("../dbObjects.js");
 const crypto = require("crypto");
+const { PremiumSubscription, Instances } = require("../dbObjects.js");
+const { Op } = require("sequelize");
 
 const key = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
 
@@ -26,8 +28,16 @@ function decryptData(payloadString) {
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(authTag);
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    return JSON.parse(decrypted.toString("utf8"));
-  } catch {
+    //if json return object, else return string
+    if (decrypted.toString("utf8").startsWith("{")) {
+      return JSON.parse(decrypted.toString("utf8"));
+    } else {
+      return decrypted.toString("utf8");
+    }
+
+    // return JSON.parse(decrypted.toString("utf8"));
+  } catch (e) {
+    console.error("Decryption failed. Error:", e.message);
     return null;
   }
 }
@@ -59,9 +69,37 @@ async function getSubmission(messageId) {
   }
 }
 
+async function isPremiumServer (guildId) {
+  if (!guildId) return null
+  const now = new Date()
+
+  const premium = await  PremiumSubscription.findOne({
+    where: {
+      status: "ACTIVE",
+      [Op.or]: [{ expires_at: null }, { expires_at: { [Op.gt]: now - 7 * 24 * 60 * 60 * 1000 } }],
+      guild_id: { [Op.contains]: [guildId] },
+    },
+  })
+
+  if (premium) {
+    return true;
+  }
+
+  //check if it is a custom bot
+  const instance = await Instances.findOne({ where: { guilds: { [Op.contains]: [guildId] } } });
+
+  if (instance) {
+    return true;
+  }
+
+  return false;
+
+}
+
 module.exports = {
   encryptData,
   decryptData,
   getLatestSubmissionByUser,
-  getSubmission
+  getSubmission,
+  isPremiumServer,
 };

@@ -18,6 +18,7 @@ const {
 const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
 const { decryptData } = require("./DBFunctions.js");
+const { Op } = require("sequelize");
 
 function getMessageIds(verification, guildId, applicationId = null) {
   const guildData = verification?.guildVerifications?.[guildId];
@@ -143,7 +144,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
     for (const roleId of verifiedRoles) {
       const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
       if (!role) {
-        errors.push(`Verified role with ID ${roleId} not found. Please update your server configuration.`);
+        errors.push(`Role with ID ${roleId} not found. Please update your server configuration.`);
         continue;
       }
       if (interaction.guild.members.me.roles.highest.comparePositionTo(role) <= 0) {
@@ -1026,7 +1027,7 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
   if (applicationId != null && !Array.isArray(guildData)) {
 
     await Submissions.destroy({
-      where: { user_id: memberId, app_id: String(applicationId) },
+      where: { user_id: memberId, app_id: String(applicationId), status: { [Op.not]: "denied" } },
     }).catch((e) => { console.error("Error deleting submission:", e); });
     delete guildData[applicationId];
     if (Object.keys(guildData).length === 0) {
@@ -1034,8 +1035,9 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
     }
   } else {
     delete verification.guildVerifications[guildId];
+    //destroy if status isn't "denied"
     await Submissions.destroy({
-      where: { user_id: memberId, guild_id: guildId },
+      where: { user_id: memberId, guild_id: guildId, status: { [Op.not]: "denied" } },
     }).catch((e) => { console.error("Error deleting submission:", e); });
   }
 

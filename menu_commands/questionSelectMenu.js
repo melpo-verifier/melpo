@@ -7,6 +7,7 @@ const {
 } = require("discord.js");
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const { getTempApplicationById, getApplicationById } = require("../js/tempconfigfuncs.js");
+const { normalizeQuestions } = require("../js/questionSetupUtils.js");
 
 module.exports = async ({ interaction, client, context }) => {
   const isfirsttime = parseInt(context[0], 10);
@@ -28,20 +29,7 @@ module.exports = async ({ interaction, client, context }) => {
     applicationSetup = application;
   }
 
-  let questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions;
-
-  // Check if questions is an array of strings and parse
-  if (
-    Array.isArray(questions) &&
-    questions.every((q) => typeof q === "string")
-  ) {
-    try {
-      questions = questions?.map((q) => JSON.parse(q));
-    } catch (error) {
-      questions = [];
-      throw error;
-    }
-  }
+  const questions = normalizeQuestions(tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions);
 
   const question = questions[qnumber];
 
@@ -58,12 +46,13 @@ module.exports = async ({ interaction, client, context }) => {
     .setMaxLength(512)
     .setRequired(false);
 
+
   const MCQ = new TextInputBuilder()
     .setCustomId("mcq")
     .setLabel("Multiple Choice Question, 1 option/line max 9")
     .setStyle(TextInputStyle.Paragraph)
     .setPlaceholder("List of options. Every option should be on a new line")
-    .setValue(question.mcq.join("\n") || "")
+    .setValue(question.mcq?.length > 0 ? question.mcq.map((option) => option.label ?? option).join("\n") : "")
     .setMaxLength(512)
     .setRequired(false);
 

@@ -5,7 +5,7 @@ const eventName = Events.EntitlementDelete || "entitlementDelete";
 
 module.exports = {
   name: eventName,
-  async execute(entitlement, client) {
-    await handleEntitlementDelete(entitlement, client);
+  async execute(entitlement) {
+    await handleEntitlementDelete(entitlement);
   },
 };

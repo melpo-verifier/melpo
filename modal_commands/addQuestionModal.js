@@ -3,6 +3,7 @@ const {
   updateTempApplication,
   getTempApplicationById,
 } = require("../js/tempconfigfuncs.js");
+const { buildQuestionFromForm, normalizeQuestions } = require("../js/questionSetupUtils.js");
 const { MessageFlags } = require("discord.js");
 
 module.exports = async ({ interaction, client, context }) => {
@@ -36,21 +37,8 @@ module.exports = async ({ interaction, client, context }) => {
     temporarySetup.questions = [];
   }
 
-  temporarySetup.questions.push({ content: question, mcq: mcqArray });
-
-  temporarySetup.questions = temporarySetup.questions
-    ?.map((q) => {
-      if (typeof q === "string") {
-        try {
-          return JSON.parse(q);
-        } catch (error) {
-          console.error("Failed to parse question:", error);
-          return null;
-        }
-      }
-      return q;
-    })
-    .filter((q) => q !== null);
+  temporarySetup.questions = normalizeQuestions(temporarySetup.questions);
+  temporarySetup.questions.push(buildQuestionFromForm({ content: question, mcqInput: mcqArray }));
 
   await updateTempApplication(interaction.guild.id, {
     questions: temporarySetup.questions,

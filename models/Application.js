@@ -81,6 +81,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
+    mainMessageApplicationId: {
+      type: DataTypes.INTEGER,
+      defaultValue: null,
+      allowNull: true,
+    },
     verificationwelcomemessage: {
       type: DataTypes.JSONB,
       defaultValue: {

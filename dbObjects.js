@@ -82,6 +82,10 @@ const GuildWebhook = require("./models/GuildWebhook.js")(
   sequelize,
   Sequelize.DataTypes,
 );
+const PremiumSubscription = require("./models/PremiumSubscription.js")(
+  sequelize,
+  Sequelize.DataTypes,
+);
 
 
 ServerConfig.hasMany(Application, { foreignKey: 'server_id', onDelete: 'CASCADE' });
@@ -107,4 +111,5 @@ module.exports = {
   Blacklist,
   Submissions,
   GuildWebhook,
+  PremiumSubscription,
 };

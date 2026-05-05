@@ -1,32 +1,7 @@
-const crypto = require("crypto");
 const { createBot } = require("./bot.js");
 const { Instances } = require("./dbObjects.js");
+const { decryptData } = require("./js/DBFunctions.js");
 require("dotenv").config();
-
-const getEncryptionKey = () => {
-  const key = process.env.ENCRYPTION_KEY || "";
-  return Buffer.from(key.padEnd(32, "\0")).subarray(0, 32);
-};
-
-function decryptToken(text) {
-  if (!text?.includes(":")) return text;
-
-  try {
-    const [ivHex, dataHex] = text.split(":");
-    const iv = Buffer.from(ivHex, "hex");
-    const encryptedText = Buffer.from(dataHex, "hex");
-
-    const decipher = crypto.createDecipheriv("aes-256-cbc", getEncryptionKey(), iv);
-    
-    return Buffer.concat([
-      decipher.update(encryptedText), 
-      decipher.final()
-    ]).toString();
-  } catch {
-    console.warn("Decryption failed; using raw value.");
-    return text;
-  }
-}
 
 async function bootstrap() {
   const arg = process.argv[2];
@@ -48,7 +23,8 @@ async function bootstrap() {
     throw new Error(`Could not find a token for: ${ref}`);
   }
 
-  const token = decryptToken(rawToken);
+
+  const token = decryptData(rawToken);
   console.log(`Starting bot: ${ref}`);
   await createBot(token);
 }

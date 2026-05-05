@@ -1,7 +1,7 @@
 const { Events } = require("discord.js");
 const { Instances } = require("../dbObjects");
 const cron = require("node-cron");
-const { resumeApplication } = require("../button_commands/verifybutton.js");
+const { resumeApplication } = require("../js/applicationHandler.js");
 
 module.exports = {
   name: Events.ClientReady,
