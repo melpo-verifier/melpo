@@ -1,4 +1,4 @@
-const { WebhookClient, MessageFlags } = require("discord.js");
+const { WebhookClient } = require("discord.js");
 const { GuildWebhook } = require("../dbObjects.js");
 const { decryptData } = require("../js/DBFunctions.js");
 

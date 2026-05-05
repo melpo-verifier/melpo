@@ -1,6 +1,5 @@
 const express = require("express");
 const { exec } = require("child_process");
-const crypto = require("crypto");
 const pm2 = require("pm2");
 const {
   Client,
@@ -10,23 +9,6 @@ const { Instances } = require("../dbObjects.js");
 const { Op } = require("sequelize");
 const cors = require("cors");
 const { decryptData } = require("../js/DBFunctions.js");
-
-const algorithm = "aes-256-cbc";
-const getEncryptionKey = () => {
-  const key = process.env.ENCRYPTION_KEY || "";
-  return Buffer.from(key.padEnd(32, "\0").slice(0, 32));
-};
-
-function decryptToken(text) {
-  if (!text || !text.includes(":")) return text;
-  const textParts = text.split(":");
-  const iv = Buffer.from(textParts.shift(), "hex");
-  const encryptedText = Buffer.from(textParts.join(":"), "hex");
-  const decipher = crypto.createDecipheriv(algorithm, getEncryptionKey(), iv);
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
-  return decrypted.toString();
-}
 
 const {
   getApplicationById

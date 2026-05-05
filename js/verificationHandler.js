@@ -685,20 +685,6 @@ async function processLogMessages(options) {
     useRateLimiting = false,
   } = options;
 
-  const statusTextMap = {
-    [VerificationStatus.VERIFIED]: "VERIFIED",
-    [VerificationStatus.DENIED]: "DENIED",
-    [VerificationStatus.KICKED]: "KICKED",
-  };
-  const actionTextMap = {
-    [VerificationStatus.VERIFIED]: "Verified",
-    [VerificationStatus.DENIED]: "Denied",
-    [VerificationStatus.KICKED]: "Kicked",
-  };
-  const statusText = statusTextMap[status] || "DENIED";
-  const actionText = actionTextMap[status] || "Denied";
-  const color = StatusColors[status];
-
   const hasSeparateLogChannel =
     application.verifylogs &&
     messageids &&
@@ -722,8 +708,6 @@ async function processLogMessages(options) {
           content: `<@${user.id}>, I don't have permissions to send messages in the verification review channel!`,
         });
       }
-
-
 
       const messages = [];
       for (const messageId of messageids) {
