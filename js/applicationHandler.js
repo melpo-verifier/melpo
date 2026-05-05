@@ -713,15 +713,13 @@ async function processVerificationResult(
       sendPayload.files = [attachment];
     }
 
-    const threadName = `${user.globalName ?? user.username}'s Verification`;
+    let threadName = null
+
+    if(useThreads === true) {
+      threadName = `${user.globalName ?? user.username}'s ${appName}`;
+    }
 
     channelsent = await sendWebhookMessage(verifyLogsChannel, application, sendPayload, threadName)
-
-    // if (useThreads === true) {
-    //   await channelsent.startThread({
-    //     name: `${user.globalName ?? user.username}'s Verification`,
-    //   });
-    // }
 
     try {
       const encryptionKey = process.env.ENCRYPTION_KEY

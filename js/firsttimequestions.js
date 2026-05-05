@@ -94,9 +94,9 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
             ? question.content.slice(0, 97) + "..."
             : question.content,
         description:
-          question.mcq.join("; ").length > 100
-            ? question.mcq.join("; ").slice(0, 97) + "..."
-            : question.mcq.join("; ") || "No multiple choice question",
+          question.mcq?.length > 0
+            ? question.mcq.map((option) => (option.label ?? option) > 100 ? (option.label ?? option).slice(0, 97) + "..." : (option.label ?? option)).join("; ")
+            : "No multiple choice options",
         value: `${index + 1}`,
       });
     });
@@ -106,7 +106,7 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
     questionembed.addFields(
       questions?.map((question, index) => {
         const mcqContent =
-          question.mcq?.length > 0 ? `\n- ${question.mcq.join("\n- ")}` : "";
+          question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
         return {
           name: `Question ${index + 1}`,
           value: (question.content + mcqContent).slice(0, 1024),
