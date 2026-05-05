@@ -9,6 +9,7 @@ const {
 const { Instances } = require("../dbObjects.js");
 const { Op } = require("sequelize");
 const cors = require("cors");
+const { decryptData } = require("../js/DBFunctions.js");
 
 const algorithm = "aes-256-cbc";
 const getEncryptionKey = () => {
@@ -38,9 +39,9 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
+app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req, res) => {
   console.log(req.params);
-  const { guildId, appId } = req.params;
+  const { guildId, appId, webhookUpdated } = req.params;
 
   if (!guildId) {
     return res.status(400).json({ error: "Missing guildId" });
@@ -61,8 +62,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
   const appName = application.name;
 
   const embedColor = application.verifychannelembed?.color || "#3f7ff1";
-  const embedTitle = application.verifychannelembed?.title ?? "Verification";
-  const embedDescription = application.verifychannelembed?.description ?? "Please verify yourself by clicking the button below.";
+  const embedTitle = application.verifychannelembed?.title?.length > 0 ? application.verifychannelembed.title : null;
+  const embedDescription = application.verifychannelembed?.description?.length > 0 ? application.verifychannelembed.description : null;
   const embedImage = application.verifychannelembed?.image;
   const embedImageAsset = resolveImage(embedImage);
 
@@ -105,7 +106,7 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
       const [result] = await global.shardManager.broadcastEval(
         async (
           client,
-          { guildId, verifyChannelId, embedColor, embedTitle, embedDescription, embedImageAsset, appName, appId, verifyMessageId, melpoId, path },
+          { guildId, verifyChannelId, embedColor, embedTitle, embedDescription, embedImageAsset, appName, appId, verifyMessageId, melpoId, path, webhookUpdated },
         ) => {
           const { updateVerifyMessage } = require(path);
 
@@ -133,14 +134,14 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
                 footer: appName,
               },
               messageId: verifyMessageId,
-              button: {
-                customId: `verifybutton_${appId}`,
-                label: "Apply",
-              },
+              appId: appId,
+              webhookUpdated: webhookUpdated
             });
 
-            return { success: true, action: result.action, messageId: result.message?.id };
+            console.log(result)
+            return { success: true, action: result.action, messageId: result.messageId };
           } catch (error) {
+            console.log("Error in updateVerifyMessage:", error);
             return { success: false, error: error.message };
           }
         },
@@ -156,7 +157,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
             appId,
             verifyMessageId,
             melpoId: process.env.MELPO_ID,
-            path: require('path').join(process.cwd(), "/js/verifyChannelUtils.js")
+            path: require('path').join(process.cwd(), "/js/verifyChannelUtils.js"),
+            webhookUpdated: webhookUpdated
           },
           cluster: targetClusterId
         }
@@ -166,7 +168,9 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
         return res.status(404).json({ error: result.error });
       }
 
+      console.log(result)
       if (result.messageId && result.messageId !== application.verifymessage_id) {
+        console.log(result.messageId)
         application.verifymessage_id = result.messageId;
         await application.save().catch(e => console.error("Error saving verify message ID", e));
       }
@@ -226,10 +230,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId", async (req, res) => {
                   footer: appName,
                 },
                 messageId: verifyMessageId,
-                button: {
-                  customId: `verifybutton_${appId}`,
-                  label: "Apply",
-                },
+                appId: appId,
+                webhookUpdated: webhookUpdated
               });
 
               if (result.messageId && result.messageId !== application.verifymessage_id) {
@@ -412,7 +414,6 @@ app.patch("/api/bot/:clientId/presence", async (req, res) => {
 
 app.patch("/api/pm2/instances/:id", async (req, res) => {
   const clientId = req.params.id;
-  const { status, status_name, status_type } = req.body;
 
   if (clientId === process.env.MELPO_ID) {
     return res
@@ -420,26 +421,40 @@ app.patch("/api/pm2/instances/:id", async (req, res) => {
       .json({ error: "Cannot modify Melpo through the API" });
   }
 
+  console.log("Received restart for:", clientId);
+
   try {
     const existingBot = await Instances.findOne({
       where: { client_id: clientId },
     });
+
     if (!existingBot) {
       return res.status(404).json({ error: "Bot instance not found in database" });
     }
 
-    if (status !== undefined) existingBot.status = status;
-    if (status_name !== undefined) existingBot.status_name = status_name;
-    if (status_type !== undefined) existingBot.type = parseInt(status_type);
-    await existingBot.save();
+    const ownerId = existingBot.owner_id;
+    const pm2Command = `pm2 restart "bot_${ownerId}_${clientId}"`;
 
-    res.json({
-      success: true,
-      message: "Bot status updated",
-      bot: existingBot,
+    exec(pm2Command, (error, stdout) => {
+      if (error) {
+        console.error(`Error restarting PM2 instance: ${error.message}`);
+        return res.status(500).json({ error: "Failed to restart bot process" });
+      }
+
+      console.log(`PM2 bot restarted for ${clientId}:`, stdout);
+
+      exec("pm2 save", (saveError) => {
+        if (saveError) console.error(`Error saving PM2: ${saveError.message}`);
+      });
+
+      res.json({
+        success: true,
+        message: "Bot instance restarted successfully",
+      });
     });
+
   } catch (error) {
-    console.error("Error updating bot status:", error);
+    console.error("Error restarting bot:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -506,7 +521,7 @@ const getBotTokenFromId = async (clientId) => {
   const instance = await Instances.findOne({ where: { client_id: clientId } });
 
   if (instance?.bot_token) {
-    return decryptToken(instance.bot_token);
+    return decryptData(instance.bot_token);
   }
 
   const botName = Object.keys(process.env)

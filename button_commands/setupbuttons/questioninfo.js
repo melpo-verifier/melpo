@@ -10,6 +10,7 @@ const {
   getApplicationById,
   getTempApplicationById,
 } = require("../../js/tempconfigfuncs.js");
+const { normalizeQuestions } = require("../../js/questionSetupUtils.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
 module.exports = async ({ interaction, context, applicationId, tempApplicationId }) => {
@@ -44,20 +45,8 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     applicationSetup = application;
   }
 
-  let questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions;
+  let questions = normalizeQuestions(tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions);
   await updateTempApplication(interaction.guild.id, { questions: questions }, { id: tempApplicationId });
-
-  if (
-    Array.isArray(questions) &&
-    questions.every((q) => typeof q === "string")
-  ) {
-    try {
-      questions = questions?.map((q) => JSON.parse(q));
-    } catch (error) {
-      questions = [];
-      throw error;
-    }
-  }
 
   const questionbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -103,9 +92,9 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
             ? question.content.slice(0, 97) + "..."
             : question.content,
         description:
-          question.mcq.join("; ").length > 100
-            ? question.mcq.join("; ").slice(0, 97) + "..."
-            : question.mcq.join("; ") || "No multiple choice question",
+          question.mcq?.length > 0
+            ? question.mcq.map((option) => (option.label ?? option) > 100 ? (option.label ?? option).slice(0, 97) + "..." : (option.label ?? option)).join("; ")
+            : "No multiple choice options",
         value: `${index + 1}`,
       });
     });
@@ -115,7 +104,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     questionembed.addFields(
       questions?.map((question, index) => {
         const mcqContent =
-          question.mcq?.length > 0 ? `\n- ${question.mcq.join("\n- ")}` : "";
+          question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
         return {
           name: `Question ${index + 1}`,
           value: (question.content + mcqContent).slice(0, 1024),

@@ -29,6 +29,8 @@ require("./models/TempApplication.js")(sequelize, Sequelize.DataTypes);
 require("./models/adtexts.js")(sequelize, Sequelize.DataTypes);
 require("./models/UserBilling.js")(sequelize, Sequelize.DataTypes);
 require("./models/blacklist.js")(sequelize, Sequelize.DataTypes);
+require("./models/Submissions.js")(sequelize, Sequelize.DataTypes);
+require("./models/PremiumSubscription.js")(sequelize, Sequelize.DataTypes);
 
 const force = process.argv.includes("--force") || process.argv.includes("-f");
 const alter = process.argv.includes("--alter") || process.argv.includes("-a");

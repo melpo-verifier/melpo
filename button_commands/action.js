@@ -73,6 +73,6 @@ module.exports = async ({ interaction, applicationId }) => {
       components: [container, verifyRow],
     };
     if (files) editPayload.files = files;
-    await interaction.message.edit(editPayload);
+    await interaction.editReply(editPayload);
   }
 };

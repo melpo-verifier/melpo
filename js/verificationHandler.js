@@ -13,9 +13,12 @@ const {
   AttachmentBuilder,
   ButtonBuilder,
   ActionRowBuilder,
+  WebhookClient,
 } = require("discord.js");
-const { Verification, InviteTracker } = require("../dbObjects.js");
+const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
+const { decryptData } = require("./DBFunctions.js");
+const { Op } = require("sequelize");
 
 function getMessageIds(verification, guildId, applicationId = null) {
   const guildData = verification?.guildVerifications?.[guildId];
@@ -121,15 +124,15 @@ async function checkManagerPermission(interaction, application) {
 // Check if interaction is in the review channel or a thread under it
 function isInReviewChannel(interaction, reviewChannelId) {
   if (!reviewChannelId) return true;
-  
+
   // Direct channel match
   if (interaction.channel.id === reviewChannelId) return true;
-  
+
   // Check if in a thread under the review channel
   if (interaction.channel.isThread && interaction.channel.parentId === reviewChannelId) {
     return true;
   }
-  
+
   return false;
 }
 
@@ -141,7 +144,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
     for (const roleId of verifiedRoles) {
       const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
       if (!role) {
-        errors.push(`Verified role with ID ${roleId} not found. Please update your server configuration.`);
+        errors.push(`Role with ID ${roleId} not found. Please update your server configuration.`);
         continue;
       }
       if (interaction.guild.members.me.roles.highest.comparePositionTo(role) <= 0) {
@@ -171,7 +174,7 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
       await user.roles.remove(roleId).catch(
         (err) => {
           if (err.code === 10011) {
-            interaction.channel.send(`Unknown role ${roleId} during removal, skipping. Please reconfigure your roles in setup.`).catch(() => {});
+            interaction.channel.send(`Unknown role ${roleId} during removal, skipping. Please reconfigure your roles in setup.`).catch(() => { });
           } else {
             console.error(`Failed to remove role ${roleId}: ${err.message}`);
           }
@@ -185,7 +188,7 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
       await user.roles.add(roleId).catch(
         (err) => {
           if (err.code === 10011) {
-            interaction.channel.send(`Unknown role ${roleId} during addition, skipping. Please reconfigure your roles in setup.`).catch(() => {});
+            interaction.channel.send(`Unknown role ${roleId} during addition, skipping. Please reconfigure your roles in setup.`).catch(() => { });
           } else {
             console.error(`Failed to add role ${roleId}: ${err.message}`);
           }
@@ -320,8 +323,8 @@ function createLeftV2Component(message, memberId) {
         const fullContent = content + statusSuffix;
         const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
         const truncatedContent = available < fullContent.length
-            ? fullContent.slice(0, Math.max(available - 3, 0)) + "..."
-            : fullContent;
+          ? fullContent.slice(0, Math.max(available - 3, 0)) + "..."
+          : fullContent;
 
         totalTextLength += truncatedContent.length;
 
@@ -343,8 +346,8 @@ function createLeftV2Component(message, memberId) {
         if (available <= 0) continue;
 
         const content = available < component.content.length
-            ? component.content.slice(0, Math.max(available - 3, 0)) + "..."
-            : component.content;
+          ? component.content.slice(0, Math.max(available - 3, 0)) + "..."
+          : component.content;
 
         totalTextLength += content.length;
 
@@ -423,25 +426,7 @@ function createDisabledButtons() {
 async function processText(text, user, interaction, originalEmbed, verifiedRoles, appName = null) {
   if (!text) return null;
 
-  // Handle question placeholders
-  if (text.toLowerCase().includes("{q") && originalEmbed) {
-    const regex = /\{q[0-9]\}/gi;
-    const matches = text.match(regex);
-
-    if (matches) {
-      matches.forEach((match) => {
-        const questionNumber = match.slice(2, -1);
-        const field = originalEmbed.fields?.find((field) =>
-          field.value.startsWith(`**${questionNumber}.**`),
-        );
-
-        if (field) {
-          const answer = field.value.split("_ _")[1]?.trim() || "No answer provided";
-          text = text.replace(new RegExp(match, "gi"), answer);
-        }
-      });
-    }
-  } else if (
+  if (
     text.toLowerCase().includes("{q") &&
     interaction.message?.flags?.has(MessageFlags.IsComponentsV2)
   ) {
@@ -451,11 +436,13 @@ async function processText(text, user, interaction, originalEmbed, verifiedRoles
     if (matches) {
       matches.forEach((match) => {
         const questionNumber = parseInt(match.slice(2, -1));
-        const component = interaction.message.components[0]?.components[questionNumber + 1];
+        const component = interaction.message.components[0]?.components?.find(c => c.data?.content?.startsWith(`**${questionNumber}.**`))
 
         if (component && component.content) {
-          const answer = component.content.split("_ _")[1]?.trim() || "No answer provided";
+          const answer = component.content.split("_ _")[1]?.trim() || "";
           text = text.replace(new RegExp(match, "gi"), answer);
+        } else {
+          text = text.replace(new RegExp(match, "gi"), "");
         }
       });
     }
@@ -502,7 +489,7 @@ function getMentions(content) {
 }
 
 // Send welcome message to channel
-async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, originalEmbed, verifiedRoles) {
+async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, originalEmbed, verifiedRoles, application) {
   if (!welcomeChannel || !welcomeMessage) return;
 
   const channel = interaction.guild.channels.cache.get(welcomeChannel);
@@ -553,6 +540,39 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
       welcomeEmbed.setThumbnail(user.user.displayAvatarURL({ dynamic: true, size: 512 }));
     }
 
+    if (application.branding_enabled === true) {
+      const webhook = await GuildWebhook.findOne({ where: { channel_id: channel.id } });
+      if (webhook) {
+        try {
+          const webhookData = decryptData(String(webhook.encrypted_token));
+          if (!webhookData || !webhookData.id || !webhookData.token) {
+            throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`);
+          }
+
+          const client = new WebhookClient({
+            id: webhookData.id,
+            token: webhookData.token
+          });
+
+          const name = application.custom_name || "Melpo Verifier";
+          const avatarURL = application.custom_avatar_url || null;
+          await client.send({
+            username: name,
+            avatarURL: avatarURL,
+            content: messageContent || null,
+            embeds: [welcomeEmbed],
+          });
+          return;
+        } catch (error) {
+          interaction.followUp({
+            content: `Welcome channel webhook error: ${error.message}`,
+            flags: MessageFlags.Ephemeral,
+          }).catch(() => { });
+          console.error("Error sending welcome webhook:", error.message);
+        }
+      }
+    }
+
     await channel.send({
       content: messageContent || null,
       embeds: [welcomeEmbed],
@@ -578,24 +598,24 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
   await user.send({
     embeds: [finalEmbed],
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // Send denial DM to user
 async function sendDenyDM(modname, user, application, guildName, reason = null) {
   const description = application.denymessage?.description
     ? application.denymessage.description
-        .replace(/{modname}/gi, modname)
-        .replace(/\${interaction.guild.name}/gi, guildName)
-        .replace(/{appName}/gi, application.name)
+      .replace(/{modname}/gi, modname)
+      .replace(/\${interaction.guild.name}/gi, guildName)
+      .replace(/{appName}/gi, application.name)
     : `Your application into **${guildName}** has been denied.`;
   const denyEmbed = new EmbedBuilder()
     .setColor(application.denymessage?.color || "#EB2121")
     .setTitle(application.denymessage?.title || "Application Denied")
     .setDescription(description + `${reason ? `\n**Reason:** ${reason}` : ""}`)
-    // .setDescription(
-    //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
-    // );
+  // .setDescription(
+  //   `Your application into **${guildName}** has been denied!\n**Reason:** ${reason || "none given"}`,
+  // );
 
   try {
     await user.send({ embeds: [denyEmbed] });
@@ -703,6 +723,8 @@ async function processLogMessages(options) {
         });
       }
 
+
+
       const messages = [];
       for (const messageId of messageids) {
         try {
@@ -723,6 +745,25 @@ async function processLogMessages(options) {
 
       messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 
+      let webhookClient = null;
+      if (application.branding_enabled) {
+        const webhookRecord = await GuildWebhook.findOne({
+          where: { channel_id: logChannel.id },
+        });
+
+        if (webhookRecord) {
+          try {
+            const webhookData = decryptData(String(webhookRecord.encrypted_token));
+            webhookClient = new WebhookClient({
+              id: webhookData.id,
+              token: webhookData.token,
+            });
+          } catch (e) {
+            console.error("Failed to decrypt webhook token:", e);
+          }
+        }
+      }
+
       for (const message of messages) {
         if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 600));
 
@@ -732,34 +773,63 @@ async function processLogMessages(options) {
             const tempMsg = { ...message, components: [preparedContainer] };
             const editedContainer = handleV2Edit(interaction, tempMsg, status, reason);
 
+            const sendPayload = {
+              flags: [MessageFlags.IsComponentsV2],
+              components: [editedContainer],
+              files: files || [],
+            };
+
             let threadEmbed;
             if (message.thread) {
               threadEmbed = await createThreadSummary(message.thread, client, status);
             }
 
-            const sendOp = async () => {
-              const payload = {
-                flags: [MessageFlags.IsComponentsV2],
-                components: [editedContainer],
-              };
-              if (files) {
-                payload.files = files;
-              }
-              return logChannel.send(payload);
-            };
+            // const sendOp = async () => {
+            //   const payload = {
+            //     flags: [MessageFlags.IsComponentsV2],
+            //     components: [editedContainer],
+            //   };
+            //   if (files) {
+            //     payload.files = files;
+            //   }
+            //   return logChannel.send(payload);
+            // };
 
-            const sendmessage = useRateLimiting
-              ? await rateLimitedOperation(sendOp)
-              : await sendOp();
-
-            const threadOp = async () =>
-              sendmessage.startThread({
-                name: `${user.user?.username || user.username}'s log`,
+            // const sendmessage = useRateLimiting
+            //   ? await rateLimitedOperation(sendOp)
+            //   : await sendOp();
+            let sentMessage;
+            if (webhookClient) {
+              // Webhooks use the user's branding
+              sentMessage = await webhookClient.send({
+                ...sendPayload,
+                username: application.custom_name || client.user.username,
+                avatarURL: application.custom_avatar_url || client.user.displayAvatarURL(),
               });
+            } else {
+              // Normal bot message fallback
+              const sendOp = async () => logChannel.send(sendPayload);
+              sentMessage = useRateLimiting ? await rateLimitedOperation(sendOp) : await sendOp();
+            }
 
-            const threadchannel = useRateLimiting
-              ? await rateLimitedOperation(threadOp)
-              : await threadOp();
+            // const threadOp = async () =>
+            //   sendmessage.startThread({
+            //     name: `${user.user?.username || user.username}'s log`,
+            //   });
+
+            // const threadchannel = useRateLimiting
+            //   ? await rateLimitedOperation(threadOp)
+            //   : await threadOp();
+
+            const messageToThread = webhookClient
+              ? await logChannel.messages.fetch(sentMessage.id)
+              : sentMessage;
+
+            const threadOp = async () => messageToThread.startThread({
+              name: `${user.user?.username || user.username}'s log`,
+            });
+
+            const threadchannel = useRateLimiting ? await rateLimitedOperation(threadOp) : await threadOp();
 
             if (threadEmbed) {
               const embedOp = async () => threadchannel.send({ embeds: [threadEmbed] });
@@ -787,6 +857,18 @@ async function processLogMessages(options) {
     }
   } else {
     if (messageids && messageids.length > 0) {
+
+      let webhookClient = null;
+      if (application.branding_enabled) {
+        const webhookRecord = await GuildWebhook.findOne({
+          where: { channel_id: interaction.channelId },
+        });
+        if (webhookRecord) {
+          const webhookData = decryptData(String(webhookRecord.encrypted_token));
+          webhookClient = new WebhookClient({ id: webhookData.id, token: webhookData.token });
+        }
+      }
+
       for (const messageId of messageids) {
         // Skip the current message if being handled separately
         if (messageId === interaction.message?.id) continue;
@@ -799,38 +881,31 @@ async function processLogMessages(options) {
 
           if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          if (message && message.author.id === client.user.id) {
-            const footerText = message.embeds?.[0]?.footer?.text || "";
-            const alreadyProcessed =
-              footerText.includes("Verified") || footerText.includes("Denied") || footerText.includes("Kicked");
+          if (message) {
+            const isWebhookMessage = !!message.webhookId;
 
-            if (!alreadyProcessed) {
-              if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-                const editedContainer = handleV2Edit(interaction, message, status, reason);
-                const editOp = async () =>
-                  message.edit({
-                    flags: [MessageFlags.IsComponentsV2],
-                    components: [editedContainer],
-                  });
-                useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
-              } else if (message.embeds && message.embeds[0]) {
-                const originalembed = message.embeds[0];
-
-                const Embed = new EmbedBuilder(originalembed)
-                  .setColor(color)
-                  .setTitle((originalembed.title || "Verification") + ` (${statusText})`)
-                  .setFooter({
-                    text: `${actionText} by ${interaction.user.username} | ${originalembed?.footer?.text || user.id}`,
-                  });
-
-                if (reason) {
-                  Embed.setDescription(`**Denied for reason:** ${reason}`);
-                }
-
-                const editOp = async () => message.edit({ embeds: [Embed], components: [] });
+            if (message.flags?.has(MessageFlags.IsComponentsV2)) {
+              const editedContainer = handleV2Edit(interaction, message, status, reason);
+              const payload = {
+                flags: [MessageFlags.IsComponentsV2],
+                components: [editedContainer],
+              }
+              // const editOp = async () =>
+              //   message.edit({
+              //     flags: [MessageFlags.IsComponentsV2],
+              //     components: [editedContainer],
+              //   });
+              // useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
+              if (isWebhookMessage && webhookClient) {
+                // If it's a webhook message, we MUST use the webhook client to edit
+                await webhookClient.editMessage(message.id, payload);
+              } else {
+                // Normal bot message edit
+                const editOp = async () => message.edit(payload);
                 useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
               }
             }
+
           }
         } catch (error) {
           if (error.code === 10008) {
@@ -943,17 +1018,27 @@ async function processLeaveMessages(options) {
 }
 
 // Clean up verification data from database
-async function cleanupVerificationData(verification, guildId, applicationId = null) {
+async function cleanupVerificationData(verification, guildId, memberId, applicationId = null) {
+
+
   const guildData = verification?.guildVerifications?.[guildId];
   if (!guildData) return;
 
   if (applicationId != null && !Array.isArray(guildData)) {
+
+    await Submissions.destroy({
+      where: { user_id: memberId, app_id: String(applicationId), status: { [Op.not]: "denied" } },
+    }).catch((e) => { console.error("Error deleting submission:", e); });
     delete guildData[applicationId];
     if (Object.keys(guildData).length === 0) {
       delete verification.guildVerifications[guildId];
     }
   } else {
     delete verification.guildVerifications[guildId];
+    //destroy if status isn't "denied"
+    await Submissions.destroy({
+      where: { user_id: memberId, guild_id: guildId, status: { [Op.not]: "denied" } },
+    }).catch((e) => { console.error("Error deleting submission:", e); });
   }
 
   verification.changed("guildVerifications", true);
@@ -1035,7 +1120,7 @@ async function verifyUser(options) {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, application.id);
+    await cleanupVerificationData(verification, interaction.guild.id, userId, application.id);
   }
 
   // Send welcome message
@@ -1109,7 +1194,7 @@ async function denyUser(options) {
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, application.id);
+    await cleanupVerificationData(verification, interaction.guild.id, userId, application.id);
   }
 
   // Send deny DM

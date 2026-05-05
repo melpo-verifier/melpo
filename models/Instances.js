@@ -10,6 +10,14 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.STRING,
         allowNull: true,
       },
+      subscription_id: {
+        type: DataTypes.STRING,
+        allowNull: true,
+      },
+      slot_index: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+      },
       bot_token: {
         type: DataTypes.STRING,
         allowNull: true,

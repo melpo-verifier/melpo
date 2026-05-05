@@ -20,6 +20,7 @@ const CommandLoader = require("./js/CommandLoader.js");
 const artleaderboardweek = require("./js/artleaderboardweek.js");
 
 const { ClusterClient, getInfo } = require('discord-hybrid-sharding');
+const PremiumSubscription = require("./models/PremiumSubscription.js");
 
 if (process.argv.length > 3 && process.argv[2] === "sharded") {
   console.log("sharded arrived!");
@@ -148,8 +149,8 @@ async function createBot(token) {
 
       const ownerEntry = ownerId
         ? await Blacklist.findOne({
-            where: { user_id: ownerId, blacklisted: true },
-          })
+          where: { user_id: ownerId, blacklisted: true },
+        })
         : null;
 
       if (serverEntry || ownerEntry) {
@@ -161,6 +162,39 @@ async function createBot(token) {
     } catch (error) {
       console.error("Blacklist check failed on guildCreate:", error);
     }
+
+    if (client.user.id !== process.env.CLIENT_ID) {
+      //custom bot, check guild limit
+      const instance = await Instances.findOne({ where: { client_id: client.user.id } })
+
+      if (!instance) {
+        console.error(`No instance found for client_id ${client.user.id}`);
+        return null;
+      }
+
+      const premium = await PremiumSubscription.findOne({
+        where: {
+          status: "ACTIVE",
+          id: instance.subscription_id,
+        },
+      });
+
+      if (!premium) {
+        console.log("No active premium subscription found for this whitelabel bot.");
+        return await guild.leave();
+      } 
+
+      if ((premium.tier.startsWith("whitelabel_1") && client.guilds.cache.size > 1) || (premium.tier.startsWith("whitelabel_3") && client.guilds.cache.size > 3)) {
+        console.log(`Guild limit reached for custom bot. Leaving guild ${guild.id}.`);
+
+        const user = await client.users.fetch(premium.purchaser_id).catch(() => null);
+        if (user) {
+          await user.send(`Your custom bot instance of Melpo Verifier has reached its guild limit and has left the guild "${guild.name}". Please contact support if you believe this is a mistake or manage your subscriptions at: https://melpo.app/premium`).catch(() => null);
+        }
+        return await guild.leave();
+      }
+    }
+
 
     await updateBotJoins();
 
@@ -336,7 +370,7 @@ async function createBot(token) {
     }
 
     try {
-      await cleanupVerificationData(verification, member.guild.id);
+      await cleanupVerificationData(verification, member.guild.id, member.id);
     } catch (error) {
       console.error("Failed to update verification:", error);
     }
@@ -377,7 +411,7 @@ async function createBot(token) {
     } catch (error) {
       if (attempt === maxRetries - 1) throw error;
       const delay = Math.min(Math.pow(2, attempt) * 1000, 60000);
-      console.log(`Login failed, retrying in ${delay}ms...`);
+      console.log(`Login failed: ${error.message}, retrying in ${delay}ms...`);
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }

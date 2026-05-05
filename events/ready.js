@@ -1,6 +1,7 @@
 const { Events } = require("discord.js");
 const { Instances } = require("../dbObjects");
 const cron = require("node-cron");
+const { resumeApplication } = require("../js/applicationHandler.js");
 
 module.exports = {
   name: Events.ClientReady,
@@ -42,6 +43,15 @@ module.exports = {
     };
 
     await setPresence();
+
+    //Resume applications
+    setTimeout(async () => {
+      if (!client.cluster || client.cluster.id === 0) {
+        await resumeApplication(client).catch((error) => {
+          console.error("Failed to resume verification sessions:", error);
+        });
+      }
+    }, 60000); // Delay to make sure other clusters are ready too.
 
     cron.schedule("0 * * * *", setPresence);
     client.on("reconnecting", setPresence);

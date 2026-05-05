@@ -5,6 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { Instances } = require("./dbObjects.js");
 require("dotenv").config();
+const { decryptData } = require("./js/DBFunctions.js");
 
 // Commands that should not be deployed globally
 const blacklistedCommands = ["whitelist.js"];
@@ -68,7 +69,7 @@ async function resolveDeployCredentials() {
     }
 
     return {
-      token: decryptToken(instance.bot_token),
+      token: decryptData(instance.bot_token),
       applicationId: instance.client_id,
     };
   }

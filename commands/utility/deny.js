@@ -199,7 +199,7 @@ module.exports = {
 
         // Cleanup verification data
         if (messageids && messageids.length > 0) {
-          await cleanupVerificationData(verification, interaction.guild.id, application.id);
+          await cleanupVerificationData(verification, interaction.guild.id, userID, application.id);
         }
 
         // Send denial DM

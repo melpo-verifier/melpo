@@ -14,6 +14,7 @@ const {
   getMessageIds,
 } = require("../js/verificationHandler.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
+const { getSubmission } = require("../js/DBFunctions.js");
 
 module.exports = async ({ interaction, client, userid, context, applicationId }) => {
   await interaction.deferUpdate();
@@ -47,6 +48,48 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       content: permCheck.message,
       flags: MessageFlags.Ephemeral,
     });
+  }
+
+
+  const submissionData = await getSubmission(interaction.message.id);
+  const branchRoles = new Set();
+  const regexErrors = []
+
+  if (submissionData && Array.isArray(submissionData.responses)) {
+    const questionsMap = new Map(application.questions.filter(q => q && q.id).map(q => [q.id, q]));
+
+    for (const response of submissionData.responses) {
+      const question = questionsMap.get(response.questionId);
+      if (!question) continue;
+
+      if (response?.mcqIndex?.length > 0) {
+        response.mcqIndex.forEach(index => {
+          const selectedOption = question.mcq?.[index];
+          if (selectedOption?.roles) {
+            selectedOption.roles.forEach(role => branchRoles.add(role));
+          }
+        })
+      }
+      else if (question.regexBranches && response.content) {
+        for (const regex of question.regexBranches) {
+          try {
+            const regpattern = new RegExp(regex.pattern, 'i');
+            if (regpattern.test(response.content)) {
+              regex.roles.forEach(role => branchRoles.add(role));
+            }
+          } catch {
+            regexErrors.push(`${response.questionId}: ${regex.pattern}`)
+          }
+        }
+      }
+    }
+
+    if (regexErrors.length > 0) {
+      await interaction.followUp({
+        content: `The following regex patterns are invalid and their roles were not applied:\n${regexErrors.join("\n")}`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
   }
 
   // Validate roles
@@ -90,7 +133,11 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     });
   }
 
-  await applyRoles(user, verifiedRoles, unverifiedRoles, interaction);
+  const rolesToApply = [
+    ...new Set([...verifiedRoles, ...branchRoles])
+  ];
+
+  await applyRoles(user, rolesToApply, unverifiedRoles, interaction);
 
   // Send welcome message
   if (welcomeChannel && welcomeMessage) {
@@ -102,6 +149,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         welcomeMessage,
         originalEmbed,
         verifiedRoles,
+        application
       );
     } catch (error) {
       await interaction.followUp({
@@ -153,7 +201,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
   // Cleanup verification data
   if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, applicationId);
+    await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId);
   }
 
   // Send verification DM

@@ -74,6 +74,18 @@ const Blacklist = require("./models/blacklist.js")(
   sequelize, 
   Sequelize.DataTypes
 );
+const Submissions = require("./models/Submissions.js")(
+  sequelize,
+  Sequelize.DataTypes,
+);
+const GuildWebhook = require("./models/GuildWebhook.js")(
+  sequelize,
+  Sequelize.DataTypes,
+);
+const PremiumSubscription = require("./models/PremiumSubscription.js")(
+  sequelize,
+  Sequelize.DataTypes,
+);
 
 
 ServerConfig.hasMany(Application, { foreignKey: 'server_id', onDelete: 'CASCADE' });
@@ -97,4 +109,7 @@ module.exports = {
   AdTexts,
   UserBilling,
   Blacklist,
+  Submissions,
+  GuildWebhook,
+  PremiumSubscription,
 };

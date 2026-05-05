@@ -90,7 +90,9 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
     .setColor("#3f7ff1")
     .setTitle("Channels setup")
     .setDescription(
-      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)${adtext ? `\n-# ${adtext}` : ''}\n_ _`,
+      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)${adtext ? `\n-# ${adtext}` : ''}
+      \n**Not all options are available here. Head over to the [dashboard](https://melpo.app/dashboard/${interaction.guild.id}) for more customization and advanced options!**
+      \n_ _`,
     )
     .addFields(
       {

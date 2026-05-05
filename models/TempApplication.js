@@ -21,6 +21,18 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id',
       },
     },
+    custom_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    custom_avatar_url: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    branding_enabled: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: false,
+    },
     name: {
       type: DataTypes.STRING,
       allowNull: false,
@@ -29,13 +41,13 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verifychannel: { 
+    verifychannel: {
       type: DataTypes.STRING,
     },
-    reviewchannel: { 
+    reviewchannel: {
       type: DataTypes.STRING,
     },
-    verifylogs: { 
+    verifylogs: {
       type: DataTypes.STRING,
     },
     verificationwelcomechannel: {
@@ -45,11 +57,20 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    managerrole: { 
+    managerrole: {
       type: DataTypes.JSONB,
       defaultValue: [],
     },
-    verifymessage_id: { 
+    deniedrole: {
+      type: DataTypes.JSONB,
+      defaultValue: [],
+    },
+    maxdenials: {
+      type: DataTypes.INTEGER,
+      defaultValue: null,
+      allowNull: true,
+    },
+    verifymessage_id: {
       type: DataTypes.STRING,
     },
     pingrole: {
@@ -61,12 +82,17 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: [],
     },
     unverifiedrole: {
-      type: DataTypes.JSONB, 
+      type: DataTypes.JSONB,
       defaultValue: [],
     },
     verifyfilter: {
       type: DataTypes.JSONB,
       defaultValue: [],
+    },
+    mainMessageApplicationId: {
+      type: DataTypes.INTEGER,
+      defaultValue: null,
+      allowNull: true,
     },
     verificationwelcomemessage: {
       type: DataTypes.JSONB,

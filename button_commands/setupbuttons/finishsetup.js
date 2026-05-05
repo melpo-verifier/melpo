@@ -202,14 +202,11 @@ module.exports = async ({ interaction, client, context }) => {
       footer: tempApp.name,
     },
     messageId: finalApp.verifymessage_id,
-    button: {
-      customId: `verifybutton_${finalApp.id}`,
-      label: "Apply",
-    },
+    appId: finalApp.id,
   });
 
-  if (result?.message?.id && result.message.id !== finalApp.verifymessage_id) {
-    finalApp.verifymessage_id = result.message.id;
+  if (result?.messageId && result.messageId !== finalApp.verifymessage_id) {
+    finalApp.verifymessage_id = result.messageId;
     await finalApp.save().catch(e => console.error("Error saving verify message ID", e));
   }
 

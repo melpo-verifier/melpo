@@ -18,6 +18,8 @@ const {
   createNoApplicationEmbed,
   getMessageIds,
 } = require("../../js/verificationHandler.js");
+const { getLatestSubmissionByUser } = require("../../js/DBFunctions.js");
+const { sendWebhookMessage } = require("../../js/messageHelper.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -174,8 +176,57 @@ module.exports = {
         const user = await interaction.guild.members.fetch(userID);
         if (!user) throw new Error("User not found");
 
+        //get branchroles
+        const submissionData = await getLatestSubmissionByUser(userID, application.id);
+        console.log("Submission data:", submissionData);
+        const branchRoles = new Set();
+        const regexErrors = []
+
+        if (submissionData && Array.isArray(submissionData.responses)) {
+          const questionsMap = new Map(application.questions.filter(q => q && q.id).map(q => [q.id, q]));
+
+          for (const response of submissionData.responses) {
+            const question = questionsMap.get(response.questionId);
+            if (!question) continue;
+
+            if (response?.mcqIndex?.length > 0) {
+              response.mcqIndex.forEach(index => {
+                const selectedOption = question.mcq?.[index];
+                if (selectedOption?.roles) {
+                  selectedOption.roles.forEach(role => branchRoles.add(role));
+                }
+              })
+            }
+            else if (question.regexBranches && response.content) {
+              for (const regex of question.regexBranches) {
+                try {
+                  const regpattern = new RegExp(regex.pattern, 'i');
+                  if (regpattern.test(response.content)) {
+                    regex.roles.forEach(role => branchRoles.add(role));
+                  }
+                } catch {
+                  regexErrors.push(`${response.questionId}: ${regex.pattern}`)
+                }
+              }
+            }
+          }
+
+          if (regexErrors.length > 0) {
+            await interaction.followUp({
+              content: `The following regex patterns are invalid and their roles were not applied:\n${regexErrors.join("\n")}`,
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+        }
+
+        console.log("Branch roles to apply:", Array.from(branchRoles));
+
         // Apply roles
-        await applyRoles(user, verifiedRoles, unverifiedRoles, interaction);
+        const rolesToApply = [
+          ...new Set([...verifiedRoles, ...branchRoles])
+        ];
+
+        await applyRoles(user, rolesToApply, unverifiedRoles, interaction);
 
         results.success.push(userID);
 
@@ -197,6 +248,13 @@ module.exports = {
           useRateLimiting: true,
         });
 
+        const payload = {
+          content: `<@${userID}> `,
+          embeds: [
+            createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED)
+          ],
+        };
+
         // If no messages and separate log channel, send "no application" embed
         if (
           application.verifylogs &&
@@ -205,31 +263,28 @@ module.exports = {
         ) {
           const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
           if (logChannel) {
-            const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED);
             await rateLimitedOperation(async () => {
-              await logChannel.send({ content: `<@${userID}>`, embeds: [embed] });
+              await sendWebhookMessage(logChannel, application, payload);
             });
           }
         } else if (
           !application.verifylogs &&
           (!messageids || messageids.length === 0)
         ) {
-          // No log channel, no messages - create embed in current channel
-          const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED);
           await rateLimitedOperation(async () => {
-            await interaction.channel.send({ embeds: [embed] });
+            await sendWebhookMessage(interaction.channel, application, payload);
           });
         }
 
         // Cleanup verification data
         if (messageids && messageids.length > 0) {
-          await cleanupVerificationData(verification, interaction.guild.id, application.id);
+          await cleanupVerificationData(verification, interaction.guild.id, userID, application.id);
         }
 
         // Send welcome message
         if (welcomeChannel && welcomeMessage) {
           try {
-            await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, null, verifiedRoles);
+            await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, null, verifiedRoles, application);
           } catch (error) {
             console.error("Error sending welcome message:", error);
           }

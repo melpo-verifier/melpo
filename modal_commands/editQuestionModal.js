@@ -1,5 +1,6 @@
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const { updateTempApplication, getTempApplicationById, getApplicationById } = require("../js/tempconfigfuncs.js");
+const { buildQuestionFromForm, normalizeQuestions } = require("../js/questionSetupUtils.js");
 const { MessageFlags } = require("discord.js");
 
 
@@ -30,21 +31,14 @@ module.exports = async ({ interaction, client, context }) => {
     applicationSetup = application;
   }
 
-  let questions = tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions || [];
-  if (
-    Array.isArray(questions) &&
-    questions.every((q) => typeof q === "string")
-  ) {
-    try {
-      questions = questions?.map((q) => JSON.parse(q));
-    } catch (error) {
-      questions = [];
-      throw error;
-    }
-  }
+  let questions = normalizeQuestions(tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions || []);
 
   if (question.length > 0) {
-    questions[qnumber] = { content: question, mcq: mcqArray };
+    questions[qnumber] = buildQuestionFromForm({
+      existingQuestion: questions[qnumber],
+      content: question,
+      mcqInput: mcqArray,
+    });
   } else {
     questions.splice(qnumber, 1);
     questions = questions.filter((q) => q.content.length > 0);
