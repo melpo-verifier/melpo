@@ -1,6 +1,8 @@
 const {
   EmbedBuilder,
   MessageFlags,
+  ActionRowBuilder,
+  ButtonBuilder,
 } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const {
@@ -216,19 +218,26 @@ module.exports = async ({ interaction, client, context }) => {
     .setColor("#3f7ff1")
     .setTitle("Setup finished");
 
+  const dashboardlink = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setStyle("Link")
+      .setURL(`https://melpo.app/dashboard/${interaction.guild.id}`)
+      .setLabel("Configure on dashboard")
+  );
+
   if (interaction.customId.includes("firsttime")) {
     finishembed.setDescription(
-      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" is now ready to verify users.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nThis is just the basic setup. You can further customize messages, roles and channels by running the \`/setup edit ${tempApp.name}\` command again.`,
+      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" is now ready to verify users.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nThis is just the basic setup. You can further customize messages, roles and channels by running the \`/setup edit ${tempApp.name}\` command again.\nTry out our dashboard for more customization options and an easier way to manage your verification system: https://melpo.app/dashboard/${interaction.guild.id}`,
     );
   } else {
     finishembed.setDescription(
-      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" has been updated.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nYou can redo or adjust this setup any time by running the \`/setup edit ${tempApp.name}\` command again.`,
+      `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" has been updated.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nYou can redo or adjust this setup any time by running the \`/setup edit ${tempApp.name}\` command again.\nTry out our dashboard for more customization options and an easier way to manage your verification system: https://melpo.app/dashboard/${interaction.guild.id}`,
     );
   }
 
   await interaction.editReply({
     embeds: [finishembed],
-    components: [],
+    components: [dashboardlink],
     files: [],
   });
 };
