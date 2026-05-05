@@ -1,7 +1,8 @@
 const { PremiumSubscription } = require("../dbObjects.js");
+require ("dotenv").config();
 
 const SUBSCRIPTION_SKUS = {
-  "1476934433364906248": "Premium_1",
+  [process.env.PREMIUM_SKU_ID]: "Premium_1",
 };
 
 async function syncPremiumSubscription(entitlement, isActive) {
