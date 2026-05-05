@@ -389,6 +389,11 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
           })
           .catch(async (error) => {
             activeVerifications.delete(user.id);
+
+            await Submissions.destroy({
+              where: { message_id: sessionId },
+            }).catch(() => { });
+
             if (
               !error.toString().includes("Verification was canceled") &&
               !error.toString().includes("Verification timed out")
@@ -396,9 +401,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
               throw error;
             }
 
-            await Submissions.destroy({
-              where: { message_id: sessionId },
-            }).catch(() => { });
+
           });
       } else { //non sharded instances
         try {
@@ -437,18 +440,18 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
             application
           );
         } catch (error) {
+          activeVerifications.delete(user.id);
+
+          await Submissions.destroy({
+            where: { message_id: sessionId },
+          }).catch(() => { });
+
           if (
             !error.toString().includes("Verification was canceled") &&
             !error.toString().includes("Verification timed out")
           ) {
             throw error;
           }
-
-          await Submissions.destroy({
-            where: { message_id: sessionId },
-          }).catch(() => { });
-
-          activeVerifications.delete(user.id);
         }
       }
 
@@ -651,7 +654,7 @@ async function processVerificationResult(
   sessionId,
   application,
 ) {
-  if (reason === "completed") {
+  if (reason === "completed" || reason === "kick" || reason === "deny") {
     // Process collected responses and send to verification review channel
     updateVerifications();
 
@@ -675,8 +678,16 @@ async function processVerificationResult(
 
     const path = require('path');
     const { sendWebhookMessage } = require(path.join(process.cwd(), "js/messageHelper.js"));
+    const { sendDenyDM, sendKickDM, applyRoles, createAutoActionContainer, VerificationStatus } = require(path.join(process.cwd(), "js/verificationHandler.js"));
 
-    const { container, attachment } = containerResult;
+    let { container, attachment } = containerResult;
+
+    if (reason === "kick" || reason === "deny") {
+      const status = reason === "kick" ? VerificationStatus.KICKED : VerificationStatus.DENIED;
+      container = createAutoActionContainer(container, status, client, "Automated application response");
+    }
+
+    const isActionActive = reason === "completed";
 
     //create the buttons
     const verify = new ActionRowBuilder().addComponents(
@@ -706,7 +717,7 @@ async function processVerificationResult(
 
     const sendPayload = {
       flags: [MessageFlags.IsComponentsV2],
-      components: [container, verify],
+      components: [container, isActionActive ? verify : null].filter(Boolean),
     };
 
     if (attachment) {
@@ -715,11 +726,21 @@ async function processVerificationResult(
 
     let threadName = null
 
-    if(useThreads === true) {
+    if (useThreads === true) {
       threadName = `${user.globalName ?? user.username}'s ${appName}`;
     }
 
-    channelsent = await sendWebhookMessage(verifyLogsChannel, application, sendPayload, threadName)
+    let outputChannel = verifyLogsChannel;
+    if ((reason === "kick" || reason === "deny") && application.verifylogs) {
+      outputChannel = interaction.guild.channels.cache.get(application.verifylogs) || verifyLogsChannel;
+    }
+
+    channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
+
+    //if reason was kick or deny, close the thread
+    if ((reason === "kick" || reason === "deny") && channelsent?.thread) {
+      await channelsent.thread.setArchived(true, "Archiving due to auto-action");
+    }
 
     try {
       const encryptionKey = process.env.ENCRYPTION_KEY
@@ -734,7 +755,7 @@ async function processVerificationResult(
         user_id: user.id,
         guild_id: guildId,
         app_id: String(applicationId),
-        status: "completed",
+        status: reason,
         data: encryptData(finalPayload, encryptionKey),
       });
 
@@ -747,50 +768,92 @@ async function processVerificationResult(
       console.error("Error saving final application progress:", progressError);
     }
 
-    const finishEmbedTitle = replaceplaceholder(
-      finishmessage?.title,
-      interaction.user.globalName ?? interaction.user.username,
-      interaction.guild.name,
-    );
-    const finishEmbedDescription = replaceplaceholder(
-      finishmessage?.description,
-      interaction.user.globalName ?? interaction.user.username,
-      interaction.guild.name,
-    );
-    const finishEmbedimage = finishmessage?.image;
-    const finishImageAsset = resolveImage(finishEmbedimage);
+    if (reason === "completed") {
+      try {
+        const [verification, created] = await Verification.findOrCreate({
+          where: { userId: user.id },
+          defaults: {
+            guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } },
+          },
+        });
 
-    const endEmbed = new EmbedBuilder()
-      .setTitle(
-        finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null,
-      )
-      .setDescription(finishEmbedDescription)
-      .setColor(finishmessage?.color || "#008000")
-      .setFooter({ text: `Application: ${appName}` })
-      .setImage(finishImageAsset.embedUrl);
-
-    await dmChannel.send({
-      embeds: [endEmbed],
-    }).catch((err) => {
-      console.error(`Failed to send completion DM to user ${user.id}:`, err);
-    });
-
-
-
-    try {
-      const [verification, created] = await Verification.findOrCreate({
-        where: { userId: user.id },
-        defaults: {
-          guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } },
-        },
-      });
-
-      if (!created) {
-        addMessageId(verification, guildId, applicationId, channelsent.id);
-        await verification.save();
+        if (!created) {
+          addMessageId(verification, guildId, applicationId, channelsent.id);
+          await verification.save();
+        }
+      } catch (error) {
+        console.error("Error setting user verification:", error);
       }
-    } catch (error) {
-      console.error("Error setting user verification:", error);
+
+      const finishEmbedTitle = replaceplaceholder(
+        finishmessage?.title,
+        interaction.user.globalName ?? interaction.user.username,
+        interaction.guild.name,
+      );
+      const finishEmbedDescription = replaceplaceholder(
+        finishmessage?.description,
+        interaction.user.globalName ?? interaction.user.username,
+        interaction.guild.name,
+      );
+      const finishEmbedimage = finishmessage?.image;
+      const finishImageAsset = resolveImage(finishEmbedimage);
+
+      const endEmbed = new EmbedBuilder()
+        .setTitle(
+          finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null,
+        )
+        .setDescription(finishEmbedDescription)
+        .setColor(finishmessage?.color || "#008000")
+        .setFooter({ text: `Application: ${appName}` })
+        .setImage(finishImageAsset.embedUrl);
+
+      await dmChannel.send({
+        embeds: [endEmbed],
+      }).catch((err) => {
+        console.error(`Failed to send completion DM to user ${user.id}:`, err);
+      });
+    } else {
+      let member;
+      try {
+        member = await interaction.guild.members.fetch(user.id);
+      } catch {
+        member = { user, id: user.id, displayAvatarURL: user.displayAvatarURL.bind(user) };
+      }
+
+      const { isPremiumServer } = require(path.join(process.cwd(), "js/DBFunctions.js"));
+      
+      if (reason === "deny") {
+        let rolesToApply = [];
+        if (application.maxdenials && application.deniedrole?.length > 0 && await isPremiumServer(interaction.guild.id)) {
+          const denyCount = await Submissions.count({
+            where: { user_id: user.id, guild_id: interaction.guild.id, app_id: String(applicationId), status: "denied" },
+          });
+          if (denyCount >= application.maxdenials) {
+            rolesToApply.push(application.deniedrole);
+          }
+        } else if (application.deniedrole?.length > 0) {
+          rolesToApply.push(application.deniedrole);
+        }
+
+        if (rolesToApply.length > 0 && member.roles) {
+          try {
+            await applyRoles(member, rolesToApply, null, interaction);
+          } catch (e) {
+            console.error("Failed to apply denied role due to auto-action", e);
+          }
+        }
+      }
+
+      if (reason === "kick") {
+        const denyReason = "Automated application kick based on response.";
+        await sendKickDM(user, interaction.guild.name, denyReason);
+        if (member.kickable) {
+          await member.kick("Auto-kicked during application").catch(() => {});
+        }
+      } else {
+        const denyReason = "Automated application denial based on response.";
+        await sendDenyDM("Melpo (Auto-Action)", user, application, interaction.guild.name, denyReason);
+      }
     }
   }
 }
@@ -908,8 +971,8 @@ async function Verificationfunc(
     }
 
     function resolveNextQuestionId(nextQuestionId, currentQuestionIndex) {
-      if (nextQuestionId === "end") {
-        return "end";
+      if (nextQuestionId === "end" || nextQuestionId === "kick" || nextQuestionId === "deny") {
+        return nextQuestionId;
       }
 
       if (nextQuestionId === undefined || nextQuestionId === null || nextQuestionId === "") {
@@ -925,7 +988,7 @@ async function Verificationfunc(
 
       if (
         selectedOptionCount > 1 &&
-        Object.prototype.hasOwnProperty.call(currentQuestion, "multiSelectNextQuestionId")
+        currentQuestion.multiSelectNextQuestionId
       ) {
         return resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex);
       }
@@ -933,7 +996,7 @@ async function Verificationfunc(
       // If MCQ with a selected option and that option has a nextQuestionId
       if (selectedOptionIndex !== null && currentQuestion.mcq && currentQuestion.mcq.length > 0) {
         const selectedOption = currentQuestion.mcq[selectedOptionIndex];
-        if (selectedOption && Object.prototype.hasOwnProperty.call(selectedOption, "nextQuestionId")) {
+        if (selectedOption && selectedOption.nextQuestionId) {
           return resolveNextQuestionId(selectedOption.nextQuestionId, currentQuestionIndex);
         }
       }
@@ -945,7 +1008,7 @@ async function Verificationfunc(
             try {
               const regex = new RegExp(branch.pattern, "i"); // case-insensitive
               if (regex.test(answerText)) {
-                if (Object.prototype.hasOwnProperty.call(branch, "nextQuestionId")) {
+                if (branch.nextQuestionId) {
                   return resolveNextQuestionId(branch.nextQuestionId, currentQuestionIndex);
                 }
                 return getSequentialNextQuestionId(currentQuestionIndex);
@@ -1120,7 +1183,6 @@ async function Verificationfunc(
                 await clearProgress().catch((err) => {
                   console.error("Failed to clear progress on cancel:", err);
                 });
-                activeVerifications.delete(userid);
                 reject(new Error("Application was canceled"));
                 return;
               }
@@ -1214,11 +1276,13 @@ async function Verificationfunc(
                   i.isStringSelectMenu() ? selectedOptions.length : 1,
                 );
 
+                console.log(`User selected option index ${selectedOptionIndex} for question ${currentQuestionId}. Determined next question ID: ${nextQuestionId}`);
+
                 // Check if it reached the end
-                if (nextQuestionId === null || nextQuestionId === "end") {
+                if (nextQuestionId === null || nextQuestionId === "end" || nextQuestionId === "kick" || nextQuestionId === "deny") {
                   await clearProgress();
-                  cancelcollector.stop("completed");
-                  collector.stop("completed");
+                  cancelcollector.stop(nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId);
+                  collector.stop(nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId);
                   return;
                 }
 
@@ -1340,10 +1404,10 @@ async function Verificationfunc(
               const nextQuestionId = getNextQuestionId(currentQuestion, currentQuestionIndex, isPremium, null, answercontent);
 
               // Check if it reached the end
-              if (nextQuestionId === null || nextQuestionId === "end") {
+              if (nextQuestionId === null || nextQuestionId === "end" || nextQuestionId === "kick" || nextQuestionId === "deny") {
                 await clearProgress();
-                collector.stop("completed");
-                cancelcollector.stop("completed");
+                collector.stop(nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId);
+                cancelcollector.stop(nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId);
                 return;
               }
 
@@ -1402,7 +1466,7 @@ async function Verificationfunc(
               `Verification ended for user ${userid} with reason: ${reason}`,
             );
 
-            if (reason === "completed") {
+            if (reason === "completed" || reason === "kick" || reason === "deny") {
               resolve([reason, responses]);
             } else if (reason === "canceled") {
               await clearProgress();
