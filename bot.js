@@ -11,7 +11,7 @@ const {
 require("dotenv").config();
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js");
 const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js");
-const { ServerConfig, Verification, Instances, Application, Blacklist } = require("./dbObjects.js");
+const { ServerConfig, Verification, Instances, Application, Blacklist, PremiumSubscription } = require("./dbObjects.js");
 const InviteManager = require("./js/dinvite.js");
 const ErrorHandler = require("./js/ErrorHandling.js");
 const RateLimitError = require("./js/RateLimitHandling.js");
@@ -20,7 +20,6 @@ const CommandLoader = require("./js/CommandLoader.js");
 const artleaderboardweek = require("./js/artleaderboardweek.js");
 
 const { ClusterClient, getInfo } = require('discord-hybrid-sharding');
-const PremiumSubscription = require("./models/PremiumSubscription.js");
 
 if (process.argv.length > 3 && process.argv[2] === "sharded") {
   console.log("sharded arrived!");
