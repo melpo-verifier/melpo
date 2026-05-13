@@ -1120,7 +1120,6 @@ async function Verificationfunc(
                 await clearProgress().catch((err) => {
                   console.error("Failed to clear progress on cancel:", err);
                 });
-                activeVerifications.delete(userid);
                 reject(new Error("Application was canceled"));
                 return;
               }
