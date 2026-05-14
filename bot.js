@@ -162,7 +162,7 @@ async function createBot(token) {
       console.error("Blacklist check failed on guildCreate:", error);
     }
 
-    if (client.user.id !== process.env.CLIENT_ID) {
+    if (client.user.id !== process.env.MELPO_ID && client.user.id !== "916372883087974440") {
       //custom bot, check guild limit
       const instance = await Instances.findOne({ where: { client_id: client.user.id } })
 

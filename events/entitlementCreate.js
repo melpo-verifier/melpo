@@ -6,6 +6,7 @@ const eventName = Events.EntitlementCreate || "entitlementCreate";
 module.exports = {
   name: eventName,
   async execute(entitlement, client) {
+    console.log(`[${eventName}] Event received for userId=${entitlement?.userId}, skuId=${entitlement?.skuId}`);
     await handleEntitlementCreate(entitlement, client);
   },
 };
