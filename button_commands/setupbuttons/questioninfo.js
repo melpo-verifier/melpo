@@ -86,15 +86,16 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
       .setMaxValues(1);
 
     questions.forEach((question, index) => {
+      const desc = question.mcq?.length > 0
+        ? question.mcq.map((option) => option.label ?? option).join("; ")
+        : "No multiple choice options";
+
       selectMenu.addOptions({
         label:
           question.content.length > 100
             ? question.content.slice(0, 97) + "..."
             : question.content,
-        description:
-          question.mcq?.length > 0
-            ? question.mcq.map((option) => (option.label ?? option) > 100 ? (option.label ?? option).slice(0, 97) + "..." : (option.label ?? option)).join("; ")
-            : "No multiple choice options",
+        description: desc.length > 100 ? desc.slice(0, 97) + "..." : desc,
         value: `${index + 1}`,
       });
     });
