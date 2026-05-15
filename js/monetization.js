@@ -1,8 +1,9 @@
 const { PremiumSubscription } = require("../dbObjects.js");
+require ("dotenv").config();
 const { v4: uuidv4 } = require("uuid");
 
 const SUBSCRIPTION_SKUS = {
-  "1476941154112114760": "premium_1",
+  [process.env.PREMIUM_SKU_ID]: "premium_1",
 };
 
 async function syncPremiumSubscription(entitlement, isActive, resolvedUserId) {
