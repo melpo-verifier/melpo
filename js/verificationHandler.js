@@ -198,6 +198,17 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
   }
 }
 
+function createAutoActionContainer(container, status, client, reason = null) {
+  const mockInteraction = {
+    isAutoDeny: true,
+    client: client
+  };
+  const mockMessage = {
+    components: [container]
+  };
+  return handleV2Edit(mockInteraction, mockMessage, status, reason);
+}
+
 function handleV2Edit(interaction, message, status, reason = null) {
   const MAX_DISPLAYABLE_TEXT = 4000;
   const color = StatusColors[status];
@@ -208,10 +219,13 @@ function handleV2Edit(interaction, message, status, reason = null) {
   };
   const statusText = statusTextMap[status] || "Denied";
 
-  const footerText = `-# ${statusText} by ${interaction.user.username} (${interaction.user.id})`;
+  const actorName = interaction.isAutoDeny ? "Melpo (Auto-Action)" : interaction.user.username;
+  const actorId = interaction.isAutoDeny ? interaction.client.user.id : interaction.user.id;
+
+  const footerText = `-# ${statusText} by ${actorName} (${actorId})`;
   const statusSuffix = reason
-    ? `\n**Status:** \`${statusText} by ${interaction.user.username}\`: ${reason}`
-    : `\n**Status:** \`${statusText} by ${interaction.user.username}\``;
+    ? `\n**Status:** \`${statusText} by ${actorName}\`: ${reason}`
+    : `\n**Status:** \`${statusText} by ${actorName}\``;
   const reservedChars = footerText.length + 50;
   let totalTextLength = 0;
 
@@ -619,6 +633,24 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 
   try {
     await user.send({ embeds: [denyEmbed] });
+    return { success: true };
+  } catch (error) {
+    if (error.code === 50007 || error.code === 50278) {
+      return { success: false, dmDisabled: true };
+    }
+    throw error;
+  }
+}
+
+// Send kick DM to user
+async function sendKickDM(user, guildName, reason = null) {
+  const kickEmbed = new EmbedBuilder()
+    .setColor("#EB2121")
+    .setTitle(`Kicked from ${guildName}`)
+    .setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`);
+
+  try {
+    await user.send({ embeds: [kickEmbed] });
     return { success: true };
   } catch (error) {
     if (error.code === 50007 || error.code === 50278) {
@@ -1219,6 +1251,7 @@ module.exports = {
   isInReviewChannel,
   validateRoles,
   applyRoles,
+  createAutoActionContainer,
   handleV2Edit,
   relinkAttachments,
   processText,
@@ -1228,6 +1261,7 @@ module.exports = {
   sendWelcomeMessage,
   sendVerifyDM,
   sendDenyDM,
+  sendKickDM,
   createThreadSummary,
   processLogMessages,
   processLeaveMessages,
