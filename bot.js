@@ -11,7 +11,7 @@ const {
 require("dotenv").config();
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js");
 const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js");
-const { ServerConfig, Verification, Instances, Application, Blacklist } = require("./dbObjects.js");
+const { ServerConfig, Verification, Instances, Application, Blacklist, PremiumSubscription } = require("./dbObjects.js");
 const InviteManager = require("./js/dinvite.js");
 const ErrorHandler = require("./js/ErrorHandling.js");
 const RateLimitError = require("./js/RateLimitHandling.js");
@@ -20,7 +20,6 @@ const CommandLoader = require("./js/CommandLoader.js");
 const artleaderboardweek = require("./js/artleaderboardweek.js");
 
 const { ClusterClient, getInfo } = require('discord-hybrid-sharding');
-const PremiumSubscription = require("./models/PremiumSubscription.js");
 
 if (process.argv.length > 3 && process.argv[2] === "sharded") {
   console.log("sharded arrived!");
@@ -163,7 +162,7 @@ async function createBot(token) {
       console.error("Blacklist check failed on guildCreate:", error);
     }
 
-    if (client.user.id !== process.env.CLIENT_ID) {
+    if (client.user.id !== process.env.MELPO_ID && client.user.id !== "916372883087974440") {
       //custom bot, check guild limit
       const instance = await Instances.findOne({ where: { client_id: client.user.id } })
 
