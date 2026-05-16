@@ -52,7 +52,7 @@ module.exports = async ({ interaction, client, context }) => {
 
   const MCQ = new TextInputBuilder()
     .setCustomId("mcq")
-    .setLabel("Multiple Choice Question, 1 option/line max 20 options (leave empty for regular question)")
+    .setLabel("Optional Multiple Choice: 1 option/line")
     .setStyle(TextInputStyle.Paragraph)
     .setPlaceholder("List of options. Every option should be on a new line")
     .setValue(desc.slice(0, 2048))
