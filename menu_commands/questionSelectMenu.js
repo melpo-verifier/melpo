@@ -43,17 +43,20 @@ module.exports = async ({ interaction, client, context }) => {
     .setStyle(TextInputStyle.Paragraph)
     .setPlaceholder("Enter your question here")
     .setValue(question.content)
-    .setMaxLength(512)
+    .setMaxLength(1024)
     .setRequired(false);
 
+  const desc = question.mcq?.length > 0 
+    ? question.mcq.map((option) => option.label ?? option).join("\n") 
+    : "";
 
   const MCQ = new TextInputBuilder()
     .setCustomId("mcq")
-    .setLabel("Multiple Choice Question, 1 option/line max 9")
+    .setLabel("Multiple Choice Question, 1 option/line max 20 options (leave empty for regular question)")
     .setStyle(TextInputStyle.Paragraph)
     .setPlaceholder("List of options. Every option should be on a new line")
-    .setValue(question.mcq?.length > 0 ? question.mcq.map((option) => option.label ?? option).join("\n") : "")
-    .setMaxLength(512)
+    .setValue(desc.slice(0, 2048))
+    .setMaxLength(2048)
     .setRequired(false);
 
   const questionRow = new ActionRowBuilder().addComponents(Question);
