@@ -20,15 +20,16 @@ module.exports = async ({ interaction, client }) => {
     return;
   }
 
+  await interaction.deferReply();
+
   const user = interaction.user;
   const info = await QuestionId.findOne({
     where: { interactionMessageId: interaction.message.id },
   });
 
   if (!info) {
-    return interaction.reply({
+    return interaction.editReply({
       content: "This question is no longer available. It may have already been answered or expired.",
-      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -43,9 +44,8 @@ module.exports = async ({ interaction, client }) => {
 
   const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
   if (error) {
-    return interaction.reply({
+    return interaction.editReply({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -95,7 +95,7 @@ module.exports = async ({ interaction, client }) => {
   );
 
   await message.edit({ components: [disabledconfirmrow] });
-  await interaction.reply({
+  await interaction.editReply({
     content: `Please send your answer to the question you just pressed "answer" to`,
     components: [cancelButton],
   });
