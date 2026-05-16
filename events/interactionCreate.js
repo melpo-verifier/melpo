@@ -9,7 +9,7 @@ const interactionCache = new Map();
 const CACHE_TTL = 5000;
 const MAX_CACHE_SIZE = 1000;
 
-const checkDuplicatesFor = ["verifyconfirm", "denyconfirm", "actionconfirm"];
+const checkDuplicatesFor = ["verifyconfirm", "denyconfirm", "actionconfirm", "answerquestion"];
 
 module.exports = {
   name: Events.InteractionCreate,
