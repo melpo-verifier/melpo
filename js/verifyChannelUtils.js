@@ -175,7 +175,7 @@ async function updateVerifyMessage(opts) {
       color: embedConfig.color,
       title: embedConfig.title,
       description: embedConfig.description,
-      imageUrl: embedConfig.image?.url ?? null,
+      imageUrl: embedConfig.imageUrl ?? null,
     },
     messageId,
     webhookUpdated,
