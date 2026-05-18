@@ -198,16 +198,11 @@ module.exports = async ({ interaction, client }) => {
       .addFields({ name: "Answer", value: answercontent })
       .setColor("#008000");
 
-    // await interaction.editReply({
-    //   components: [disabledconfirmrow],
-    //   embeds: [answerform],
-    // });
-    // await sendanswer.edit({ content: "Answer submitted!", components: [] });
-    await sendanswer.edit({
-      content: "",
-      components: [],
+    await interaction.editReply({
+      components: [disabledconfirmrow],
       embeds: [answerform],
-    })
+    });
+    await sendanswer.edit({ content: "Answer submitted!", components: [] });
 
     if (
       client.user.id === "849613551080701983" ||
