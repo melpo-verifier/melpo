@@ -77,7 +77,7 @@ async function findVerifyMessage(verifyChannelObj, botId, embedConfig, applicati
       m.embeds.length > 0 &&
       !m.interaction &&
       (m.components?.[0]?.components?.[0]?.customId === `verifybutton_${applicationId}` ||
-       m.components?.[0]?.components?.[0]?.customId === `verifyselect_${applicationId}`)
+        m.components?.[0]?.components?.[0]?.customId === `verifyselect_${applicationId}`)
   );
 }
 
@@ -130,8 +130,23 @@ async function updateVerifyMessage(opts) {
       where: { id: application.mainMessageApplicationId },
     });
 
+    //if no main app is found, default to sending the regular message
     if (!mainApp) {
-      throw new Error(`Referenced mainMessageApplicationId ${application.mainMessageApplicationId} not found`);
+      // throw new Error(`Referenced mainMessageApplicationId ${application.mainMessageApplicationId} not found`);
+      return sendOrUpdateMessage({
+        application,
+        dependentApps,
+        verifyChannelObj,
+        botId,
+        embedConfig: {
+          color: embedConfig.color,
+          title: embedConfig.title,
+          description: embedConfig.description,
+          imageUrl: embedConfig.imageUrl ?? null,
+        },
+        messageId,
+        webhookUpdated,
+      });
     }
 
     const embedConfig = mainApp.verifychannelembed || "{}";
