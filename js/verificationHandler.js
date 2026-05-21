@@ -761,7 +761,7 @@ async function processLogMessages(options) {
           if (fetchedMessages.has(messageId)) {
             message = fetchedMessages.get(messageId);
           } else {
-              const fetchOp = async () => reviewChannel.messages.fetch(messageId);
+              const fetchOp = async () => await reviewChannel.messages.fetch(messageId);
               message = useRateLimiting
               ? await rateLimitedOperation(fetchOp)
               : await fetchOp();
@@ -932,7 +932,7 @@ async function processLogMessages(options) {
             foundMessage = fetchedMessages.get(messageId);
           } else {
             try {
-              const fetchMessage = interaction.channel.messages.fetch(messageId);
+              const fetchMessage = await interaction.channel.messages.fetch(messageId);
               foundMessage = await fetchMessage;
             } catch (error) {
               if (error.code !== 10008) {
@@ -1006,7 +1006,7 @@ async function processLeaveMessages(options) {
       foundMessage = fetchedMessages.get(messageId);
     } else {
       try {
-        const fetchMessage = reviewChannel.messages.fetch(messageId);
+        const fetchMessage = await reviewChannel.messages.fetch(messageId);
         foundMessage = await fetchMessage;
       } catch (error) {
         if (error.code !== 10008) {
