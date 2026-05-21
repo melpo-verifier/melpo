@@ -135,7 +135,7 @@ async function updateVerifyMessage(opts) {
       // throw new Error(`Referenced mainMessageApplicationId ${application.mainMessageApplicationId} not found`);
       return sendOrUpdateMessage({
         application,
-        dependentApps,
+        dependentApps: [],
         verifyChannelObj,
         botId,
         embedConfig: {
@@ -149,7 +149,7 @@ async function updateVerifyMessage(opts) {
       });
     }
 
-    const embedConfig = mainApp.verifychannelembed || "{}";
+    const mainEmbedConfig = mainApp.verifychannelembed || "{}";
 
     const dependentApps = await Application.findAll({
       where: {
@@ -164,10 +164,10 @@ async function updateVerifyMessage(opts) {
       verifyChannelObj,
       botId,
       embedConfig: {
-        color: embedConfig.color,
-        title: embedConfig.title,
-        description: embedConfig.description,
-        imageUrl: embedConfig.image?.url ?? null,
+        color: mainEmbedConfig.color,
+        title: mainEmbedConfig.title,
+        description: mainEmbedConfig.description,
+        imageUrl: mainEmbedConfig.image?.url ?? null,
         // footer: appName,
       },
       messageId: mainApp.verifymessage_id,
