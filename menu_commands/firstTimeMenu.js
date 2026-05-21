@@ -6,6 +6,8 @@ module.exports = async ({ interaction, context }) => {
   const channelnumber = parseInt(context[0], 10);
   const tempApplicationId = parseInt(context[1], 10);
 
+  const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+
   if (channelnumber === 0) {
     const channel = interaction.values[0];
 
@@ -13,7 +15,6 @@ module.exports = async ({ interaction, context }) => {
       verifychannel: channel,
     }, { id: tempApplicationId });
 
-    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
     embed.data.fields[channelnumber].value = `<#${channel}>`;
 
     const originalComponents = interaction.message.components;
@@ -38,8 +39,7 @@ module.exports = async ({ interaction, context }) => {
     await updateTempApplication(interaction.guild.id, {
       reviewchannel: channel,
     }, { id: tempApplicationId });
-
-    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
+    
     embed.data.fields[channelnumber].value = `<#${channel}>`;
 
     const originalComponents = interaction.message.components;
@@ -65,7 +65,6 @@ module.exports = async ({ interaction, context }) => {
       verifiedrole: role,
     }, { id: tempApplicationId });
 
-    const embed = EmbedBuilder.from(interaction.message.embeds[0]);
     embed.data.fields[channelnumber].value = role
       ?.map((role) => `<@&${role}>`)
       .join(", ");

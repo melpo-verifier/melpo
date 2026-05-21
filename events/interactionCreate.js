@@ -179,19 +179,20 @@ async function extractUserId(interaction) {
     if (footerText.startsWith("Denied | ")) return footerText.slice(9);
     return footerText;
   }
-  
-  if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
-    if (
-      (interaction.customId.includes("question_") ||
+
+  if (
+    interaction.customId &&
+    (interaction.customId.includes("question_") ||
       interaction.customId.includes("questionModal_") ||
       interaction.customId.includes("denyModal_"))
-    ) {
-      const userIdMatch = interaction.customId.match(/_(\d+)$/);
-      if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) {
-        return userIdMatch[1];
-      }
+  ) {
+    const userIdMatch = interaction.customId.match(/_(\d+)$/);
+    if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) {
+      return userIdMatch[1];
     }
-
+  }
+  
+  if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
     const containerContent =
       interaction.message.components?.[0]?.components?.[0]?.components?.[0]?.content;
 

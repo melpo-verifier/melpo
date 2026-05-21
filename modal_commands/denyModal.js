@@ -15,6 +15,15 @@ const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { isPremiumServer } = require("../js/DBFunctions.js");
 
 module.exports = async ({ interaction, client, userid, applicationId }) => {
+  if (!userid) {
+    console.error("No user ID found for this deny Modal!!");
+    await interaction.reply({
+      content: "Could not find the user associated with this verification. If you believe this is an error, please notify support staff in Melpo's support server.",
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
       content: `Oop! It seems this user has already been handled by someone else!`,

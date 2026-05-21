@@ -96,6 +96,34 @@ module.exports = {
       });
     }
 
+    //check permissions
+    const botMember = await interaction.guild.members.fetchMe();
+    const channelPermissions = interaction.channel.permissionsFor(botMember);
+
+    const requiredPermissions = [
+      PermissionsBitField.Flags.ViewChannel,
+      PermissionsBitField.Flags.SendMessages,
+      PermissionsBitField.Flags.EmbedLinks,
+      PermissionsBitField.Flags.AttachFiles,
+      PermissionsBitField.Flags.ManageMessages,
+    ];
+
+    if (!channelPermissions.has(requiredPermissions)) {
+      const missingBitfield = requiredPermissions.filter(perm => !channelPermissions.has(perm));
+      const missingPermissions = new PermissionsBitField(missingBitfield)
+        .toArray()
+        .map(name => `\`${name}\``)
+        .join(', ');
+      console.log(missingPermissions);
+
+      return interaction.reply({
+        content: `I'm missing the following permissions to work properly in this channel: ${missingPermissions}. Please ensure I have these permissions and try again.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+
+
+
     const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
     const maxApps = serverConfig.maxApplications || 10;
 
@@ -120,16 +148,16 @@ module.exports = {
           .setTitle("Ongoing Application Setup")
           .setDescription(`Setup for "${name}" is already in progress. Continue or start a new one?`)
           .setColor("#3f7ff1");
-      const continuebuttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("generalinfo_" + tempApp.id + "_false")
-          .setLabel("Continue previous setup")
-          .setStyle("Success"),
-        new ButtonBuilder()
-          .setCustomId("generalinfo_" + tempApp.id + "_true")
-          .setLabel("Start New Setup")
-          .setStyle("Primary"),
-      );
+        const continuebuttons = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId("generalinfo_" + tempApp.id + "_false")
+            .setLabel("Continue previous setup")
+            .setStyle("Success"),
+          new ButtonBuilder()
+            .setCustomId("generalinfo_" + tempApp.id + "_true")
+            .setLabel("Start New Setup")
+            .setStyle("Primary"),
+        );
         return interaction.reply({ embeds: [embed], components: [continuebuttons] });
       }
 
@@ -170,9 +198,9 @@ module.exports = {
         embeds: [generalembed],
         components: [verificationchannelmenu, nextbuttons],
       });
-    } 
-    
-    
+    }
+
+
     else if (subcommand === 'edit') {
       const app = applications.find(a => a.name.toLowerCase() === name.toLowerCase());
       if (!app) {
