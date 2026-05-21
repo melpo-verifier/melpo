@@ -69,13 +69,15 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
   }
 }
 
-async function findVerifyMessage(verifyChannelObj, botId, embedConfig) {
+async function findVerifyMessage(verifyChannelObj, botId, embedConfig, applicationId) {
   const verificationMessages = await verifyChannelObj.messages.fetch({ limit: 50 });
   return verificationMessages?.find?.(
     (m) =>
       m.author.id === botId &&
       m.embeds.length > 0 &&
-      m.embeds[0].footer?.text === embedConfig.footer
+      !m.interaction &&
+      (m.components?.[0]?.components?.[0]?.customId === `verifybutton_${applicationId}` ||
+       m.components?.[0]?.components?.[0]?.customId === `verifyselect_${applicationId}`)
   );
 }
 
@@ -226,7 +228,7 @@ async function sendOrUpdateMessage({
   }
 
   if (!verificationMessage) {
-    verificationMessage = await findVerifyMessage(verifyChannelObj, botId, embedConfig);
+    verificationMessage = await findVerifyMessage(verifyChannelObj, botId, embedConfig, application.id);
   }
 
   if (!verificationMessage) {
