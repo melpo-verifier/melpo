@@ -69,13 +69,15 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
   }
 }
 
-async function findVerifyMessage(verifyChannelObj, botId, embedConfig) {
+async function findVerifyMessage(verifyChannelObj, botId, embedConfig, applicationId) {
   const verificationMessages = await verifyChannelObj.messages.fetch({ limit: 50 });
   return verificationMessages?.find?.(
     (m) =>
       m.author.id === botId &&
       m.embeds.length > 0 &&
-      m.embeds[0].footer?.text === embedConfig.footer
+      !m.interaction &&
+      (m.components?.[0]?.components?.[0]?.customId === `verifybutton_${applicationId}` ||
+        m.components?.[0]?.components?.[0]?.customId === `verifyselect_${applicationId}`)
   );
 }
 
@@ -128,11 +130,26 @@ async function updateVerifyMessage(opts) {
       where: { id: application.mainMessageApplicationId },
     });
 
+    //if no main app is found, default to sending the regular message
     if (!mainApp) {
-      throw new Error(`Referenced mainMessageApplicationId ${application.mainMessageApplicationId} not found`);
+      // throw new Error(`Referenced mainMessageApplicationId ${application.mainMessageApplicationId} not found`);
+      return sendOrUpdateMessage({
+        application,
+        dependentApps: [],
+        verifyChannelObj,
+        botId,
+        embedConfig: {
+          color: embedConfig.color,
+          title: embedConfig.title,
+          description: embedConfig.description,
+          imageUrl: embedConfig.imageUrl ?? null,
+        },
+        messageId,
+        webhookUpdated,
+      });
     }
 
-    const embedConfig = mainApp.verifychannelembed || "{}";
+    const mainEmbedConfig = mainApp.verifychannelembed || "{}";
 
     const dependentApps = await Application.findAll({
       where: {
@@ -147,10 +164,10 @@ async function updateVerifyMessage(opts) {
       verifyChannelObj,
       botId,
       embedConfig: {
-        color: embedConfig.color,
-        title: embedConfig.title,
-        description: embedConfig.description,
-        imageUrl: embedConfig.image?.url ?? null,
+        color: mainEmbedConfig.color,
+        title: mainEmbedConfig.title,
+        description: mainEmbedConfig.description,
+        imageUrl: mainEmbedConfig.image?.url ?? null,
         // footer: appName,
       },
       messageId: mainApp.verifymessage_id,
@@ -226,7 +243,7 @@ async function sendOrUpdateMessage({
   }
 
   if (!verificationMessage) {
-    verificationMessage = await findVerifyMessage(verifyChannelObj, botId, embedConfig);
+    verificationMessage = await findVerifyMessage(verifyChannelObj, botId, embedConfig, application.id);
   }
 
   if (!verificationMessage) {
