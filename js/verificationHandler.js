@@ -139,15 +139,16 @@ function isInReviewChannel(interaction, reviewChannelId) {
 // Validate roles exist and bot can manage them
 async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
   const errors = [];
+  const botMember = interaction.guild.members.me || await interaction.guild.members.fetchMe()
 
   if (verifiedRoles && verifiedRoles.length > 0) {
     for (const roleId of verifiedRoles) {
-      const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+      const role = interaction.guild.roles.cache.get(roleId)
       if (!role) {
         errors.push(`Role with ID ${roleId} not found. Please update your server configuration.`);
         continue;
       }
-      if (interaction.guild.members.me.roles.highest.comparePositionTo(role) <= 0) {
+      if (botMember.roles.highest.comparePositionTo(role) <= 0) {
         errors.push(`Cannot assign role ${role.name} because it's higher than or equal to my highest role.`);
       }
     }
@@ -157,8 +158,8 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
   if (unverifiedRoles && unverifiedRoles.length > 0) {
     for (const roleId of unverifiedRoles) {
-      const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
-      if (role && interaction.guild.members.me.roles.highest.comparePositionTo(role) <= 0) {
+      const role = interaction.guild.roles.cache.get(roleId)
+      if (role && botMember.roles.highest.comparePositionTo(role) <= 0) {
         errors.push(`Cannot remove role ${role.name} because it's higher than or equal to my highest role.`);
       }
     }
@@ -741,21 +742,39 @@ async function processLogMessages(options) {
         });
       }
 
+      const newestId = messageids && messageids.length > 0
+        ? messageids[messageids.length - 1]
+        : undefined;
+
+      const beforeId = newestId ? (BigInt(newestId) + 1n).toString() : undefined;
+
+      const fetchedMessages = await reviewChannel.messages.fetch({
+        limit: 100,
+        before: beforeId,
+      });
+
       const messages = [];
       for (const messageId of messageids) {
         try {
-          const fetchOp = async () => reviewChannel.messages.fetch(messageId);
-          const message = useRateLimiting
-            ? await rateLimitedOperation(fetchOp)
-            : await fetchOp();
-          if (message) messages.push(message);
-          if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 300));
-        } catch (error) {
-          if (error.code === 10008) {
-            console.log(`Message ${messageId} not found - skipping`);
-            continue;
+          let message;
+
+          if (fetchedMessages.has(messageId)) {
+            message = fetchedMessages.get(messageId);
+          } else {
+              const fetchOp = async () => reviewChannel.messages.fetch(messageId);
+              message = useRateLimiting
+              ? await rateLimitedOperation(fetchOp)
+              : await fetchOp();
+            // Only delay if we actually had to hit the network API
+            if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 300));
           }
-          throw error;
+
+          if (message) messages.push(message);
+
+        } catch (error) {
+          if (error.code !== 10008) {
+            console.error(`Error fetching message ${messageId}:`, error);
+          }
         }
       }
 
@@ -885,44 +904,69 @@ async function processLogMessages(options) {
         }
       }
 
+      const newestId = messageids && messageids.length > 0
+        ? messageids[messageids.length - 1]
+        : undefined;
+
+      const beforeId = newestId ? (BigInt(newestId) + 1n).toString() : undefined;
+
+      const fetchedMessages = await interaction.channel.messages.fetch({
+        limit: 100,
+        before: beforeId,
+      });
+
       for (const messageId of messageids) {
         // Skip the current message if being handled separately
         if (messageId === interaction.message?.id) continue;
+        let foundMessage;
 
         try {
-          const fetchOp = async () => interaction.channel.messages.fetch(messageId);
-          const message = useRateLimiting
-            ? await rateLimitedOperation(fetchOp)
-            : await fetchOp();
+          // const fetchOp = async () => interaction.channel.messages.fetch(messageId);
+          // const message = useRateLimiting
+          //   ? await rateLimitedOperation(fetchOp)
+          //   : await fetchOp();
 
           if (!useRateLimiting) await new Promise((resolve) => setTimeout(resolve, 1000));
 
-          if (message) {
-            const isWebhookMessage = !!message.webhookId;
-
-            if (message.flags?.has(MessageFlags.IsComponentsV2)) {
-              const editedContainer = handleV2Edit(interaction, message, status, reason);
-              const payload = {
-                flags: [MessageFlags.IsComponentsV2],
-                components: [editedContainer],
-              }
-              // const editOp = async () =>
-              //   message.edit({
-              //     flags: [MessageFlags.IsComponentsV2],
-              //     components: [editedContainer],
-              //   });
-              // useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
-              if (isWebhookMessage && webhookClient) {
-                // If it's a webhook message, we MUST use the webhook client to edit
-                await webhookClient.editMessage(message.id, payload);
-              } else {
-                // Normal bot message edit
-                const editOp = async () => message.edit(payload);
-                useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
+          if (fetchedMessages.has(messageId)) {
+            foundMessage = fetchedMessages.get(messageId);
+          } else {
+            try {
+              const fetchMessage = interaction.channel.messages.fetch(messageId);
+              foundMessage = await fetchMessage;
+            } catch (error) {
+              if (error.code !== 10008) {
+                console.error(`Error fetching message ${messageId}:`, error);
               }
             }
-
           }
+
+          if (!foundMessage) continue;
+
+          const isWebhookMessage = !!foundMessage.webhookId;
+
+          if (foundMessage.flags?.has(MessageFlags.IsComponentsV2)) {
+            const editedContainer = handleV2Edit(interaction, foundMessage, status, reason);
+            const payload = {
+              flags: [MessageFlags.IsComponentsV2],
+              components: [editedContainer],
+            }
+            // const editOp = async () =>
+            //   message.edit({
+            //     flags: [MessageFlags.IsComponentsV2],
+            //     components: [editedContainer],
+            //   });
+            // useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
+            if (isWebhookMessage && webhookClient) {
+              // If it's a webhook message, we MUST use the webhook client to edit
+              await webhookClient.editMessage(foundMessage.id, payload);
+            } else {
+              // Normal bot message edit
+              const editOp = async () => foundMessage.edit(payload);
+              useRateLimiting ? await rateLimitedOperation(editOp) : await editOp();
+            }
+          }
+
         } catch (error) {
           if (error.code === 10008) {
             console.log(`Message ${messageId} not found - skipping`);
@@ -941,19 +985,34 @@ async function processLeaveMessages(options) {
   const reviewChannel = member.guild.channels.cache.get(application.reviewchannel);
   if (!reviewChannel) return;
 
-  const hasSeparateLogChannel =
-    application.verifylogs && application.verifylogs !== application.reviewchannel;
+  const hasSeparateLogChannel = application.verifylogs && application.verifylogs !== application.reviewchannel;
+
+  const newestId = messageIds && messageIds.length > 0
+    ? messageIds[messageIds.length - 1]
+    : undefined;
+
+  const beforeId = newestId ? (BigInt(newestId) + 1n).toString() : undefined;
+
+  const fetchedMessages = await reviewChannel.messages.fetch({
+    limit: 100,
+    before: beforeId,
+  });
 
   for (const messageId of messageIds) {
     await new Promise((resolve) => setTimeout(resolve, 300));
-
     let foundMessage;
-    try {
-      foundMessage = await reviewChannel.messages.fetch(messageId);
-    } catch (error) {
-      if (error.code === 10008) continue;
-      console.error(`Error fetching message ${messageId}:`, error);
-      continue;
+
+    if (fetchedMessages.has(messageId)) {
+      foundMessage = fetchedMessages.get(messageId);
+    } else {
+      try {
+        const fetchMessage = reviewChannel.messages.fetch(messageId);
+        foundMessage = await fetchMessage;
+      } catch (error) {
+        if (error.code !== 10008) {
+          console.error(`Error fetching message ${messageId}:`, error);
+        }
+      }
     }
 
     if (!foundMessage) continue;
