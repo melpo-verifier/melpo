@@ -755,7 +755,7 @@ async function processVerificationResult(
         user_id: user.id,
         guild_id: guildId,
         app_id: String(applicationId),
-        status: reason,
+        status: reason === "deny" ? "denied" : reason === "kick" ? "kicked" : reason,
         data: encryptData(finalPayload, encryptionKey),
       });
 
