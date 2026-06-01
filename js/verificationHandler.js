@@ -143,14 +143,21 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
   if (verifiedRoles && verifiedRoles.length > 0) {
     for (const roleId of verifiedRoles) {
-      const role = interaction.guild.roles.cache.get(roleId)
+      let role = interaction.guild.roles.cache.get(roleId)
+
       if (!role) {
-        errors.push(`Role with ID ${roleId} not found. Please update your server configuration.`);
+        role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+      }
+
+      if (!role) {
+        errors.push(`Role with ID ${roleId} not found (might have been deleted). Please update your server configuration.`);
         continue;
       }
+
       if (botMember.roles.highest.comparePositionTo(role) <= 0) {
         errors.push(`Cannot assign role ${role.name} because it's higher than or equal to my highest role.`);
       }
+
     }
   } else {
     errors.push("No verified role set up. Please set up a verified role using the `/setup` command.");
@@ -158,7 +165,17 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
   if (unverifiedRoles && unverifiedRoles.length > 0) {
     for (const roleId of unverifiedRoles) {
-      const role = interaction.guild.roles.cache.get(roleId)
+      let role = interaction.guild.roles.cache.get(roleId)
+
+      if (!role) {
+        role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+      }
+
+      if (!role) {
+        errors.push(`Role with ID ${roleId} not found (might have been deleted). Please update your server configuration.`);
+        continue;
+      }
+
       if (role && botMember.roles.highest.comparePositionTo(role) <= 0) {
         errors.push(`Cannot remove role ${role.name} because it's higher than or equal to my highest role.`);
       }
@@ -761,8 +778,8 @@ async function processLogMessages(options) {
           if (fetchedMessages.has(messageId)) {
             message = fetchedMessages.get(messageId);
           } else {
-              const fetchOp = async () => await reviewChannel.messages.fetch(messageId);
-              message = useRateLimiting
+            const fetchOp = async () => await reviewChannel.messages.fetch(messageId);
+            message = useRateLimiting
               ? await rateLimitedOperation(fetchOp)
               : await fetchOp();
             // Only delay if we actually had to hit the network API
