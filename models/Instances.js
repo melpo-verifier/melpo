@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
       guilds:           { type: DataTypes.ARRAY(DataTypes.STRING), defaultValue: [] },
       active:           { type: DataTypes.BOOLEAN, defaultValue: true },
       expires_at:       { type: DataTypes.DATE, allowNull: true },
-      created_at:       { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+      created_at:       { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
     },
     { timestamps: false }
   );

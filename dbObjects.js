@@ -1,5 +1,5 @@
 const Sequelize = require("sequelize");
-require("dotenv").config();
+require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -9,34 +9,34 @@ const sequelize = new Sequelize(
     dialect: "postgres",
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    logging: false,
-  },
+    logging: false
+  }
 );
 
 const ServerConfig = require("./models/ServerConfig.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const InviteTracker = require("./models/invitetracker.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const Verification = require("./models/Verification.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const QuestionId = require("./models/questionid.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const OptOut = require("./models/opt-out.js")(sequelize, Sequelize.DataTypes);
 const TempConfig = require("./models/TempConfig.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const Statistics = require("./models/statistics.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const Instances = require("./models/Instances.js")(
   sequelize, 
@@ -44,15 +44,15 @@ const Instances = require("./models/Instances.js")(
 );
 const ArtBoardConfig = require("./models/ArtBoardConfig.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const ArtLeaderboard = require("./models/ArtLeaderboard.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const Whitelist = require("./models/whitelist.js")(
   sequelize,
-  Sequelize.DataTypes,
+  Sequelize.DataTypes
 );
 const Application = require("./models/Application.js")(
   sequelize, 
@@ -111,5 +111,5 @@ module.exports = {
   Blacklist,
   Submissions,
   GuildWebhook,
-  PremiumSubscription,
+  PremiumSubscription
 };
