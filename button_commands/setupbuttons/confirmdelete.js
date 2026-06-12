@@ -3,7 +3,7 @@ const { Application } = require("../../dbObjects.js");
 const { deleteTempApplication } = require("../../js/tempconfigfuncs.js");
 const {
   deleteImage,
-  purgeOldImages,
+  purgeOldImages
 } = require("../../js/customizationImages.js");
 
 module.exports = async ({ interaction, context }) => {
@@ -11,14 +11,14 @@ module.exports = async ({ interaction, context }) => {
 
   const applicationId = parseInt(context[0], 10);
 
-  const application = await Application.findOne({
-    where: { id: applicationId, server_id: interaction.guild.id },
-  });
+  const application = await Application.findOne(
+    { where: { id: applicationId, server_id: interaction.guild.id } }
+  );
 
   if (!application) {
-    return interaction.followUp({
-      content: "Application not found or already deleted.",
-    });
+    return interaction.followUp(
+      { content: "Application not found or already deleted." }
+    );
   }
 
   const appName = application.name;
@@ -29,7 +29,7 @@ module.exports = async ({ interaction, context }) => {
     "startmessage",
     "finishmessage",
     "verifymessage",
-    "verificationwelcomemessage",
+    "verificationwelcomemessage"
   ];
 
   for (const field of imageFields) {
@@ -41,11 +41,11 @@ module.exports = async ({ interaction, context }) => {
           serverId: interaction.guild.id,
           appName,
           section: field,
-          keepKey: null,
+          keepKey: null
         });
-      } catch (error) {
-        console.error(`Failed to delete image for ${field}:`, error);
-      }
+      } 
+      catch (error) 
+      { console.error(`Failed to delete image for ${field}:`, error); }
     }
   }
 
@@ -57,11 +57,11 @@ module.exports = async ({ interaction, context }) => {
     .setColor("#00ff00")
     .setTitle("Application Deleted")
     .setDescription(
-      `The application "${appName}" has been successfully deleted.`,
+      `The application "${appName}" has been successfully deleted.`
     );
 
   await interaction.editReply({
     embeds: [successEmbed],
-    components: [],
+    components: []
   });
 };

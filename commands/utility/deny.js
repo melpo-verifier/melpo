@@ -1,7 +1,4 @@
-const {
-  SlashCommandBuilder,
-  MessageFlags,
-} = require("discord.js");
+const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const { Application, Verification, InviteTracker } = require("../../dbObjects.js");
 const {
   rateLimitedOperation,
@@ -12,7 +9,7 @@ const {
   cleanupVerificationData,
   sendDenyDM,
   createNoApplicationEmbed,
-  getMessageIds,
+  getMessageIds
 } = require("../../js/verificationHandler.js");
 
 module.exports = {
@@ -24,20 +21,18 @@ module.exports = {
       option
         .setName("users")
         .setDescription("The users to deny (mention them or provide their IDs)")
-        .setRequired(true),
+        .setRequired(true)
     )
     .addStringOption((option) =>
       option
         .setName("application")
         .setDescription("The application to use for denial (required if multiple exist)")
         .setAutocomplete(true)
-        .setRequired(false),
+        .setRequired(false)
     ),
 
   async autocomplete(interaction) {
-    const applications = await Application.findAll({
-      where: { server_id: interaction.guild.id },
-    });
+    const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
 
     const focusedValue = interaction.options.getFocused().toLowerCase();
     const filtered = applications
@@ -50,14 +45,12 @@ module.exports = {
 
   async execute({ interaction, client }) {
     // Fetch all applications for this guild
-    const applications = await Application.findAll({
-      where: { server_id: interaction.guild.id },
-    });
+    const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
 
     if (!applications || applications.length === 0) {
       return interaction.reply({
         content: "No applications configured for this server. Please set up an application using `/setup`.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -72,13 +65,13 @@ module.exports = {
       if (!application) {
         return interaction.reply({
           content: `Application "${appNameOption}" not found. Available applications: ${applications.map((a) => a.name).join(", ")}`,
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
     } else {
       return interaction.reply({
         content: `Multiple applications exist for this server. Please specify which one to use with the \`application\` option.\nAvailable: ${applications.map((a) => a.name).join(", ")}`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -87,19 +80,19 @@ module.exports = {
     if (!permCheck.allowed) {
       return interaction.reply({
         content: permCheck.message,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
     if (application.reviewchannel && !isInReviewChannel(interaction, application.reviewchannel)) {
       return interaction.reply({
         content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a manager role in \`/setup\` to use this command everywhere.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
     if (!application?.verifiedrole || application.verifiedrole.length === 0) {
       return interaction.reply({
         content: "Please set a verified role in the server configuration by using the `/setup` command",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -111,14 +104,14 @@ module.exports = {
     const allUserIds = [
       ...new Set([
         ...(userMentions ? userMentions.map((mention) => mention.replace(/[<@!>]/g, "")) : []),
-        ...userIds,
+        ...userIds
       ]),
     ];
 
     if (allUserIds.length === 0) {
       return interaction.reply({
         content: "No valid user mentions or IDs found.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -135,14 +128,14 @@ module.exports = {
     if (users.length === 0) {
       return interaction.reply({
         content: "No valid users found in the guild.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     if (users.some((user) => user.user.bot)) {
       return interaction.reply({
         content: "You cannot deny a bot.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -170,7 +163,7 @@ module.exports = {
           messageids,
           user,
           status: VerificationStatus.DENIED,
-          useRateLimiting: true,
+          useRateLimiting: true
         });
 
         // If no messages and separate log channel, send "no application" embed
@@ -198,9 +191,8 @@ module.exports = {
         }
 
         // Cleanup verification data
-        if (messageids && messageids.length > 0) {
-          await cleanupVerificationData(verification, interaction.guild.id, userID, application.id);
-        }
+        if (messageids && messageids.length > 0) 
+        { await cleanupVerificationData(verification, interaction.guild.id, userID, application.id); }
 
         // Send denial DM
         await sendDenyDM(interaction.user.username, user.user, application, interaction.guild.name);
@@ -213,12 +205,11 @@ module.exports = {
     }
 
     let replyMessage = "";
-    if (results.success.length > 0) {
-      replyMessage += `**Successfully denied:** ${results.success.map((id) => `<@${id}>`).join(", ")}`;
-    }
-    if (results.notFound.length > 0) {
-      replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`;
-    }
+    if (results.success.length > 0) 
+    { replyMessage += `**Successfully denied:** ${results.success.map((id) => `<@${id}>`).join(", ")}`; }
+    
+    if (results.notFound.length > 0) 
+    { replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`; }
 
     await interaction.editReply(replyMessage);
   },

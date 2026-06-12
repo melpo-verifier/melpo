@@ -7,7 +7,7 @@ const {
   TextDisplayBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  MediaGalleryBuilder,
+  MediaGalleryBuilder
 } = require("discord.js");
 const { QuestionId } = require("../dbObjects.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
@@ -24,12 +24,12 @@ module.exports = async ({ interaction, client }) => {
 
   const user = interaction.user;
   const info = await QuestionId.findOne({
-    where: { interactionMessageId: interaction.message.id },
+    where: { interactionMessageId: interaction.message.id }
   });
 
   if (!info) {
     return interaction.editReply({
-      content: "This question is no longer available. It may have already been answered or expired.",
+      content: "This question is no longer available. It may have already been answered or expired."
     });
   }
 
@@ -44,9 +44,9 @@ module.exports = async ({ interaction, client }) => {
 
   const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
   if (error) {
-    return interaction.editReply({
-      content: `Error: ${error}`,
-    });
+    return interaction.editReply(
+      { content: `Error: ${error}` }
+    );
   }
 
   const confirmrow = new ActionRowBuilder().addComponents(
@@ -77,44 +77,44 @@ module.exports = async ({ interaction, client }) => {
     new ButtonBuilder()
       .setCustomId(`question_${applicationId}_${user.id}`)
       .setLabel("Reply")
-      .setStyle("Primary"),
+      .setStyle("Primary")
   );
 
   const cancelButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("cancel")
       .setLabel("Cancel")
-      .setStyle("Danger"),
+      .setStyle("Danger")
   );
   const disabledcancelButton = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("cancel")
       .setLabel("Cancel")
       .setStyle("Danger")
-      .setDisabled(true),
+      .setDisabled(true)
   );
 
   await message.edit({ components: [disabledconfirmrow] });
   await interaction.editReply({
     content: `Please send your answer to the question you just pressed "answer" to`,
-    components: [cancelButton],
+    components: [cancelButton]
   });
   const sendanswer = await interaction.fetchReply();
 
   await QuestionId.destroy({
-    where: { interactionMessageId: interaction.message.id },
+    where: { interactionMessageId: interaction.message.id }
   });
 
   const collectorFilter = (m) => m.author.id === user.id;
   const messageCollector = dmChannel.createMessageCollector({
     filter: collectorFilter,
-    max: 1,
+    max: 1
   });
 
   const buttonFilter = (i) => i.customId === "cancel" && i.user.id === user.id;
   const buttonCollector = dmChannel.createMessageComponentCollector({
     filter: buttonFilter,
-    max: 1,
+    max: 1
   });
 
   buttonCollector.on("collect", async (i) => {
@@ -122,11 +122,11 @@ module.exports = async ({ interaction, client }) => {
     await QuestionId.create(questionIdData);
     i.update({
       content: "cancelled your answer",
-      components: [disabledcancelButton],
+      components: [disabledcancelButton]
     }).then(() => {
-      setTimeout(() => {
-        i.message.delete();
-      }, 5000);
+      setTimeout(
+        () => { i.message.delete(); }
+        , 5000);
     });
     messageCollector.stop("cancelled");
   });
@@ -139,15 +139,13 @@ module.exports = async ({ interaction, client }) => {
     let attachmentUrls = [];
 
     // Truncate if too long
-    if (answercontent.length > 1024) {
-      answercontent = answercontent.substring(0, 1021) + "...";
-    }
+    if (answercontent.length > 1024) 
+    { answercontent = answercontent.substring(0, 1021) + "..."; }
 
     const questionform = interaction.message.embeds[0];
 
-    if(totalcontent.length + questionform.fields[0].value.length > 3800) {
-      totalcontent = totalcontent.substring(0, 3800 - questionform.fields[0].value.length) + "...";
-    }
+    if(totalcontent.length + questionform.fields[0].value.length > 3800) 
+    { totalcontent = totalcontent.substring(0, 3800 - questionform.fields[0].value.length) + "...";  }
 
     const rolesToPing = Array.isArray(application.questionpingrole)
       ? application.questionpingrole?.map((roleId) => `<@&${roleId}>`).join(" ")
@@ -160,8 +158,8 @@ module.exports = async ({ interaction, client }) => {
     }).addTextDisplayComponents(
       new TextDisplayBuilder({
         content: `${rolesToPing ? `-# ${rolesToPing}` : ""}\n### Question answered by <@${user.id}>\n**Question:**\n${interaction.message.embeds[0].fields[0].value}\n**Answer:**\n${totalcontent}`,
-        spacing_size: SeparatorSpacingSize.Small,
-      }),
+        spacing_size: SeparatorSpacingSize.Small
+      })
     );
 
     if (m.attachments.size > 0) {
@@ -174,22 +172,22 @@ module.exports = async ({ interaction, client }) => {
           attachment.contentType.startsWith("image/")
         ) {
           mediaItems.push({
-            media: { url: attachment.url },
+            media: { url: attachment.url }
           });
         }
       }
 
       if (mediaItems.length > 0) {
         container.addSeparatorComponents(
-          new SeparatorBuilder({
-            spacing: SeparatorSpacingSize.Small,
-          }),
+          new SeparatorBuilder(
+            { spacing: SeparatorSpacingSize.Small }
+          )
         );
 
         container.addMediaGalleryComponents(
-          new MediaGalleryBuilder({
-            items: mediaItems,
-          }),
+          new MediaGalleryBuilder(
+            { items: mediaItems }
+          )
         );
       }
     }
@@ -206,7 +204,7 @@ module.exports = async ({ interaction, client }) => {
     await sendanswer.edit({
       content: "",
       components: [],
-      embeds: [answerform],
+      embeds: [answerform]
     })
 
     if (
@@ -221,7 +219,7 @@ module.exports = async ({ interaction, client }) => {
             verificationMessageId,
             replybutton,
             container,
-            channelId,
+            channelId
           },
         ) => {
           // Get the thread attached to the verification message
@@ -273,7 +271,7 @@ module.exports = async ({ interaction, client }) => {
             verificationMessageId: verificationMessageId,
             replybutton: replybutton.toJSON(),
             container: container.toJSON(),
-            channelId: channelId,
+            channelId: channelId
           }
         },
       );
@@ -281,7 +279,7 @@ module.exports = async ({ interaction, client }) => {
       let threadchannelid = null;
       let verificationMessage = null;
       const verificationChannel = client.channels.cache.get(
-        verificationChannelId,
+        verificationChannelId
       );
 
       if (verificationChannelId !== channelId) {
@@ -296,7 +294,7 @@ module.exports = async ({ interaction, client }) => {
         } catch (error) {
           console.error(
             "Error fetching verification message or thread:",
-            error,
+            error
           );
         }
       }
@@ -305,12 +303,12 @@ module.exports = async ({ interaction, client }) => {
         const threadChannel = client.channels.cache.get(threadchannelid);
         await threadChannel.send({
           flags: [MessageFlags.IsComponentsV2],
-          components: [container, replybutton],
+          components: [container, replybutton]
         });
       } else if (verificationMessage) {
         await verificationMessage.reply({
           flags: [MessageFlags.IsComponentsV2],
-          components: [container, replybutton],
+          components: [container, replybutton]
         });
       }
 

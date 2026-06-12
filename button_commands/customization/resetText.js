@@ -10,7 +10,7 @@ module.exports = async ({ interaction, context }) => {
   if (error || !tempApp) {
     return interaction.reply({
       content: error || "Application not found or does not belong to this server.",
-      flags: 64,
+      flags: 64
     });
   }
 
@@ -19,7 +19,7 @@ module.exports = async ({ interaction, context }) => {
   await updateTempApplication(interaction.guild.id, {
     [customIdValue]: {
       title: defaultValue.title,
-      description: defaultValue.description,
+      description: defaultValue.description
     },
   }, { id: tempApplicationId });
 

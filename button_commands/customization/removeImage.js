@@ -9,12 +9,12 @@ module.exports = async ({ interaction, context }) => {
   if (error || !tempApp) {
     return interaction.reply({
       content: error || "Application not found or does not belong to this server.",
-      flags: 64,
+      flags: 64
     });
   }
 
   await updateTempApplication(interaction.guild.id, {
-    [customIdValue]: { image: "deleted" },
+    [customIdValue]: { image: "deleted" }
   }, { id: tempApplicationId });
 
   customizationMenu({ interaction, customIdValue, tempApplicationId });

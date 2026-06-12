@@ -1,7 +1,7 @@
 const { createBot } = require("./bot.js");
 const { Instances } = require("./dbObjects.js");
 const { decryptData } = require("./js/DBFunctions.js");
-require("dotenv").config();
+require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
 async function bootstrap() {
   const arg = process.argv[2];

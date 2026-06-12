@@ -14,32 +14,24 @@ module.exports = {
       console.log("custom bot, writing assosiated guild ids to database...");
       const guildids = client.guilds.cache?.map((guild) => guild.id);
       console.log(`Found ${guildids.length} guilds.`);
-      await Instances.upsert({
-        client_id: client.user.id,
-        guilds: guildids,
-      });
-    } else {
-      client.cluster.triggerReady();
-    }
+      await Instances.upsert({ client_id: client.user.id, guilds: guildids });
+    } 
+    else 
+    { client.cluster.triggerReady(); }
 
     const setPresence = async () => {
       try {
-        const [statusData] = await Instances.findOrCreate({
-          where: { client_id: client.user.id },
-        });
+        const [statusData] = await Instances.findOrCreate({ where: { client_id: client.user.id } });
 
         await client.user.setPresence({
           activities: [
-            {
-              name: statusData.status_name,
-              type: parseInt(statusData.type),
-            },
+            { name: statusData.status_name, type: parseInt(statusData.type) }
           ],
-          status: statusData.status,
+          status: statusData.status
         });
-      } catch (error) {
-        console.error("Failed to set presence:", error);
-      }
+      } 
+      catch (error) 
+      { console.error("Failed to set presence:", error); }
     };
 
     await setPresence();

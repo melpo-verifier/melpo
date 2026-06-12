@@ -19,6 +19,7 @@ module.exports = async ({ interaction, context }) => {
   switch (action) {
     case "autoRoles":
       await serverConfig.update({ autorole: selectedRoles });
+    break;
   }
 
   await serverConfig.reload();

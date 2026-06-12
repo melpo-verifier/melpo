@@ -4,7 +4,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   WebhookClient,
-  StringSelectMenuBuilder,
+  StringSelectMenuBuilder
 } = require("discord.js");
 const { GuildWebhook, Application } = require("../dbObjects.js");
 const { decryptData } = require("./DBFunctions.js");
@@ -18,9 +18,8 @@ function isValidHexColor(value) {
 
 async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessage_id, webhookUpdated) {
   const webhookData = decryptData(String(webhook.encrypted_token));
-  if (!webhookData || !webhookData.id || !webhookData.token) {
-    throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`);
-  }
+  if (!webhookData || !webhookData.id || !webhookData.token) 
+  { throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`); }
 
   const client = new WebhookClient({
     id: webhookData.id,
@@ -31,9 +30,8 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
 
   try {
     if (webhookUpdated === "true" || !finalMessageId) {
-      if (finalMessageId) {
-        await client.deleteMessage(finalMessageId).catch(() => { });
-      }
+      if (finalMessageId) 
+      { await client.deleteMessage(finalMessageId).catch(() => { }); }
       const message = await client.send({
         username: name,
         avatarURL: avatarURL,
@@ -48,7 +46,7 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
         username: name,
         avatarURL,
         embeds: [embed],
-        components: [row],
+        components: [row]
       });
       return finalMessageId;
     } catch {
@@ -57,16 +55,16 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
         username: name,
         avatarURL,
         embeds: [embed],
-        components: [row],
+        components: [row]
       });
       return message.id;
     }
   } catch (error) {
     console.error("Error sending via webhook:", error.message);
     throw error;
-  } finally {
-    client.destroy();
-  }
+  } 
+  finally 
+  { client.destroy(); }
 }
 
 async function findVerifyMessage(verifyChannelObj, botId, embedConfig, applicationId) {
@@ -127,7 +125,7 @@ async function updateVerifyMessage(opts) {
   //if app references another message, update that one instead
   if (application.mainMessageApplicationId) {
     const mainApp = await Application.findOne({
-      where: { id: application.mainMessageApplicationId },
+      where: { id: application.mainMessageApplicationId }
     });
 
     //if no main app is found, default to sending the regular message
@@ -142,10 +140,10 @@ async function updateVerifyMessage(opts) {
           color: embedConfig.color,
           title: embedConfig.title,
           description: embedConfig.description,
-          imageUrl: embedConfig.imageUrl ?? null,
+          imageUrl: embedConfig.imageUrl ?? null
         },
         messageId,
-        webhookUpdated,
+        webhookUpdated
       });
     }
 
@@ -154,7 +152,7 @@ async function updateVerifyMessage(opts) {
     const dependentApps = await Application.findAll({
       where: {
         server_id: mainApp.server_id,
-        mainMessageApplicationId: mainApp.id,
+        mainMessageApplicationId: mainApp.id
       },
     });
 
@@ -171,7 +169,7 @@ async function updateVerifyMessage(opts) {
         // footer: appName,
       },
       messageId: mainApp.verifymessage_id,
-      webhookUpdated,
+      webhookUpdated
     });
   }
 
@@ -179,8 +177,8 @@ async function updateVerifyMessage(opts) {
   const dependentApps = await Application.findAll({
     where: {
       server_id: application.server_id,
-      mainMessageApplicationId: application.id,
-    },
+      mainMessageApplicationId: application.id
+    }
   });
 
   return sendOrUpdateMessage({
@@ -192,10 +190,10 @@ async function updateVerifyMessage(opts) {
       color: embedConfig.color,
       title: embedConfig.title,
       description: embedConfig.description,
-      imageUrl: embedConfig.imageUrl ?? null,
+      imageUrl: embedConfig.imageUrl ?? null
     },
     messageId,
-    webhookUpdated,
+    webhookUpdated
   });
 }
 
@@ -206,7 +204,7 @@ async function sendOrUpdateMessage({
   botId,
   embedConfig,
   messageId,
-  webhookUpdated,
+  webhookUpdated
 }) {
 
   const embed = new EmbedBuilder()
@@ -226,9 +224,9 @@ async function sendOrUpdateMessage({
         const verifymessage_id = application.verifymessage_id;
         const resultMessageId = await sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessage_id, webhookUpdated);
         return { action: "webhook_sent", messageId: resultMessageId };
-      } catch (error) {
-        console.error("Error sending webhook:", error.message);
-      }
+      } 
+      catch (error) 
+      { console.error("Error sending webhook:", error.message); }
     }
   }
 
@@ -237,9 +235,9 @@ async function sendOrUpdateMessage({
     try {
       const fetchedMessage = await verifyChannelObj.messages.fetch(messageId);
       verificationMessage = (fetchedMessage && fetchedMessage.author?.id === botId) ? fetchedMessage : null;
-    } catch {
-      verificationMessage = null;
-    }
+    } 
+    catch 
+    { verificationMessage = null; }
   }
 
   if (!verificationMessage) {

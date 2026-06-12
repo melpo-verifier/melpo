@@ -1,12 +1,12 @@
 const { EmbedBuilder } = require("discord.js");
 const {
   deleteTempApplication,
-  getTempApplicationById,
+  getTempApplicationById
 } = require("../../js/tempconfigfuncs.js");
 const {
   deleteImage,
   purgeOldImages,
-  isR2ImageResource,
+  isR2ImageResource
 } = require("../../js/customizationImages.js");
 
 module.exports = async ({ interaction, context }) => {
@@ -28,7 +28,7 @@ module.exports = async ({ interaction, context }) => {
         appName,
         "verifychannelembed",
         tempverifychannelembed.image,
-        "images/verifychannelembed",
+        "images/verifychannelembed"
       );
     if (tempstartmessage?.image)
       await deleteNewImage(
@@ -36,7 +36,7 @@ module.exports = async ({ interaction, context }) => {
         appName,
         "startmessage",
         tempstartmessage.image,
-        "images/startmessage",
+        "images/startmessage"
       );
     if (tempfinishmessage?.image)
       await deleteNewImage(
@@ -44,7 +44,7 @@ module.exports = async ({ interaction, context }) => {
         appName,
         "finishmessage",
         tempfinishmessage.image,
-        "images/finishmessage",
+        "images/finishmessage"
       );
     if (tempverifymessage?.image)
       await deleteNewImage(
@@ -52,14 +52,14 @@ module.exports = async ({ interaction, context }) => {
         appName,
         "verifymessage",
         tempverifymessage.image,
-        "images/verifymessage",
+        "images/verifymessage"
       );
     if (tempverificationwelcomemessage?.image)
       await deleteNewImage(
         interaction.guild.id,
         appName,
         "verificationwelcomemessage",
-        tempverificationwelcomemessage.image,
+        tempverificationwelcomemessage.image
       );
 
     await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
@@ -69,24 +69,23 @@ module.exports = async ({ interaction, context }) => {
     .setColor("ff0000")
     .setTitle("Setup cancelled")
     .setDescription(
-      "The setup has been cancelled. No changes have been made to the server configuration. If you want to start the setup again, use the `/setup` command.",
+      "The setup has been cancelled. No changes have been made to the server configuration. If you want to start the setup again, use the `/setup` command."
     );
 
   await interaction.editReply({
     embeds: [cancelembed],
     components: [],
     files: [],
-    content: "",
+    content: ""
   });
 };
 
 async function deleteNewImage(serverId, appName, section, newImagePath) {
   if (isR2ImageResource(newImagePath)) {
-    try {
-      await deleteImage(newImagePath);
-    } catch (error) {
-      console.error(`Failed to delete S3 image ${newImagePath.key}:`, error);
-    }
+    try 
+    { await deleteImage(newImagePath); } 
+    catch (error) 
+    { console.error(`Failed to delete S3 image ${newImagePath.key}:`, error); }
 
     try {
       await purgeOldImages({
@@ -94,11 +93,11 @@ async function deleteNewImage(serverId, appName, section, newImagePath) {
         appName,
         section,
         keepKey: null,
-        filter: "temp",
+        filter: "temp"
       });
-    } catch (error) {
-      console.error(`Failed to purge temp images for ${section}:`, error);
-    }
+    } 
+    catch (error) 
+    { console.error(`Failed to purge temp images for ${section}:`, error); }
     return;
   }
 }

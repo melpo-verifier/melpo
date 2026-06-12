@@ -1,27 +1,20 @@
 const { PremiumSubscription } = require("../dbObjects.js");
-require ("dotenv").config();
+require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 const { v4: uuidv4 } = require("uuid");
 
-const SUBSCRIPTION_SKUS = {
-  [process.env.PREMIUM_SKU_ID]: "premium_1",
-};
+const SUBSCRIPTION_SKUS = { [process.env.PREMIUM_SKU_ID]: "premium_1" };
 
 async function syncPremiumSubscription(entitlement, isActive, resolvedUserId) {
-  const userId = resolvedUserId || entitlement.userId;
+  const userId  = resolvedUserId || entitlement.userId;
   const guildId = entitlement.guildId;
-  const tier = SUBSCRIPTION_SKUS[entitlement.skuId] || "premium_1";
+  const tier    = SUBSCRIPTION_SKUS[entitlement.skuId] || "premium_1";
 
   console.log(`[sync] Starting for guild=${guildId} user=${userId} tier=${tier} isActive=${isActive}`);
 
-  if (!guildId) {
-    console.log(`[sync] No guildId, skipping`);
-    return;
-  }
+  if (!guildId) { console.log(`[sync] No guildId, skipping`); return; }
 
   const { Op } = require("sequelize");
-  const subscription = await PremiumSubscription.findOne({
-    where: { guild_id: { [Op.contains]: [guildId] }, source: "DISCORD" },
-  });
+  const subscription = await PremiumSubscription.findOne({ where: { guild_id: { [Op.contains]: [guildId] }, source: "DISCORD" } });
 
   console.log(`[sync] Existing subscription: ${subscription ? `found (status=${subscription.status})` : "none"}`);
 
@@ -45,7 +38,7 @@ async function syncPremiumSubscription(entitlement, isActive, resolvedUserId) {
         expires_at: null,
         processed_ids: [entitlement.id],
         createdAt: new Date(),
-        updatedAt: new Date(),
+        updatedAt: new Date()
       });
       console.log(`[sync] Created new subscription`);
     }
@@ -53,9 +46,9 @@ async function syncPremiumSubscription(entitlement, isActive, resolvedUserId) {
     subscription.status = "EXPIRED";
     await subscription.save();
     console.log(`[sync] Marked subscription as EXPIRED`);
-  } else {
-    console.log(`[sync] isActive=false but no subscription found.`);
-  }
+  } 
+  else 
+  { console.log(`[sync] isActive=false but no subscription found.`); }
 }
 
 function getUserId(entitlement, client) {
@@ -72,10 +65,8 @@ function getUserId(entitlement, client) {
 function isValid(entitlement) {
   // if (!entitlement || entitlement.deleted || entitlement.consumed) return false;
 
-  // if (entitlement.endsAt) {
-  //   return entitlement.endsAt.getTime() > Date.now();
-  // }
-  if(!entitlement) return false;
+  // if (entitlement.endsAt) { return entitlement.endsAt.getTime() > Date.now(); }
+  if(!entitlement) { return false; }
 
   return true;
 }
@@ -92,16 +83,16 @@ async function handleEntitlementCreate(entitlement, client) {
     const isActive = isValid(entitlement);
     console.log(`[create] isValid=${isActive}`);
     await syncPremiumSubscription(entitlement, isActive, userId);
-  } catch (error) {
-    console.error(`[create] Error:`, error);
-  }
+  } 
+  catch (error) 
+  { console.error(`[create] Error:`, error); }
 }
 
 async function handleEntitlementUpdate(entitlement, client) {
   console.log(`[update] entitlement — skuId=${entitlement?.skuId} guildId=${entitlement?.guildId} userId=${entitlement?.userId}`);
   try {
-    if (!entitlement?.skuId) { console.log(`[update] No skuId, skipping`); return; }
-    if (!SUBSCRIPTION_SKUS[entitlement.skuId]) { console.log(`[update] skuId not found, skipping`); return; }
+    if (!entitlement?.skuId)                    { console.log(`[update] No skuId, skipping`); return; }
+    if (!SUBSCRIPTION_SKUS[entitlement.skuId])  { console.log(`[update] skuId not found, skipping`); return; }
 
     const userId = getUserId(entitlement, client);
     if (!userId) { console.log(`[update] Could not resolve userId, skipping`); return; }
@@ -109,9 +100,9 @@ async function handleEntitlementUpdate(entitlement, client) {
     const isActive = isValid(entitlement);
     console.log(`[update] isValid=${isActive}`);
     await syncPremiumSubscription(entitlement, isActive, userId);
-  } catch (error) {
-    console.error(`[update] Error:`, error);
-  }
+  } 
+  catch (error) 
+  { console.error(`[update] Error:`, error); }
 }
 
 async function handleEntitlementDelete(entitlement) {
@@ -122,13 +113,9 @@ async function handleEntitlementDelete(entitlement) {
       return;
     }
     await syncPremiumSubscription(entitlement, false, entitlement.userId);
-  } catch (error) {
-    console.error(`[delete] Error:`, error);
-  }
+  } 
+  catch (error) 
+  { console.error(`[delete] Error:`, error); }
 }
 
-module.exports = {
-  handleEntitlementCreate,
-  handleEntitlementUpdate,
-  handleEntitlementDelete,
-};
+module.exports = { handleEntitlementCreate, handleEntitlementUpdate, handleEntitlementDelete };

@@ -8,16 +8,14 @@ module.exports = async ({ interaction, context }) => {
   let title = interaction.fields.getTextInputValue("title");
   let description = interaction.fields.getTextInputValue("description");
 
-  if (title.length < 1) {
-    title = "deleted";
-  }
-  if (description.length < 1) {
-    description = getDefaultValue(customIdValue).description;
-  }
+  if (title.length < 1)       { title = "deleted"; }
+  if (description.length < 1) { description = getDefaultValue(customIdValue).description; }
 
-  await updateTempApplication(interaction.guild.id, {
-    [customIdValue]: { title: title, description: description },
-  }, { id: tempApplicationId });
+  await updateTempApplication(
+    interaction.guild.id, 
+    { [customIdValue]: { title: title, description: description } }, 
+    { id: tempApplicationId }
+  );
 
   const customizationMenu = require("../menu_commands/selectcustomizationMenu.js");
   customizationMenu({ interaction, customIdValue, tempApplicationId });

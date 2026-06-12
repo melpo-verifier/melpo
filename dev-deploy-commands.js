@@ -3,7 +3,7 @@
 const { REST, Routes } = require("discord.js");
 const fs = require("node:fs");
 const path = require("node:path");
-require("dotenv").config();
+require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
 const commands = [];
 const foldersPath = path.join(__dirname, "commands");

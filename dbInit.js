@@ -1,5 +1,5 @@
 const Sequelize = require("sequelize");
-require("dotenv").config();
+require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
 const sequelize = new Sequelize(
   process.env.DB_NAME,
@@ -9,8 +9,8 @@ const sequelize = new Sequelize(
     dialect: "postgres",
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
-    logging: false,
-  },
+    logging: false
+  }
 );
 
 require("./models/ServerConfig.js")(sequelize, Sequelize.DataTypes);

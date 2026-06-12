@@ -15,42 +15,18 @@ module.exports = {
     )
     .addStringOption((option) =>
       option.setName("type").setDescription("the type").addChoices(
-        {
-          name: "Playing",
-          value: "0",
-        },
-        {
-          name: "Listening",
-          value: "2",
-        },
-        {
-          name: "Watching",
-          value: "3",
-        },
-        {
-          name: "none",
-          value: "4",
-        },
+        { name: "Playing"  , value: "0" },
+        { name: "Listening", value: "2" },
+        { name: "Watching" , value: "3" },
+        { name: "none"     , value: "4" }
       ),
     )
     .addStringOption((option) =>
       option.setName("status").setDescription("the status").addChoices(
-        {
-          name: "online",
-          value: "online",
-        },
-        {
-          name: "idle",
-          value: "idle",
-        },
-        {
-          name: "dnd",
-          value: "dnd",
-        },
-        {
-          name: "invisible",
-          value: "invisible",
-        },
+        { name: "online"   , value: "online"    },
+        { name: "idle"     , value: "idle"      },
+        { name: "dnd"      , value: "dnd"       },
+        { name: "invisible", value: "invisible" }
       ),
     ),
   async execute({ interaction, client }) {
@@ -63,7 +39,7 @@ module.exports = {
       return interaction.reply({
         content:
           "In order to set a custom status you have to have a custom version of Melpo *add more info here*",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
     if (
@@ -71,7 +47,7 @@ module.exports = {
     ) {
       return interaction.reply({
         content: `You need the \`Manage Server\` permission to change the bot's status.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -83,17 +59,17 @@ module.exports = {
       return interaction.reply({
         content:
           "You need to provide at least one of the following: name, type, status",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     const [statusData] = await Instances.findOrCreate({
-      where: { client_id: client.user.id },
+      where: { client_id: client.user.id }
     });
 
     const presence = {
       activities: [{ name: statusData.status_name, type: parseInt(statusData.type) }],
-      status: statusData.status,
+      status: statusData.status
     };
 
     if (name) {
@@ -117,7 +93,7 @@ module.exports = {
 
     await interaction.reply({
       content: `Applied status!`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   },
 };

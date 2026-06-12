@@ -2,11 +2,11 @@ const { EmbedBuilder, MessageFlags } = require("discord.js");
 const {
   uploadCustomizationImage,
   purgeOldImages,
-  serializeImage,
+  serializeImage
 } = require("../../js/customizationImages.js");
 const {
   getTempApplicationById,
-  updateTempApplication,
+  updateTempApplication
 } = require("../../js/tempconfigfuncs.js");
 const activeCollectors = new Map();
 
@@ -21,23 +21,22 @@ module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0];
   const tempApplicationId = parseInt(context[1], 10);
 
-  if (!customIdValue || isNaN(tempApplicationId)) {
-    throw new Error("Missing customization context for image setup.");
-  }
+  if (!customIdValue || isNaN(tempApplicationId)) 
+  { throw new Error("Missing customization context for image setup."); }
 
   // Validate tempApplicationId and get tempApp
   const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
   if (error || !tempApp) {
     return interaction.reply({
       content: error || "Application not found or does not belong to this server.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
   const imageaskembed = new EmbedBuilder()
     .setTitle("Set Image")
     .setDescription(
-      "Please upload an image or paste an image URL within 30 seconds to update the image.",
+      "Please upload an image or paste an image URL within 30 seconds to update the image."
     )
     .setColor("#3f7ff1");
 
@@ -45,7 +44,7 @@ module.exports = async ({ interaction, context }) => {
   const filter = (msg) => msg.author.id === interaction.user.id;
   const collector = interaction.channel.createMessageCollector({
     filter,
-    time: 30000,
+    time: 30000
   });
 
   activeCollectors.set(channelId, collector);
@@ -55,14 +54,13 @@ module.exports = async ({ interaction, context }) => {
   collector.on("collect", async (collected) => {
     try {
       const collectedimage = collected.attachments.first()?.url || collected.content;
-      if (!collectedimage) {
-        return;
-      }
+      if (!collectedimage) 
+      { return; }
 
       if (!collectedimage.startsWith("http://") && !collectedimage.startsWith("https://")) {
         await interaction.followUp({
           content: "Please provide a valid image file or full image URL.",
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
         return;
       }
@@ -74,7 +72,7 @@ module.exports = async ({ interaction, context }) => {
         section: customIdValue,
         buffer: imageAsset.buffer,
         contentType: imageAsset.contentType,
-        extension: imageAsset.extension,
+        extension: imageAsset.extension
       });
 
       await purgeOldImages({
@@ -82,7 +80,7 @@ module.exports = async ({ interaction, context }) => {
         appName: tempApp.name,
         section: customIdValue,
         keepKey: uploadedImage.key,
-        filter: "temp",
+        filter: "temp"
       });
 
       const storedImage = serializeImage(uploadedImage);
@@ -91,10 +89,10 @@ module.exports = async ({ interaction, context }) => {
         interaction.guild.id,
         {
           [customIdValue]: {
-            image: storedImage,
-          },
+            image: storedImage
+          }
         },
-        { id: tempApplicationId },
+        { id: tempApplicationId }
       );
 
       await refreshCustomizationEmbed({ interaction, image: uploadedImage });
@@ -106,7 +104,7 @@ module.exports = async ({ interaction, context }) => {
       console.error("Failed to process image upload:", error);
       await interaction.followUp({
         content: `Error processing image: ${error.message}`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
       collector.stop("invalid");
     }
@@ -114,17 +112,15 @@ module.exports = async ({ interaction, context }) => {
 
   collector.on("end", (_, reason) => {
     activeCollectors.delete(channelId);
-    if (reason === "time") {
-      interaction.deleteReply().catch(() => {});
-    }
+    if (reason === "time") 
+    { interaction.deleteReply().catch(() => {}); }
   });
 };
 
 async function refreshCustomizationEmbed({ interaction, image }) {
   const currentEmbeds = interaction.message.embeds;
-  if (!currentEmbeds || currentEmbeds.length === 0) {
-    return;
-  }
+  if (!currentEmbeds || currentEmbeds.length === 0) 
+  { return; }
 
   const targetIndex = currentEmbeds.length > 1 ? 1 : 0;
   const originalFooter = currentEmbeds[targetIndex]?.footer?.text;
@@ -137,14 +133,14 @@ async function refreshCustomizationEmbed({ interaction, image }) {
 
   await interaction.message.edit({
     embeds: embedsToSend,
-    files: [],
+    files: []
   });
 }
 
 function targetEmbedFooter(existingFooter) {
-  if (existingFooter && existingFooter.length > 0) {
-    return existingFooter;
-  }
+  if (existingFooter && existingFooter.length > 0) 
+  { return existingFooter; }
+
   return "Customization preview";
 }
 
@@ -153,37 +149,34 @@ async function fetchImage(url) {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/gif": "gif",
-    "image/webp": "webp",
+    "image/webp": "webp"
   };
 
   const fetch = (await import("node-fetch")).default;
   
   let response;
-  try {
-    response = await fetch(url, { size: 15 * 1024 * 1024 });
-  } catch {
-    throw new Error("Invalid image URL or failed to connect.");
-  }
+  try 
+  { response = await fetch(url, { size: 15 * 1024 * 1024 }); } 
+  catch 
+  { throw new Error("Invalid image URL or failed to connect."); }
 
-  if (!response.ok) {
-    throw new Error("Failed to fetch image. Make sure the URL is public and valid.");
-  }
+  if (!response.ok) 
+  { throw new Error("Failed to fetch image. Make sure the URL is public and valid."); }
 
   const contentType = response.headers.get("content-type");
   if (!contentType || !ALLOWED_TYPES[contentType]) {
     throw new Error(
-      `Invalid image type: ${contentType || "unknown"}. Allowed types: ${Object.keys(ALLOWED_TYPES).join(", ")}`,
+      `Invalid image type: ${contentType || "unknown"}. Allowed types: ${Object.keys(ALLOWED_TYPES).join(", ")}`
     );
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length === 0) {
-    throw new Error("Received empty image data");
-  }
+  if (buffer.length === 0) 
+  { throw new Error("Received empty image data"); }
 
   return {
     buffer,
     contentType,
-    extension: ALLOWED_TYPES[contentType],
+    extension: ALLOWED_TYPES[contentType]
   };
 }

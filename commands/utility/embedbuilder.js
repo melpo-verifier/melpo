@@ -1,10 +1,4 @@
-const {
-  SlashCommandBuilder,
-  EmbedBuilder,
-  PermissionsBitField,
-  ChannelType,
-  MessageFlags,
-} = require("discord.js");
+const { SlashCommandBuilder, EmbedBuilder, PermissionsBitField, ChannelType, MessageFlags } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,14 +13,14 @@ module.exports = {
             .setName("title")
             .setDescription("Embed title")
             .setMaxLength(256)
-            .setRequired(true),
+            .setRequired(true)
         )
         .addStringOption((option) =>
           option
             .setName("description")
             .setDescription("Embed description")
             .setMaxLength(4096)
-            .setRequired(true),
+            .setRequired(true)
         )
         .addStringOption((option) =>
           option
@@ -34,39 +28,39 @@ module.exports = {
             .setDescription("Embed color (hex: FF0000)")
             .setMaxLength(6)
             .setMinLength(6)
-            .setRequired(false),
+            .setRequired(false)
         )
         .addAttachmentOption((option) =>
           option
             .setName("image")
             .setDescription("Embed image")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addAttachmentOption((option) =>
           option
             .setName("thumbnail")
             .setDescription("Embed thumbnail image")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addStringOption((option) =>
           option
             .setName("footer")
             .setDescription("Embed footer text")
             .setMaxLength(2048)
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("timestamp")
             .setDescription("Add current timestamp?")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addChannelOption((option) =>
           option
             .setName("channel")
             .setDescription("Channel to send embed in")
             .addChannelTypes(ChannelType.GuildText)
-            .setRequired(false),
+            .setRequired(false)
         ),
     )
     .addSubcommand((subcommand) =>
@@ -77,28 +71,28 @@ module.exports = {
           option
             .setName("message-id")
             .setDescription("ID of message to edit")
-            .setRequired(true),
+            .setRequired(true)
         )
         .addChannelOption((option) =>
           option
             .setName("channel")
             .setDescription("Channel with the Embed you want to edit")
             .addChannelTypes(ChannelType.GuildText)
-            .setRequired(true),
+            .setRequired(true)
         )
         .addStringOption((option) =>
           option
             .setName("title")
             .setDescription("Embed title")
             .setMaxLength(256)
-            .setRequired(false),
+            .setRequired(false)
         )
         .addStringOption((option) =>
           option
             .setName("description")
             .setDescription("Embed description")
             .setMaxLength(4096)
-            .setRequired(false),
+            .setRequired(false)
         )
         .addStringOption((option) =>
           option
@@ -106,32 +100,32 @@ module.exports = {
             .setDescription("Embed color (hex: FF0000)")
             .setMaxLength(6)
             .setMinLength(6)
-            .setRequired(false),
+            .setRequired(false)
         )
         .addAttachmentOption((option) =>
           option
             .setName("image")
             .setDescription("Embed image")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addAttachmentOption((option) =>
           option
             .setName("thumbnail")
             .setDescription("Embed thumbnail image")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addStringOption((option) =>
           option
             .setName("footer")
             .setDescription("Embed footer text")
             .setMaxLength(2048)
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("timestamp")
             .setDescription("Add current timestamp?")
-            .setRequired(false),
+            .setRequired(false)
         ),
     )
 
@@ -143,51 +137,51 @@ module.exports = {
           option
             .setName("message-id")
             .setDescription("ID of message to edit")
-            .setRequired(true),
+            .setRequired(true)
         )
         .addChannelOption((option) =>
           option
             .setName("channel")
             .setDescription("Channel with the Embed you want to edit")
             .addChannelTypes(ChannelType.GuildText)
-            .setRequired(true),
+            .setRequired(true)
         )
         .addBooleanOption((option) =>
           option
             .setName("remove-title")
             .setDescription("Remove the title?")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("remove-description")
             .setDescription("Remove the description?")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("remove-color")
             .setDescription("Reset color to default?")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("remove-image")
             .setDescription("Remove the image?")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("remove-thumbnail")
             .setDescription("Remove the thumbnail?")
-            .setRequired(false),
+            .setRequired(false)
         )
         .addBooleanOption((option) =>
           option
             .setName("remove-footer")
             .setDescription("Remove the footer?")
-            .setRequired(false),
-        ),
+            .setRequired(false)
+        )
     )
 
     .setDefaultMemberPermissions(PermissionsBitField.ManageMessages)
@@ -219,7 +213,7 @@ module.exports = {
           .has(["ViewChannel", "SendMessages", "EmbedLinks"])
       ) {
         return interaction.editReply({
-          content: `I don't have permission to send embeds in ${channel}!`,
+          content: `I don't have permission to send embeds in ${channel}!`
         });
       }
 
@@ -227,7 +221,7 @@ module.exports = {
 
       await interaction.editReply({
         content: `Your embed has been sent to ${channel}:`,
-        embeds: [embed],
+        embeds: [embed]
       });
     } else if (interaction.options.getSubcommand() === "edit") {
       const channel =
@@ -236,17 +230,14 @@ module.exports = {
 
       const message = await channel.messages.fetch(messageId).catch(() => null);
 
-      if (!message) {
-        return interaction.editReply("Could not find that message!");
-      }
+      if (!message) 
+      { return interaction.editReply("Could not find that message!"); }
 
-      if (message.author.id !== interaction.client.user.id) {
-        return interaction.editReply("I can only edit my own embeds!");
-      }
+      if (message.author.id !== interaction.client.user.id) 
+      { return interaction.editReply("I can only edit my own embeds!"); }
 
-      if (!message.embeds?.[0]) {
-        return interaction.editReply("That message doesn't contain an embed!");
-      }
+      if (!message.embeds?.[0]) 
+      { return interaction.editReply("That message doesn't contain an embed!"); }
 
       // Create new embed from old one
       const oldEmbed = message.embeds[0];
@@ -265,9 +256,8 @@ module.exports = {
       if (updates.title) newEmbed.setTitle(updates.title);
       if (updates.description) newEmbed.setDescription(updates.description);
 
-      if (updates.color?.match(/^#[0-9A-F]{6}$/i)) {
-        newEmbed.setColor(updates.color);
-      }
+      if (updates.color?.match(/^#[0-9A-F]{6}$/i)) 
+      { newEmbed.setColor(updates.color); }
 
       if (updates.image) newEmbed.setImage(updates.image.url);
       if (updates.thumbnail) newEmbed.setThumbnail(updates.thumbnail.url);
@@ -281,9 +271,7 @@ module.exports = {
 
       await message.edit({ embeds: [newEmbed] });
 
-      await interaction.editReply({
-        content: "Embed updated!",
-      });
+      await interaction.editReply({ content: "Embed updated!" });
     } else if (interaction.options.getSubcommand() === "delete") {
       const channel =
         interaction.options.getChannel("channel") || interaction.channel;
@@ -291,17 +279,14 @@ module.exports = {
 
       const message = await channel.messages.fetch(messageId).catch(() => null);
 
-      if (!message) {
-        return interaction.editReply("Could not find that message!");
-      }
+      if (!message) 
+      { return interaction.editReply("Could not find that message!"); }
 
-      if (message.author.id !== interaction.client.user.id) {
-        return interaction.editReply("I can only edit my own embeds!");
-      }
+      if (message.author.id !== interaction.client.user.id) 
+      { return interaction.editReply("I can only edit my own embeds!"); }
 
-      if (!message.embeds?.[0]) {
-        return interaction.editReply("That message doesn't contain an embed!");
-      }
+      if (!message.embeds?.[0]) 
+      { return interaction.editReply("That message doesn't contain an embed!"); }
 
       // Create new embed from old one
       const oldEmbed = message.embeds[0];
@@ -313,7 +298,7 @@ module.exports = {
         color: interaction.options.getBoolean("remove-color"),
         image: interaction.options.getBoolean("remove-image"),
         thumbnail: interaction.options.getBoolean("remove-thumbnail"),
-        footer: interaction.options.getBoolean("remove-footer"),
+        footer: interaction.options.getBoolean("remove-footer")
       };
 
       if (removals.title) newEmbed.setTitle(null);
@@ -325,9 +310,7 @@ module.exports = {
 
       await message.edit({ embeds: [newEmbed] });
 
-      await interaction.editReply({
-        content: "Embed updated!",
-      });
+      await interaction.editReply({ content: "Embed updated!" });
     }
   },
 };

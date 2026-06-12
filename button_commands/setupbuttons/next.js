@@ -5,7 +5,7 @@ const {
   ChannelSelectMenuBuilder,
   RoleSelectMenuBuilder,
   MessageFlags,
-  PermissionsBitField,
+  PermissionsBitField
 } = require("discord.js");
 const { getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 
@@ -23,13 +23,12 @@ module.exports = async ({ interaction, context }) => {
 
   const updatedActionRow = new ActionRowBuilder().addComponents(
     nextButton,
-    originalButtons[1],
+    originalButtons[1]
   );
 
   const { tempApp: temporarySetup, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
-  if (error) {
-    return interaction.editReply({ content: `Error: ${error}`, components: [] });
-  }
+  if (error) 
+  { return interaction.editReply({ content: `Error: ${error}`, components: [] }); }
 
   if (nextnumber === 0) {
 
@@ -41,12 +40,12 @@ module.exports = async ({ interaction, context }) => {
         !botPermissions ||
         !botPermissions.has([
           PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ViewChannel
         ])
       ) {
         return interaction.followUp({
           content: `I don't have the required permissions in the selected channel. Please make sure I have the following channel-specific permissions in <#${temporarySetup.verifychannel}>:\n- View Channel\n- Send Messages\n\nAlso make sure I have all required global permissions using </checkpermissions:1324406378328096890>.`,
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
     }
@@ -63,6 +62,7 @@ module.exports = async ({ interaction, context }) => {
 
     const selectmenu = new ActionRowBuilder().setComponents(channelmenu);
 
+    //Note : Static invite token.
     const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
       .setDescription(
         `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nGreat! You've set up your user verification channel! Now let's set up the channel where the applications will be sent. This channel will be used to send the applications to the mods for review. Please select the channel where the applications will be sent  and then click the "Next" button below to continue...`,
@@ -84,13 +84,13 @@ module.exports = async ({ interaction, context }) => {
     try {
       await interaction.message.edit({
         embeds: [updatedEmbed],
-        components: [selectmenu, updatedActionRow],
+        components: [selectmenu, updatedActionRow]
       });
     } catch (error) {
       if (error.code === 50001 || error.code === 50013) {
         return interaction.followUp({
           content: "I don't have permission to edit messages in this channel. Please check my permissions and try again.",
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
       throw error;
@@ -105,12 +105,12 @@ module.exports = async ({ interaction, context }) => {
         !botPermissions ||
         !botPermissions.has([
           PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ViewChannel
         ])
       ) {
         return interaction.followUp({
           content: `I don't have the required permissions in the selected channel. Please make sure I have the following channel-specific permissions in <#${temporarySetup.reviewchannel}>:\n- View Channel\n- Send Messages\n\nAlso make sure I have all required global permissions using </checkpermissions:1324406378328096890>.`,
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
     }
@@ -126,6 +126,7 @@ module.exports = async ({ interaction, context }) => {
 
     const selectmenu = new ActionRowBuilder().setComponents(channelmenu);
 
+    //Note : Static invite token.
     const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
       .setDescription(
         `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nAwesome! We've now set up all required channels! Now we just need to add a verified role and a few questions! We'll start with the verified role, this role will be given to users once they've been verified. Please select the role(s) that you would like to be given to users once they've been verified and then click the "Next" button below to continue...\n\n**Note:** If you set up multiple roles, the bot will give all of them to the user.`,
@@ -152,13 +153,13 @@ module.exports = async ({ interaction, context }) => {
     try {
       await interaction.message.edit({
         embeds: [updatedEmbed],
-        components: [selectmenu, updatedActionRow],
+        components: [selectmenu, updatedActionRow]
       });
     } catch (error) {
       if (error.code === 50001 || error.code === 50013) {
         return interaction.followUp({
           content: "I don't have permission to edit messages in this channel. Please check my permissions and try again.",
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
       throw error;
@@ -185,14 +186,14 @@ module.exports = async ({ interaction, context }) => {
     if(noPermissionRoles.length > 0) {
       return interaction.followUp({
         content: `I don't have permission to assign the selected role(s): ${noPermissionRoles.map((id) => `<@&${id}>`).join(", ")}.\n Please make sure my highest role is above the selected role(s) in the role hierarchy.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     if(invalidRoles.length > 0) {
       return interaction.followUp({
         content: `The following selected role(s) are invalid: ${invalidRoles.map((id) => `<@&${id}>`).join(", ")}.\n The role might have been deleted during setup, please select valid role(s).`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 

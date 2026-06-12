@@ -1,22 +1,17 @@
 const { randomUUID } = require("crypto");
 
 function normalizeQuestions(questions) {
-  if (!Array.isArray(questions)) {
-    return [];
-  }
+  if (!Array.isArray(questions)) { return []; }
 
   return questions.map((question) => {
     if (typeof question === "string") {
-      try {
-        question = JSON.parse(question);
-      } catch {
-        return null;
-      }
+      try 
+      { question = JSON.parse(question); } 
+      catch 
+      { return null; }
     }
 
-    if (!question || typeof question !== "object") {
-      return null;
-    }
+    if (!question || typeof question !== "object") { return null; }
 
     const normalizedQuestion = { ...question };
 
@@ -33,28 +28,14 @@ function normalizeQuestions(questions) {
 }
 
 function normalizeMcqOptions(mcq) {
-  if (!Array.isArray(mcq)) {
-    return [];
-  }
+  if (!Array.isArray(mcq)) { return []; }
 
   return mcq.map((option) => {
-    if (typeof option === "string") {
-      return {
-        id: randomUUID(),
-        label: option,
-        roles: [],
-        nextQuestionId: null,
-      };
-    }
+    if (typeof option === "string") 
+    { return { id: randomUUID(), label: option, roles: [], nextQuestionId: null }; }
 
-    if (!option || typeof option !== "object") {
-      return {
-        id: randomUUID(),
-        label: String(option ?? ""),
-        roles: [],
-        nextQuestionId: null,
-      };
-    }
+    if (!option || typeof option !== "object") 
+    { return { id: randomUUID(), label: String(option ?? ""), roles: [], nextQuestionId: null }; }
 
     const normalizedOption = { ...option };
 
@@ -62,9 +43,8 @@ function normalizeMcqOptions(mcq) {
     normalizedOption.label = typeof normalizedOption.label === "string" ? normalizedOption.label : String(normalizedOption.label ?? "");
     normalizedOption.roles = Array.isArray(normalizedOption.roles) ? normalizedOption.roles : [];
 
-    if (!Object.prototype.hasOwnProperty.call(normalizedOption, "nextQuestionId")) {
-      normalizedOption.nextQuestionId = null;
-    }
+    if (!Object.prototype.hasOwnProperty.call(normalizedOption, "nextQuestionId")) 
+    { normalizedOption.nextQuestionId = null; }
 
     return normalizedOption;
   });
@@ -78,19 +58,9 @@ function normalizeMcqInput(mcqInput, existingMcq = []) {
   return inputLines.map((label, index) => {
     const existingOption = normalizeMcqOptions(existingMcq)[index];
 
-    if (existingOption) {
-      return {
-        ...existingOption,
-        label,
-      };
-    }
+    if (existingOption) { return { ...existingOption, label }; }
 
-    return {
-      id: randomUUID(),
-      label,
-      roles: [],
-      nextQuestionId: null,
-    };
+    return { id: randomUUID(), label, roles: [], nextQuestionId: null };
   });
 }
 
@@ -107,11 +77,8 @@ function buildQuestionFromForm({ existingQuestion, content, mcqInput }) {
     regexBranches: Array.isArray(baseQuestion.regexBranches) ? baseQuestion.regexBranches : [],
     nextQuestionId: baseQuestion.nextQuestionId ?? null,
     allowMultipleSelections: baseQuestion.allowMultipleSelections === true,
-    multiSelectNextQuestionId: baseQuestion.multiSelectNextQuestionId ?? null,
+    multiSelectNextQuestionId: baseQuestion.multiSelectNextQuestionId ?? null
   };
 }
 
-module.exports = {
-  buildQuestionFromForm,
-  normalizeQuestions,
-};
+module.exports = { buildQuestionFromForm, normalizeQuestions };

@@ -1,38 +1,32 @@
 const { Events, MessageFlags } = require("discord.js");
-const {
-  updateCommandUsage,
-  updateComponentUsage,
-} = require("../js/tempconfigfuncs.js");
+const { updateCommandUsage, updateComponentUsage } = require("../js/tempconfigfuncs.js");
 const ErrorHandler = require("../js/ErrorHandling.js");
 
 const interactionCache = new Map();
 const CACHE_TTL = 5000;
 const MAX_CACHE_SIZE = 1000;
 
-const checkDuplicatesFor = ["verifyconfirm", "denyconfirm", "actionconfirm", "answerquestion"];
+const checkDuplicatesFor = ["verifyconfirm", "denyconfirm", "actionconfirm"];
 
 module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction, client) {
     try {
-      if (!interaction) {
-        return;
-      }
+      if (!interaction) { return; }
 
-      if (interaction.isChatInputCommand()) {
-        return await handleSlashCommand(interaction, client);
-      }
+      if (interaction.isChatInputCommand()) 
+      { return await handleSlashCommand(interaction, client); }
+
       else if (interaction.isAutocomplete()) {
         const command = interaction.client.commands.get(interaction.commandName);
         if (!command) {
           console.error(`No command matching ${interaction.commandName} was found.`);
           return;
         }
-        try {
-          await command.autocomplete(interaction);
-        } catch (error) {
-          console.error(error);
-        }
+        try 
+        { await command.autocomplete(interaction); } 
+        catch (error) 
+        { console.error(error); }
       }
 
       const [command, ...context] = interaction.customId?.split("_") || [];
@@ -54,10 +48,7 @@ module.exports = {
           interactionCache.delete(oldestKey);
         }
 
-        interactionCache.set(cacheKey, {
-          timestamp: Date.now(),
-          processed: true,
-        });
+        interactionCache.set(cacheKey, { timestamp: Date.now(), processed: true });
       }
 
       const userid = await extractUserId(interaction);
@@ -70,25 +61,23 @@ module.exports = {
         if (!isNaN(parsed)) {
           if (command.includes("info") || command === "next" || command === "cancelsetup" || command === "finishsetup" || command === "toggleusethreads" || command === "setverifyfilter") {
             tempApplicationId = parsed;
-          } else {
-            applicationId = parsed;
-          }
+          } 
+          else 
+          { applicationId = parsed; }
         }
       }
       
       const data = { interaction, client, context, userid, applicationId, tempApplicationId };
 
-      if(interaction.customId) {
-        console.log(`Interaction handled: ${interaction.customId}`);
-      }
+      if(interaction.customId) 
+      { console.log(`Interaction handled: ${interaction.customId}`); }
       
-      if (interaction.isButton()) {
-        await handleInteraction(command, data, client, interaction, "buttonCommands", true);
-      } else if (isSelectMenu(interaction)) {
-        await handleInteraction(command, data, client, interaction, "menus", true);
-      } else if (interaction.isModalSubmit()) {
-        await handleInteraction(command, data, client, interaction, "modals", false);
-      }
+      if (interaction.isButton()) 
+      { await handleInteraction(command, data, client, interaction, "buttonCommands", true); } 
+      else if (isSelectMenu(interaction)) 
+      { await handleInteraction(command, data, client, interaction, "menus", true); } 
+      else if (interaction.isModalSubmit()) 
+      { await handleInteraction(command, data, client, interaction, "modals", false); }
 
       // Update usage stats
       if (!interaction.customId?.includes("cancelverification") && interaction.customId) {
@@ -119,9 +108,7 @@ async function handleSlashCommand(interaction, client) {
     const command = interaction.client.commands.get(interaction.commandName);
 
     if (!command) {
-      console.error(
-        `No command matching ${interaction.commandName} was found.`,
-      );
+      console.error(`No command matching ${interaction.commandName} was found.`);
       return;
     }
 
@@ -134,9 +121,9 @@ async function handleSlashCommand(interaction, client) {
 
     await command.execute({ interaction, client });
     await updateCommandUsage(command.data.name);
-  } catch (error) {
-    await ErrorHandler.handle(client, error, interaction);
-  }
+  } 
+  catch (error) 
+  { await ErrorHandler.handle(client, error, interaction); }
 }
 
 function isSelectMenu(interaction) {
@@ -161,14 +148,12 @@ async function handleInteraction(command, data, client, interaction, collectionN
     }
 
     const handler = data.client[collectionName].get(command);
-    if (!handler) {
-      return;
-    }
+    if (!handler) { return; }
 
     await handler(data);
-  } catch (error) {
-    await ErrorHandler.handle(client, error, interaction);
-  }
+  } 
+  catch (error) 
+  { await ErrorHandler.handle(client, error, interaction); }
 }
 
 async function extractUserId(interaction) {
@@ -179,34 +164,30 @@ async function extractUserId(interaction) {
     if (footerText.startsWith("Denied | ")) return footerText.slice(9);
     return footerText;
   }
-
-  if (
-    interaction.customId &&
-    (interaction.customId.includes("question_") ||
-      interaction.customId.includes("questionModal_") ||
-      interaction.customId.includes("denyModal_"))
-  ) {
-    const userIdMatch = interaction.customId.match(/_(\d+)$/);
-    if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) {
-      return userIdMatch[1];
-    }
-  }
   
   if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
+    if (
+      (interaction.customId.includes("question_") ||
+      interaction.customId.includes("questionModal_") ||
+      interaction.customId.includes("denyModal_"))
+    ) {
+      const userIdMatch = interaction.customId.match(/_(\d+)$/);
+      if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) 
+      { return userIdMatch[1]; }
+    }
+
     const containerContent =
       interaction.message.components?.[0]?.components?.[0]?.components?.[0]?.content;
 
     if (containerContent) {
       const userIdMatch = containerContent.match(/\*\*User ID:\*\* `(\d+)`/);
-      if (userIdMatch?.[1]) {
-        return userIdMatch[1];
-      }
+      if (userIdMatch?.[1]) 
+      { return userIdMatch[1]; }
     }
     
     const footerText = interaction.message.embeds?.[0]?.footer?.text;
-    if (footerText && /^\d+$/.test(footerText)) {
-      return footerText;
-    }
+    if (footerText && /^\d+$/.test(footerText)) 
+    { return footerText; }
   }
   
   return null;

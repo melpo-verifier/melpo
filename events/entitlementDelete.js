@@ -8,5 +8,5 @@ module.exports = {
   async execute(entitlement) {
     console.log(`[${eventName}] Event received for userId=${entitlement?.userId}, skuId=${entitlement?.skuId}`);
     await handleEntitlementDelete(entitlement);
-  },
+  }
 };

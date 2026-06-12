@@ -20,31 +20,27 @@ async function sendWebhookMessage(channel, application, payload, threadName) {
             wait: true
           };
 
-          if (channel.isThread()) {
-            sendOptions.threadId = channel.id;
-          }
+          if (channel.isThread()) { sendOptions.threadId = channel.id; }
 
           message = await wc.send(sendOptions);
         }
-      } catch (error) {
-        console.error("Branding Webhook Error:", error);
-      }
+      } 
+      catch (error) 
+      { console.error("Branding Webhook Error:", error); }
     }
   }
 
-  if (!message) {
-    message = await channel.send(payload);
-  }
+  if (!message) { message = await channel.send(payload); }
 
   if (threadName && !channel.isThread()) {
     try {
       await channel.threads.create({
         name: threadName.substring(0, 100),
-        startMessage: message.id,
+        startMessage: message.id
       });
-    } catch (error) {
-      console.error("Failed to create thread:", error);
-    }
+    } 
+    catch (error) 
+    { console.error("Failed to create thread:", error);  }
   }
 
   return message;

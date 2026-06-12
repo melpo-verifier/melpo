@@ -11,7 +11,7 @@ const {
   sendWelcomeMessage,
   sendVerifyDM,
   applyRoles,
-  getMessageIds,
+  getMessageIds
 } = require("../js/verificationHandler.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
 const { getSubmission } = require("../js/DBFunctions.js");
@@ -24,20 +24,19 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
-  if (!userid) {
-    throw new Error("Could not fetch user ID from the embed");
-  }
+  if (!userid) 
+  { throw new Error("Could not fetch user ID from the embed"); }
 
   const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
 
   if (error) {
     return await interaction.followUp({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -46,7 +45,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (!permCheck.allowed) {
     return await interaction.followUp({
       content: permCheck.message,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -65,21 +64,19 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       if (response?.mcqIndex?.length > 0) {
         response.mcqIndex.forEach(index => {
           const selectedOption = question.mcq?.[index];
-          if (selectedOption?.roles) {
-            selectedOption.roles.forEach(role => branchRoles.add(role));
-          }
+          if (selectedOption?.roles) 
+          { selectedOption.roles.forEach(role => branchRoles.add(role)); }
         })
       }
       else if (question.regexBranches && response.content) {
         for (const regex of question.regexBranches) {
           try {
             const regpattern = new RegExp(regex.pattern, 'i');
-            if (regpattern.test(response.content)) {
-              regex.roles.forEach(role => branchRoles.add(role));
-            }
-          } catch {
-            regexErrors.push(`${response.questionId}: ${regex.pattern}`)
-          }
+            if (regpattern.test(response.content)) 
+            { regex.roles.forEach(role => branchRoles.add(role)); }
+          } 
+          catch 
+          { regexErrors.push(`${response.questionId}: ${regex.pattern}`); }
         }
       }
     }
@@ -87,7 +84,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     if (regexErrors.length > 0) {
       await interaction.followUp({
         content: `The following regex patterns are invalid and their roles were not applied:\n${regexErrors.join("\n")}`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
   }
@@ -96,12 +93,12 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   const roleErrors = await validateRoles(
     interaction,
     application.verifiedrole,
-    application.unverifiedrole,
+    application.unverifiedrole
   );
   if (roleErrors.length > 0) {
     return await interaction.followUp({
       content: roleErrors[0],
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -114,7 +111,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return await interaction.followUp({
       content:
         "User not found in server. This user has probably left this server.\nIf you believe this is an error, please contact the developer.\nYou can always verify someone manually using `/verify`",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -129,7 +126,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (!botMember || !botMember.permissions.has("ManageRoles")) {
     return await interaction.followUp({
       content: "I don't have the **Manage Roles** permission. Please grant it and try again.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -154,7 +151,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     } catch (error) {
       await interaction.followUp({
         content: `Welcome channel error: ${error.message}`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
   }
@@ -171,7 +168,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     messageids,
     user,
     status: VerificationStatus.VERIFIED,
-    useRateLimiting: false,
+    useRateLimiting: false
   });
 
   // If no separate log channel, edit the current message
@@ -183,26 +180,24 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       const verifiedContainer = handleV2Edit(
         interaction,
         tempMsg,
-        VerificationStatus.VERIFIED,
+        VerificationStatus.VERIFIED
       );
 
       const editPayload = {
         flags: [MessageFlags.IsComponentsV2],
-        components: [verifiedContainer],
+        components: [verifiedContainer]
       };
       if (files) editPayload.files = files;
       await interaction.editReply(editPayload);
 
-      if (interaction.message.thread) {
-        await interaction.message.thread.setArchived(true);
-      }
+      if (interaction.message.thread) 
+      { await interaction.message.thread.setArchived(true); }
     }
   }
 
   // Cleanup verification data
-  if (messageids && messageids.length > 0) {
-    await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId);
-  }
+  if (messageids && messageids.length > 0) 
+  { await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId); }
 
   // Send verification DM
   await sendVerifyDM(user, application, interaction, verifiedRoles);

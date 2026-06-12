@@ -7,7 +7,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
   if (!tempApplicationId) {
     return interaction.reply({
       content: 'Temp Application ID is missing. Please try again.',
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -15,7 +15,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
   if (error) {
     return interaction.reply({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -29,6 +29,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     ? tempApp.usethreads
     : (applicationSetup?.usethreads ?? false);
 
+  //Note : Static invite token.
   const miscEmbed = new EmbedBuilder()
     .setColor("#3f7ff1")
     .setTitle("Miscellaneous setup")
@@ -39,7 +40,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
       {
         name: "Use Threads",
         value: `**${useThreads ? "Enabled" : "Disabled"}**\n*When enabled, a thread will be attached to verification applications for a more organised review and logs channel. Any answers to questions will be sent in the thread. **Recommended if you have a log channel setup and/or receive many applications.***`,
-        inline: false,
+        inline: false
       },
     );
 
@@ -64,7 +65,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     new ButtonBuilder()
       .setCustomId(`toggleusethreads_${useThreads}_${tempApplicationId}`)
       .setLabel(`${useThreads ? "Disable" : "Enable"} Threads`)
-      .setStyle(useThreads ? "Danger" : "Success"),
+      .setStyle(useThreads ? "Danger" : "Success")
   );
 
   const categoryButtons = createCategoryButtons(tempApplicationId, 4); // 4 = Misc is disabled
@@ -73,13 +74,13 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     await interaction.message.edit({
       content: "",
       embeds: [miscEmbed],
-      components: [categoryButtons, miscButtons, finishbuttons],
+      components: [categoryButtons, miscButtons, finishbuttons]
     });
   } else {
     await interaction.update({
       content: "",
       embeds: [miscEmbed],
-      components: [categoryButtons, miscButtons, finishbuttons],
+      components: [categoryButtons, miscButtons, finishbuttons]
     });
   }
 };

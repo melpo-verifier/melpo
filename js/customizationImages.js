@@ -4,38 +4,29 @@ const {
   DeleteObjectCommand,
   DeleteObjectsCommand,
   CopyObjectCommand,
-  ListObjectsV2Command,
+  ListObjectsV2Command
 } = require("@aws-sdk/client-s3");
 const crypto = require("node:crypto");
 const path = require("node:path");
 
-const REQUIRED_ENV = [
-  "S3ACCOUNT_ID",
-  "S3ACCESS_KEY_ID",
-  "S3SECRET_ACCESS_KEY",
-  "S3BUCKET_NAME",
-  "S3ENDPOINT",
-  "S3PUBLIC_BASE_URL",
-];
+const REQUIRED_ENV = [ "S3ACCOUNT_ID", "S3ACCESS_KEY_ID", "S3SECRET_ACCESS_KEY", "S3BUCKET_NAME", "S3ENDPOINT", "S3PUBLIC_BASE_URL" ];
 
 const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
-if (missingEnv.length) {
-  throw new Error(
-    `Missing S3 configuration: ${missingEnv.join(", ")}. Update your environment variables.`,
-  );
-}
+if (missingEnv.length) 
+{ throw new Error(`Missing S3 configuration: ${missingEnv.join(", ")}. Update your environment variables.`); }
 
 const BUCKET = process.env.S3BUCKET_NAME;
 const ACCOUNT_ID = process.env.S3ACCOUNT_ID;
 const PUBLIC_BASE = (process.env.S3PUBLIC_BASE_URL || process.env.S3ENDPOINT).replace(/\/$/, "");
 
+//Note : Hard coded end point might be advised to be changed for local testing or other potential cloud provider options outside cloudflare.
 const r2Client = new S3Client({
   region: "auto",
   endpoint: `https://${ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
     accessKeyId: process.env.S3ACCESS_KEY_ID,
-    secretAccessKey: process.env.S3SECRET_ACCESS_KEY,
-  },
+    secretAccessKey: process.env.S3SECRET_ACCESS_KEY
+  }
 });
 
 const PREFIX_ROOT = "customizations";
@@ -60,9 +51,8 @@ const buildBasePrefix = (serverId, appName) =>
 
 const buildSectionPrefix = ({ serverId, appName, section, scope = "final" }) => {
   const base = buildBasePrefix(serverId, appName);
-  if (scope === "temp") {
-    return `${base}/${TEMP_FOLDER}/${section}/`;
-  }
+  if (scope === "temp") 
+  { return `${base}/${TEMP_FOLDER}/${section}/`; }
   return `${base}/${section}/`;
 };
 
@@ -72,7 +62,7 @@ const buildKey = ({
   section,
   extension,
   scope = "temp",
-  fileId,
+  fileId
 }) => {
   const prefix = buildSectionPrefix({ serverId, appName, section, scope });
   const resolvedFileId = fileId || generateFileId();
@@ -80,23 +70,20 @@ const buildKey = ({
 };
 
 const getPublicUrl = (key) => {
-  if (!key) {
-    return null;
-  }
+  if (!key) 
+  { return null; }
   return `${PUBLIC_BASE}/${key}`;
 };
 
 const extractFileIdFromKey = (key) => {
-  if (!key) {
-    return null;
-  }
+  if (!key) 
+  { return null; }
   return path.basename(key, path.extname(key));
 };
 
 const serializeImage = (image) => {
-  if (!image) {
-    return null;
-  }
+  if (!image) 
+  { return null; }
 
   return {
     storage: image.storage,
@@ -107,7 +94,7 @@ const serializeImage = (image) => {
     appName: image.appName,
     section: image.section,
     isTemp: Boolean(image.isTemp),
-    fileId: image.fileId || extractFileIdFromKey(image.key),
+    fileId: image.fileId || extractFileIdFromKey(image.key)
   };
 };
 
@@ -115,9 +102,8 @@ const isTempKey = (key) =>
   Boolean(key && (key.split("/").includes(TEMP_FOLDER) || key.includes("_temp")));
 
 const getFinalKeyFromTemp = (key) => {
-  if (!key || !isTempKey(key)) {
-    return key;
-  }
+  if (!key || !isTempKey(key)) 
+  { return key; }
 
   const segments = key.split("/");
   const tempIndex = segments.indexOf(TEMP_FOLDER);
@@ -136,11 +122,10 @@ async function uploadCustomizationImage({
   section,
   buffer,
   contentType,
-  extension,
+  extension
 }) {
-  if (!Buffer.isBuffer(buffer)) {
-    throw new Error("uploadCustomizationImage expects a Buffer");
-  }
+  if (!Buffer.isBuffer(buffer)) 
+  { throw new Error("uploadCustomizationImage expects a Buffer"); }
 
   const fileId = generateFileId();
   const key = buildKey({
@@ -149,7 +134,7 @@ async function uploadCustomizationImage({
     section,
     extension,
     scope: "temp",
-    fileId,
+    fileId
   });
 
   const command = new PutObjectCommand({
@@ -157,7 +142,7 @@ async function uploadCustomizationImage({
     Key: key,
     Body: buffer,
     ContentType: contentType,
-    CacheControl: "public, max-age=31536000, immutable",
+    CacheControl: "public, max-age=31536000, immutable"
   });
 
   await r2Client.send(command);
@@ -175,14 +160,13 @@ async function uploadCustomizationImage({
     size: buffer.length,
     uploadedAt: new Date().toISOString(),
     isTemp: true,
-    fileId,
+    fileId
   };
 }
 
 async function promoteCustomizationImage(image) {
-  if (!isR2ImageResource(image) || !isTempKey(image.key)) {
-    return image;
-  }
+  if (!isR2ImageResource(image) || !isTempKey(image.key)) 
+  { return image; }
 
   const finalKey = getFinalKeyFromTemp(image.key);
   const copyCommand = new CopyObjectCommand({
@@ -191,33 +175,31 @@ async function promoteCustomizationImage(image) {
     CopySource: `${BUCKET}/${encodeURIComponent(image.key).replace(/%2F/g, "/")}`,
     ContentType: image.contentType,
     MetadataDirective: "REPLACE",
-    CacheControl: "public, max-age=31536000, immutable",
+    CacheControl: "public, max-age=31536000, immutable"
   });
 
   try {
     await r2Client.send(copyCommand);
     await deleteImage(image);
   } catch (error) {
-    if (error.name !== "NoSuchKey" && error.Code !== "NoSuchKey") {
-      console.error(`Failed to promote image ${image.key}:`, error);
-    }
+    if (error.name !== "NoSuchKey" && error.Code !== "NoSuchKey") 
+    { console.error(`Failed to promote image ${image.key}:`, error); }
   }
 
   return serializeImage({
     ...image,
     key: finalKey,
-    isTemp: false,
+    isTemp: false
   });
 }
 
 async function deleteImage(image) {
-  if (!isR2ImageResource(image)) {
-    return;
-  }
+  if (!isR2ImageResource(image)) 
+  { return; }
 
   const command = new DeleteObjectCommand({
     Bucket: BUCKET,
-    Key: image.key,
+    Key: image.key
   });
 
   await r2Client.send(command);
@@ -229,12 +211,12 @@ async function listSectionObjects({ serverId, appName, section }) {
 
   const [finalObjects, tempObjects] = await Promise.all([
     listObjectsForPrefix(finalPrefix),
-    listObjectsForPrefix(tempPrefix),
+    listObjectsForPrefix(tempPrefix)
   ]);
 
   return [
     ...finalObjects.map((obj) => ({ ...obj, scope: "final" })),
-    ...tempObjects.map((obj) => ({ ...obj, scope: "temp" })),
+    ...tempObjects.map((obj) => ({ ...obj, scope: "temp" }))
   ];
 }
 
@@ -247,12 +229,11 @@ async function listObjectsForPrefix(prefix) {
       new ListObjectsV2Command({
         Bucket: BUCKET,
         Prefix: prefix,
-        ContinuationToken: continuationToken,
-      }),
+        ContinuationToken: continuationToken
+      })
     );
-    if (response.Contents) {
-      objects.push(...response.Contents.filter((obj) => obj?.Key));
-    }
+    if (response.Contents) 
+    { objects.push(...response.Contents.filter((obj) => obj?.Key)); }
     continuationToken = response.NextContinuationToken;
   } while (continuationToken);
 
@@ -264,7 +245,7 @@ async function purgeOldImages({
   appName,
   section,
   keepKey,
-  filter = "all",
+  filter = "all"
 }) {
   const objects = await listSectionObjects({ serverId, appName, section });
   const keysToDelete = [];
@@ -276,28 +257,23 @@ async function purgeOldImages({
         : new Set(["temp", "final"]);
 
   for (const object of objects) {
-    if (!object.Key) {
-      continue;
-    }
-    if (keepKey && object.Key === keepKey) {
-      continue;
-    }
+    if (!object.Key) 
+    { continue; }
+    if (keepKey && object.Key === keepKey) 
+    { continue; }
 
-    if (!scopeFilter.has(object.scope || (isTempKey(object.Key) ? "temp" : "final"))) {
-      continue;
-    }
+    if (!scopeFilter.has(object.scope || (isTempKey(object.Key) ? "temp" : "final"))) 
+    { continue; }
 
     keysToDelete.push(object.Key);
   }
 
-  if (keysToDelete.length === 0) {
-    return;
-  }
+  if (keysToDelete.length === 0) 
+  { return; }
 
   const chunks = [];
-  for (let i = 0; i < keysToDelete.length; i += 1000) {
-    chunks.push(keysToDelete.slice(i, i + 1000));
-  }
+  for (let i = 0; i < keysToDelete.length; i += 1000) 
+  { chunks.push(keysToDelete.slice(i, i + 1000)); }
 
   console.log(`Purging ${keysToDelete.length} images from section ${section} (server: ${serverId}, app: ${appName})`);
 
@@ -307,20 +283,20 @@ async function purgeOldImages({
         Bucket: BUCKET,
         Delete: {
           Objects: chunk.map((Key) => ({ Key })),
-          Quiet: true,
-        },
-      }),
+          Quiet: true
+        }
+      })
     );
   }
 }
 
-module.exports = {
-  uploadCustomizationImage,
-  promoteCustomizationImage,
-  deleteImage,
-  purgeOldImages,
-  isR2ImageResource,
-  getPublicUrl,
-  sanitizeAppName,
-  serializeImage,
+module.exports = { 
+  uploadCustomizationImage, 
+  promoteCustomizationImage, 
+  deleteImage, 
+  purgeOldImages, 
+  isR2ImageResource, 
+  getPublicUrl, 
+  sanitizeAppName, 
+  serializeImage 
 };

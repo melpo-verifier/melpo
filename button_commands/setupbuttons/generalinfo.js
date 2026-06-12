@@ -4,7 +4,7 @@ const {
   EmbedBuilder,
   ChannelSelectMenuBuilder,
   StringSelectMenuBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { AdTexts, UserBilling } = require("../../dbObjects.js");
 const { createTempApplication, deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
@@ -16,7 +16,7 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
   if (!tempApplicationId) {
     return interaction.reply({
       content: 'Temp Application ID is missing. Please try again.',
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -24,7 +24,7 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
   if (error) {
     return interaction.reply({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -76,16 +76,16 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
     const isPaidUser = await UserBilling.findOne({ where: { user_id: serverOwner } });
 
     if(!isPaidUser) {
-      const adTexts = await AdTexts.findAll({
-        type: "setup"
-      });
+      const adTexts = await AdTexts.findAll(
+      { type: "setup" }
+    );
       
-      if (adTexts.length > 0) {
-        adtext = adTexts[Math.floor(Math.random() * adTexts.length)].text;
-      }
+      if (adTexts.length > 0) 
+      { adtext = adTexts[Math.floor(Math.random() * adTexts.length)].text; }
     }
   }
 
+  //Note : Static invite token.
   const generalembed = new EmbedBuilder()
     .setColor("#3f7ff1")
     .setTitle("Channels setup")
@@ -100,26 +100,26 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
         value: verifyChannel
           ? `<#${verifyChannel.toString()}>`
           : `**Not set up**`,
-        inline: false,
+        inline: false
       },
       {
         name: "Verification Review Channel `required`",
         value: reviewChannel
           ? `<#${reviewChannel.toString()}>`
           : `**Not set up**`,
-        inline: false,
+        inline: false
       },
       {
         name: "Verification Logs Channel `optional`",
         value: verifyLogsChannel
           ? `<#${verifyLogsChannel.toString()}>`
           : `**Not set up**`,
-        inline: false,
+        inline: false
       },
       {
         name: "Verification welcome message `optional`",
         value: `${verificationwelcomechannel ? `<#${verificationwelcomechannel.toString()}>` : "**Not set up**"}\n*To customize welcome message, go to "customization" button*`,
-        inline: false,
+        inline: false
       },
     );
 
@@ -148,25 +148,25 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
         label: "Verification Start Channel",
         description: "Channel in which users start their verification process",
         value: "verifyChannel",
-        default: whichdefault === 0 ? true : false,
+        default: whichdefault === 0 ? true : false
       },
       {
         label: "Verification Review Channel",
         description: "Channel in which staff reviews verification applications",
         value: "reviewChannel",
-        default: whichdefault === 1 ? true : false,
+        default: whichdefault === 1 ? true : false
       },
       {
         label: "Verification Logs Channel",
         description: "Channel in which handled applications are logged",
         value: "verifyLogsChannel",
-        default: whichdefault === 2 ? true : false,
+        default: whichdefault === 2 ? true : false
       },
       {
         label: "Verification Welcome Channel",
         description: "Channel in which the welcome message will be sent",
         value: "verificationWelcomeChannel",
-        default: whichdefault === 3 ? true : false,
+        default: whichdefault === 3 ? true : false
       },
     );
 
@@ -193,12 +193,12 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
               ? verificationwelcomechannel
                 ? [verificationwelcomechannel]
                 : []
-              : [],
+              : []
     );
 
   const menus = [
     new ActionRowBuilder().setComponents(selectChannelMenu),
-    new ActionRowBuilder().setComponents(channelMenu),
+    new ActionRowBuilder().setComponents(channelMenu)
   ];
 
   const categoryButtons = createCategoryButtons(tempApplicationId, 0); // 0 = Channels is disabled
@@ -208,14 +208,14 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
       content: "",
       embeds: [generalembed],
       components: [categoryButtons, ...menus, finishbuttons],
-      files: [],
+      files: []
     });
   } else {
     await interaction.update({
       content: "",
       embeds: [generalembed],
       components: [categoryButtons, ...menus, finishbuttons],
-      files: [],
+      files: []
     });
   }
 };

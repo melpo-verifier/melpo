@@ -4,7 +4,7 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
   RoleSelectMenuBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const { createCategoryButtons } = require("../../js/constants.js");
@@ -14,7 +14,7 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
   if (!tempApplicationId) {
     return interaction.reply({
       content: 'Temp Application ID is missing. Please try again.',
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -22,7 +22,7 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
   if (error) {
     return interaction.reply({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -57,7 +57,7 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
       ? tempApp.questionpingrole || applicationSetup.questionpingrole
       : null;
 
-
+  //Note : Static invite token.
   const generalembed = new EmbedBuilder()
     .setColor("#3f7ff1")
     .setTitle("Roles setup")
@@ -67,27 +67,27 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
     .addFields(
       {
         name: "Verified Role (Member Role) `required`",
-        value: `*Role(s) assigned when users get verified*\n${verifiedRole ? verifiedRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up (REQUIRED)"}`,
+        value: `*Role(s) assigned when users get verified*\n${verifiedRole ? verifiedRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up (REQUIRED)"}`
       },
       {
         name: "Auto Role `optional`",
-        value: `*⚠️ Moved to server configuration! (\`/setup server\`)!*`,
+        value: `*⚠️ Moved to server configuration! (\`/setup server\`)!*`
       },
       {
         name: "Unverified Role `optional`",
-        value: `*Role(s) to remove from users upon verification*\n${unverifiedRole ? unverifiedRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+        value: `*Role(s) to remove from users upon verification*\n${unverifiedRole ? unverifiedRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`
       },
       {
         name: "Verification Ping Role `optional`",
-        value: `*Role(s) that gets pinged with every new application*\n${pingRole ? pingRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+        value: `*Role(s) that gets pinged with every new application*\n${pingRole ? pingRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`
       },
       {
         name: "Verification Manager Role `optional`",
-        value: `*Users with this role can manage applications (no roles = everyone can manage)*\n${managerRole ? managerRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+        value: `*Users with this role can manage applications (no roles = everyone can manage)*\n${managerRole ? managerRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`
       },
       {
         name: "Question Ping Role `optional`",
-        value: `*Role(s) that gets pinged when a user answers a question*\n${questionpingrole ? questionpingrole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+        value: `*Role(s) that gets pinged when a user answers a question*\n${questionpingrole ? questionpingrole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`
       }
     );
 
@@ -105,7 +105,7 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
       .setStyle("Link")
       .setURL(
         `https://melpo.app/dashboard/${interaction.guild.id}`,
-      ),
+      )
   );
 
   const selectRoleMenu = new StringSelectMenuBuilder()
@@ -116,32 +116,32 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
         label: "Verified Role (Member Role)",
         description: `Role(s) assigned when users get verified`,
         value: "verifiedRole",
-        default: whichdefault === 0 ? true : false,
+        default: whichdefault === 0 ? true : false
       },
       {
         label: "Unverified Role",
         description: "Role(s) to remove from users upon verification",
         value: "unverifiedRole",
-        default: whichdefault === 1 ? true : false,
+        default: whichdefault === 1 ? true : false
       },
       {
         label: "Verification Ping Role",
         description: "Role(s) that gets pinged with every new application",
         value: "pingRole",
-        default: whichdefault === 2 ? true : false,
+        default: whichdefault === 2 ? true : false
       },
       {
         label: "Verification Manager Role",
         description: "Users with this role can manage applications",
         value: "managerRole",
-        default: whichdefault === 3 ? true : false,
+        default: whichdefault === 3 ? true : false
       },
       {
         label: "Question Ping Role",
         description: "Role(s) that gets pinged when a user answers a question",
         value: "questionpingrole",
-        default: whichdefault === 4 ? true : false,
-      },
+        default: whichdefault === 4 ? true : false
+      }
     );
 
   const verifiedRoleMenu = new RoleSelectMenuBuilder()
@@ -161,12 +161,12 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
               : whichdefault === 4
                 ? (questionpingrole ?? [])
                 : []
-      ).slice(0, 10),
+      ).slice(0, 10)
     );
 
   const rolemenus = [
     new ActionRowBuilder().setComponents(selectRoleMenu),
-    new ActionRowBuilder().setComponents(verifiedRoleMenu),
+    new ActionRowBuilder().setComponents(verifiedRoleMenu)
   ];
 
   const categoryButtons = createCategoryButtons(tempApplicationId, 1); // 1 = Roles is disabled
@@ -175,6 +175,6 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
     content: "",
     embeds: [generalembed],
     components: [categoryButtons, ...rolemenus, finishbuttons],
-    files: [],
+    files: []
   });
 };
