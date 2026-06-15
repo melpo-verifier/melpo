@@ -1,8 +1,6 @@
 const { MessageFlags, ContainerBuilder } = require("discord.js");
 const { ServerConfig } = require("../dbObjects.js");
-const {
-  ServerConfigComponent,
-} = require("../js/serverConfigUI.js");
+const { ServerConfigComponent } = require("../js/serverConfigUI.js");
 
 module.exports = async ({ interaction, context }) => {
   const action = context?.[0];
@@ -11,7 +9,7 @@ module.exports = async ({ interaction, context }) => {
   if (!serverConfig) {
     return interaction.reply({
       content: "Server configuration not found!",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -19,14 +17,14 @@ module.exports = async ({ interaction, context }) => {
     .setAccentColor(0x00ff00)
     .addTextDisplayComponents((textDisplay) =>
       textDisplay.setContent(
-        '✅ Server configuration saved successfully!',
-      ),
+        '✅ Server configuration saved successfully!'
+      )
     )
 
   switch (action) {
     case "exit":
       return interaction.update({
-        components: [finishedContainer],
+        components: [finishedContainer]
       });  
   }
       

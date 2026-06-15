@@ -1,8 +1,4 @@
-const {
-  ButtonBuilder,
-  ActionRowBuilder,
-  MessageFlags,
-} = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, MessageFlags } = require("discord.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
 const { relinkAttachments } = require("../js/verificationHandler.js");
 
@@ -24,7 +20,7 @@ module.exports = async ({ interaction, applicationId }) => {
     new ButtonBuilder()
       .setCustomId(`action_${applicationId}`)
       .setLabel("Kick")
-      .setStyle("Secondary"),
+      .setStyle("Secondary")
   );
 
   const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
@@ -32,20 +28,20 @@ module.exports = async ({ interaction, applicationId }) => {
   if (error) {
     return interaction.reply({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = application.managerrole.some((role) =>
-      member.roles.cache.has(role),
+    const hasManagerRole = application.managerrole.some(
+      (role) => member.roles.cache.has(role)
     );
 
     if (!hasManagerRole) {
       return interaction.reply({
         content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
   }

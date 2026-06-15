@@ -8,9 +8,8 @@ module.exports = async ({ interaction, client, context }) => {
   const question = interaction.fields.getTextInputValue("question");
   const mcq = interaction.fields.getTextInputValue("mcq");
   let mcqArray = mcq.split("\n").filter((option) => option.trim().length > 0);
-  if (mcqArray.length > 9) {
-    mcqArray = mcqArray.slice(0, 9);
-  }
+  if (mcqArray.length > 9) 
+  { mcqArray = mcqArray.slice(0, 9); }
 
   const qnumber = parseInt(context[0], 10);
   const isfirsttime = parseInt(context[1], 10);
@@ -20,7 +19,7 @@ module.exports = async ({ interaction, client, context }) => {
   if (error || !tempApp) {
     return interaction.reply({
       content: error || "Application not found.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -37,16 +36,14 @@ module.exports = async ({ interaction, client, context }) => {
     questions[qnumber] = buildQuestionFromForm({
       existingQuestion: questions[qnumber],
       content: question,
-      mcqInput: mcqArray,
+      mcqInput: mcqArray
     });
   } else {
     questions.splice(qnumber, 1);
     questions = questions.filter((q) => q.content.length > 0);
   }
 
-  await updateTempApplication(interaction.guild.id, {
-    questions: questions,
-  }, { id: tempApplicationId });
+  await updateTempApplication(interaction.guild.id, { questions: questions }, { id: tempApplicationId });
 
   if (isfirsttime === 0) {
     questioninfo({ interaction, client, tempApplicationId });

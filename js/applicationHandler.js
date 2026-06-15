@@ -1,10 +1,4 @@
-const {
-  Verification,
-  InviteTracker,
-  AdTexts,
-  UserBilling,
-  Submissions,
-} = require("../dbObjects.js");
+const { Verification, InviteTracker, AdTexts, UserBilling, Submissions } = require("../dbObjects.js");
 const {
   ButtonBuilder,
   ActionRowBuilder,
@@ -19,7 +13,7 @@ const {
   ThumbnailBuilder,
   SectionBuilder,
   AttachmentBuilder,
-  FileBuilder,
+  FileBuilder
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
@@ -38,29 +32,22 @@ setInterval(() => {
   const expiredRateLimits = [];
 
   for (const [key, session] of activeVerifications.entries()) {
-    if (now - session.startTime > 4 * 60 * 60 * 1000) {
-      // older than 4 hours gets deleted
-      expiredSessions.push(key);
-    }
+    if (now - session.startTime > 4 * 60 * 60 * 1000) 
+    { expiredSessions.push(key); }       // older than 4 hours gets deleted
   }
 
   for (const [key, timestamp] of rateLimitMap.entries()) {
-    if (now - timestamp > 60000) {
-      expiredRateLimits.push(key);
-    }
+    if (now - timestamp > 60000) 
+    { expiredRateLimits.push(key); }
   }
 
   expiredSessions.forEach((key) => activeVerifications.delete(key));
   expiredRateLimits.forEach((key) => rateLimitMap.delete(key));
 
-  if (expiredSessions.length > 0) {
-    console.log(
-      `Cleaned up ${expiredSessions.length} expired verification sessions`,
-    );
-  }
-  if (expiredRateLimits.length > 0) {
-    console.log(`Cleaned up ${expiredRateLimits.length} expired rate limits`);
-  }
+  if (expiredSessions.length > 0) 
+  { console.log(`Cleaned up ${expiredSessions.length} expired verification sessions`); }
+  if (expiredRateLimits.length > 0) 
+  { console.log(`Cleaned up ${expiredRateLimits.length} expired rate limits`); }
 }, 600000);
 
 async function handleApplicationStart({ interaction, client, applicationId }) {
@@ -75,9 +62,9 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
         content: `Please wait ${timeLeft} seconds before starting another application.`,
         flags: MessageFlags.Ephemeral,
       });
-    } else {
-      rateLimitMap.delete(rateLimitKey);
-    }
+    } 
+    else 
+    { rateLimitMap.delete(rateLimitKey); }
   }
 
   const encryptionKey = process.env.ENCRYPTION_KEY;
@@ -85,7 +72,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
     console.error("ENCRYPTION_KEY is not configured!!");
     return await interaction.editReply({
       content: "Oops! An error occured, we're trying to fix this as soon as possible!",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -100,20 +87,19 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
           message_id: existingSession.sessionId,
           user_id: interaction.user.id,
           guild_id: interaction.guild.id,
-          status: "pending",
+          status: "pending"
         },
       })
       : null;
 
-    if (!hasPendingProgress) {
-      activeVerifications.delete(interaction.user.id);
-    }
+    if (!hasPendingProgress) 
+    { activeVerifications.delete(interaction.user.id); }
   }
 
   if (activeVerifications.has(interaction.user.id)) {
     return await interaction.editReply({
       content: `<@${interaction.user.id}>, you already have an active application session! Please complete or cancel it before starting a new one.`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -129,7 +115,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
     if (error || !application) {
       return await interaction.editReply({
         content: `This application setup is not configured correctly. Please contact the server staff. (Application not found)`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -140,19 +126,15 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       verifychannel: verifyChannelId,
       reviewchannel: verifyLogsChannelId,
       questions: botQuestions,
-      pingrole: pingStaffRoleId,
+      pingrole: pingStaffRoleId
     } = application;
 
     let parsedQuestions;
     try {
-      if (
-        !botQuestions ||
-        !Array.isArray(botQuestions) ||
-        botQuestions.length === 0
-      ) {
+      if ( !botQuestions || !Array.isArray(botQuestions) || botQuestions.length === 0 ) {
         return await interaction.editReply({
           content: `No questions are configured. Please contact the server staff.`,
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -160,24 +142,24 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
         let parsed;
         if (typeof question === "string") {
           try {
-            try {
-              parsed = JSON.parse(question);
-            } catch (parseError) {
+            try 
+            { parsed = JSON.parse(question); } 
+            catch (parseError) 
+            {
               console.error(`Failed to parse question: ${parseError.message}`);
               parsed = question;
             }
-          } catch (error) {
-            throw new Error(`Invalid question ${index + 1}: ${error.message}`);
-          }
-        } else if (typeof question === "object" && question !== null) {
-          parsed = question;
-        } else {
-          throw new Error(`Invalid question ${index + 1}: Not a string or object`);
-        }
+          } 
+          catch (error) 
+          { throw new Error(`Invalid question ${index + 1}: ${error.message}`); }
+        } 
+        else if (typeof question === "object" && question !== null) 
+        { parsed = question; } 
+        else 
+        { throw new Error(`Invalid question ${index + 1}: Not a string or object`); }
 
-        if (!parsed.id) {
-          parsed.id = `question-${index}`;
-        }
+        if (!parsed.id) 
+        { parsed.id = `question-${index}`; }
 
         // parse the internal mcq and regex
         parsed.mcq = Array.isArray(parsed.mcq)
@@ -185,16 +167,15 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
           : [];
         parsed.regexBranches = Array.isArray(parsed.regexBranches) ? parsed.regexBranches : [];
 
-        if (!parsed.content || parsed.content.trim().length === 0) {
-          throw new Error(`Question ${index + 1} has empty content`);
-        }
+        if (!parsed.content || parsed.content.trim().length === 0) 
+        { throw new Error(`Question ${index + 1} has empty content`); }
         return parsed;
       });
     } catch (error) {
       console.error(`Question parsing error for guild ${guildId}:`, error);
       return await interaction.editReply({
         content: `Question configuration error: ${error.message}. Please contact the server staff.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -203,7 +184,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
     if (!isSetupComplete) {
       return await interaction.editReply({
         content: `<@${user.id}>, I am not completely set up yet! If you are a moderator, please complete the setup process first.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -212,7 +193,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 
     if (!verifyLogsChannel) {
       return await interaction.editReply({
-        content: `<@${user.id}>, the application review channel could not be found! Please contact server staff.`,
+        content: `<@${user.id}>, the application review channel could not be found! Please contact server staff.`
       });
     }
 
@@ -222,12 +203,12 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       !botPermissions ||
       !botPermissions.has([
         PermissionsBitField.Flags.SendMessages,
-        PermissionsBitField.Flags.ViewChannel,
+        PermissionsBitField.Flags.ViewChannel
       ])
     ) {
       return await interaction.editReply({
         content: `<@${user.id}>, I don't have permissions to send messages in the application review channel!`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -236,37 +217,36 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       activeVerifications.get(user.id).startTime + 4 * 3600000 < Date.now()
     ) {
       console.error(
-        "User has an active application session but it has been more than 4 hours. Clearing the session. THIS SHOULDNT HAPPEN",
+        "User has an active application session but it has been more than 4 hours. Clearing the session. THIS SHOULDNT HAPPEN"
       );
       activeVerifications.delete(user.id);
     }
 
-    const configId = String(applicationId)
-    const dbObjectsPath = require.resolve("../dbObjects.js")
-    const DBFunctionsPath = require.resolve("../js/DBFunctions.js")
-    let resumeState = null
-    let sessionId = uuidv4()
+    const configId = String(applicationId);
+    const dbObjectsPath = require.resolve("../dbObjects.js");
+    const DBFunctionsPath = require.resolve("../js/DBFunctions.js");
+    let resumeState = null;
+    let sessionId = uuidv4();
 
     const pendingProgressRecords = await Submissions.findAll({
       where: {
         user_id: user.id,
         guild_id: guildId,
         app_id: configId,
-        status: "pending",
+        status: "pending"
       },
       order: [["updatedAt", "DESC"]]
     })
 
     for (const progressRecord of pendingProgressRecords) {
       const payload = decryptData(progressRecord.data, encryptionKey)
-      if (!payload) {
-        continue
-      }
+      if (!payload) 
+      { continue; }
 
       if (payload.currentQuestionId) {
-        resumeState = payload
-        sessionId = progressRecord.message_id
-        break
+        resumeState = payload;
+        sessionId = progressRecord.message_id;
+        break;
       }
     }
 
@@ -283,19 +263,19 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       const startEmbedTitle = replaceplaceholder(
         application.startmessage?.title,
         interaction.user.globalName ?? interaction.user.username,
-        interaction.guild.name,
+        interaction.guild.name
       );
       const startEmbedDescription = replaceplaceholder(
         application.startmessage?.description,
         interaction.user.globalName ?? interaction.user.username,
-        interaction.guild.name,
+        interaction.guild.name
       );
       const startEmbedimage = application.startmessage?.image;
       const startImageAsset = resolveImage(startEmbedimage);
 
       const startDMEmbed = new EmbedBuilder()
         .setTitle(
-          startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null,
+          startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null
         )
         .setDescription(startEmbedDescription ?? null)
         .setColor(application.startmessage?.color || "#3f7ff1")
@@ -307,37 +287,35 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       let startmessage;
 
       try {
-        startmessage = await dmChannel.send({
-          embeds: [startDMEmbed],
-        });
+        startmessage = await dmChannel.send({ embeds: [startDMEmbed] });
       } catch (error) {
         if (error.code === 50007 || error.code === 50278) {
           // Cannot send messages to this user
           await interaction.editReply({
             content: `<@${user.id}>, I cannot send you DMs! Please enable DMs from server members and try again.`,
-            flags: MessageFlags.Ephemeral,
+            flags: MessageFlags.Ephemeral
           });
           return; // DMs are closed or the user has blocked the bot
-        } else {
-          throw error;
-        }
+        } 
+        else 
+        { throw error; }
       }
 
       const startedEmbed = new EmbedBuilder()
         .setTitle("Verification Started")
         .setDescription(
-          `Verification started, check your DMs or [click here](https://discord.com/channels/@me/${dmChannel.id}/${startmessage.id})!`,
+          `Verification started, check your DMs or [click here](https://discord.com/channels/@me/${dmChannel.id}/${startmessage.id})!`
         )
         .setColor("#3f7ff1");
 
       await interaction.editReply({
         embeds: [startedEmbed],
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
 
       activeVerifications.set(user.id, {
         sessionId: sessionId,
-        startTime: Date.now(),
+        startTime: Date.now()
       });
 
       const isPremium = await isPremiumServer(guildId);
@@ -361,9 +339,9 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
               DBFunctionsPath,
               encryptionKey,
               resumeState,
-              isPremium,
+              isPremium
             },
-            cluster: 0,
+            cluster: 0
           })
           .then(async (results) => {
             const [reason, responses] = results[0];
@@ -397,9 +375,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
             if (
               !error.toString().includes("Verification was canceled") &&
               !error.toString().includes("Verification timed out")
-            ) {
-              throw error;
-            }
+            ) 
+            { throw error; }
 
 
           });
@@ -449,9 +426,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
           if (
             !error.toString().includes("Verification was canceled") &&
             !error.toString().includes("Verification timed out")
-          ) {
-            throw error;
-          }
+          ) 
+          { throw error; }
         }
       }
 
@@ -459,9 +435,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       if (
         !error.toString().includes("Verification was canceled") &&
         !error.toString().includes("Verification timed out")
-      ) {
-        throw error;
-      }
+      ) 
+      { throw error; }
     }
   } catch (error) {
     console.error("Verification error:", error);
@@ -469,9 +444,9 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
       content: `An error occurred during the verification process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
       flags: MessageFlags.Ephemeral
     }).catch(() => { });
-  } finally {
-    activeVerifications.delete(interaction.user.id);
-  }
+  } 
+  finally 
+  { activeVerifications.delete(interaction.user.id); }
 };
 
 async function constructApplicationEmbed(
@@ -481,7 +456,7 @@ async function constructApplicationEmbed(
   serverId,
   client,
   pingStaffRoleId,
-  appName,
+  appName
 ) {
   const guild = await client.guilds.fetch(serverId);
 
@@ -500,20 +475,16 @@ async function constructApplicationEmbed(
     .addSectionComponents(
       new SectionBuilder()
         .addTextDisplayComponents(
-          new TextDisplayBuilder({
-            content: headerText,
-          }),
+          new TextDisplayBuilder({ content: headerText })
         )
         .setThumbnailAccessory(
           new ThumbnailBuilder({
-            media: { url: user.displayAvatarURL({ size: 1024 }) },
-          }),
-        ),
+            media: { url: user.displayAvatarURL({ size: 1024 }) }
+          })
+        )
     )
     .addSeparatorComponents(
-      new SeparatorBuilder({
-        spacing: SeparatorSpacingSize.Small,
-      }),
+      new SeparatorBuilder({ spacing: SeparatorSpacingSize.Small })
     );
 
   if (answers.length > 0) {
@@ -523,9 +494,9 @@ async function constructApplicationEmbed(
     let wasTruncated = false;
     const fullTextLines = [];
 
-    answers.forEach((answer) => {
-      absoluteTotalCharacterCount += answer.questionContent.length + (answer.content?.length || 0);
-    });
+    answers.forEach(
+      (answer) => { absoluteTotalCharacterCount += answer.questionContent.length + (answer.content?.length || 0); }
+    );
 
     answers.forEach((answer, index) => {
       const questioncontent = answer.questionContent.replace(/(\*\*|__|\*|~~|`|>)/g, "");
@@ -533,9 +504,9 @@ async function constructApplicationEmbed(
       const questionNumber = questions.findIndex(q => q.id === answer.questionId) + 1 || (index + 1);
       fullTextLines.push(`Q${questionNumber}: ${questioncontent}`);
       fullTextLines.push(`Answer: ${rawContent}`);
-      if (answer.attachments && answer.attachments.length > 0) {
-        fullTextLines.push(`Attachments: ${answer.attachments.join(', ')}`);
-      }
+      if (answer.attachments && answer.attachments.length > 0) 
+      { fullTextLines.push(`Attachments: ${answer.attachments.join(', ')}`); }
+
       fullTextLines.push('');
 
       if (totalCharacterCount >= MAX_TOTAL_CHARACTERS) {
@@ -546,10 +517,7 @@ async function constructApplicationEmbed(
       const questionText = absoluteTotalCharacterCount >= MAX_TOTAL_CHARACTERS ? `**${questionNumber}.** **${questioncontent.slice(0, 10)}...**` : `**${questionNumber}.** **${questioncontent}**`;
       const answertext = answer.content || "No answer provided";
 
-      let formattedField = [
-        questionText,
-        `_ _ ${answertext}`,
-      ].join("\n");
+      let formattedField = [ questionText, `_ _ ${answertext}` ].join("\n");
 
       if (totalCharacterCount + formattedField.length > MAX_TOTAL_CHARACTERS) {
         const remainingCharacters = MAX_TOTAL_CHARACTERS - totalCharacterCount;
@@ -567,22 +535,16 @@ async function constructApplicationEmbed(
       totalCharacterCount += formattedField.length;
 
       container.addTextDisplayComponents(
-        new TextDisplayBuilder({
-          content: formattedField,
-        }),
+        new TextDisplayBuilder({ content: formattedField })
       );
 
       if (answer.attachments && answer.attachments.length > 0) {
         const allurls = answer.attachments;
         const mappedurls = allurls?.map((url) => ({
-          media: {
-            url: url,
-          },
+          media: { url: url }
         }));
         container.addMediaGalleryComponents(
-          new MediaGalleryBuilder({
-            items: mappedurls,
-          }),
+          new MediaGalleryBuilder({ items: mappedurls })
         );
       }
     });
@@ -593,14 +555,14 @@ async function constructApplicationEmbed(
         const serverOwner = guild?.ownerId;
         const [isPaidUser, adTexts] = await Promise.all([
           UserBilling.findOne({ where: { user_id: serverOwner } }),
-          AdTexts.findAll({ where: { type: "application" } }),
+          AdTexts.findAll({ where: { type: "application" } })
         ]);
 
         if (!isPaidUser && adTexts.length > 0) {
           const randomAd = adTexts[Math.floor(Math.random() * adTexts.length)];
           container.addTextDisplayComponents(
             new TextDisplayBuilder({
-              content: '\n-# ' + randomAd.text,
+              content: '\n-# ' + randomAd.text
             }),
           );
         }
@@ -622,7 +584,7 @@ async function constructApplicationEmbed(
         container,
         wasTruncated,
         fullText,
-        attachment,
+        attachment
       };
     }
 
@@ -652,7 +614,7 @@ async function processVerificationResult(
   appName,
   applicationId,
   sessionId,
-  application,
+  application
 ) {
   if (reason === "completed" || reason === "kick" || reason === "deny") {
     // Process collected responses and send to verification review channel
@@ -667,7 +629,7 @@ async function processVerificationResult(
       interaction.guild.id,
       client,
       pingStaffRoleId,
-      appName,
+      appName
     );
 
     if (!containerResult || !containerResult.container) {
@@ -710,44 +672,40 @@ async function processVerificationResult(
       new ButtonBuilder()
         .setCustomId(`action_${applicationId}_${interaction.user.id}`)
         .setLabel("Kick")
-        .setStyle("Secondary"),
+        .setStyle("Secondary")
     );
 
     let channelsent;
 
     const sendPayload = {
       flags: [MessageFlags.IsComponentsV2],
-      components: [container, isActionActive ? verify : null].filter(Boolean),
+      components: [container, isActionActive ? verify : null].filter(Boolean)
     };
 
-    if (attachment) {
-      sendPayload.files = [attachment];
-    }
+    if (attachment) 
+    { sendPayload.files = [attachment]; }
 
     let threadName = null
 
-    if (useThreads === true) {
-      threadName = `${user.globalName ?? user.username}'s ${appName}`;
-    }
+    if (useThreads === true) 
+    { threadName = `${user.globalName ?? user.username}'s ${appName}`; }
 
     let outputChannel = verifyLogsChannel;
-    if ((reason === "kick" || reason === "deny") && application.verifylogs) {
-      outputChannel = interaction.guild.channels.cache.get(application.verifylogs) || verifyLogsChannel;
-    }
+    if ((reason === "kick" || reason === "deny") && application.verifylogs) 
+    { outputChannel = interaction.guild.channels.cache.get(application.verifylogs) || verifyLogsChannel; }
 
     channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
 
     //if reason was kick or deny, close the thread
-    if ((reason === "kick" || reason === "deny") && channelsent?.thread) {
-      await channelsent.thread.setArchived(true, "Archiving due to auto-action");
-    }
+    if ((reason === "kick" || reason === "deny") && channelsent?.thread) 
+    { await channelsent.thread.setArchived(true, "Archiving due to auto-action"); }
 
     try {
       const encryptionKey = process.env.ENCRYPTION_KEY
       const finalPayload = {
         responses,
         submittedForReview: true,
-        reviewMessageId: channelsent.id,
+        reviewMessageId: channelsent.id
       };
 
       await Submissions.upsert({
@@ -756,51 +714,51 @@ async function processVerificationResult(
         guild_id: guildId,
         app_id: String(applicationId),
         status: reason === "deny" ? "denied" : reason === "kick" ? "kicked" : reason,
-        data: encryptData(finalPayload, encryptionKey),
+        data: encryptData(finalPayload, encryptionKey)
       });
 
       if (sessionId && sessionId !== channelsent.id) {
         await Submissions.destroy({
-          where: { message_id: sessionId },
+          where: { message_id: sessionId }
         });
       }
-    } catch (progressError) {
-      console.error("Error saving final application progress:", progressError);
-    }
+    } 
+    catch (progressError) 
+    { console.error("Error saving final application progress:", progressError); }
 
     if (reason === "completed") {
       try {
         const [verification, created] = await Verification.findOrCreate({
           where: { userId: user.id },
           defaults: {
-            guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } },
-          },
+            guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } }
+          }
         });
 
         if (!created) {
           addMessageId(verification, guildId, applicationId, channelsent.id);
           await verification.save();
         }
-      } catch (error) {
-        console.error("Error setting user verification:", error);
-      }
+      } 
+      catch (error) 
+      { console.error("Error setting user verification:", error); }
 
       const finishEmbedTitle = replaceplaceholder(
         finishmessage?.title,
         interaction.user.globalName ?? interaction.user.username,
-        interaction.guild.name,
+        interaction.guild.name
       );
       const finishEmbedDescription = replaceplaceholder(
         finishmessage?.description,
         interaction.user.globalName ?? interaction.user.username,
-        interaction.guild.name,
+        interaction.guild.name
       );
       const finishEmbedimage = finishmessage?.image;
       const finishImageAsset = resolveImage(finishEmbedimage);
 
       const endEmbed = new EmbedBuilder()
         .setTitle(
-          finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null,
+          finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null
         )
         .setDescription(finishEmbedDescription)
         .setColor(finishmessage?.color || "#008000")
@@ -808,17 +766,16 @@ async function processVerificationResult(
         .setImage(finishImageAsset.embedUrl);
 
       await dmChannel.send({
-        embeds: [endEmbed],
+        embeds: [endEmbed]
       }).catch((err) => {
         console.error(`Failed to send completion DM to user ${user.id}:`, err);
       });
     } else {
       let member;
-      try {
-        member = await interaction.guild.members.fetch(user.id);
-      } catch {
-        member = { user, id: user.id, displayAvatarURL: user.displayAvatarURL.bind(user) };
-      }
+      try 
+      { member = await interaction.guild.members.fetch(user.id); } 
+      catch 
+      { member = { user, id: user.id, displayAvatarURL: user.displayAvatarURL.bind(user) }; }
 
       const { isPremiumServer } = require(path.join(process.cwd(), "js/DBFunctions.js"));
       
@@ -828,28 +785,25 @@ async function processVerificationResult(
           const denyCount = await Submissions.count({
             where: { user_id: user.id, guild_id: interaction.guild.id, app_id: String(applicationId), status: "denied" },
           });
-          if (denyCount >= application.maxdenials) {
-            rolesToApply.push(application.deniedrole);
-          }
-        } else if (application.deniedrole?.length > 0) {
-          rolesToApply.push(application.deniedrole);
-        }
+          if (denyCount >= application.maxdenials) 
+          { rolesToApply.push(application.deniedrole); }
+        } 
+        else if (application.deniedrole?.length > 0) 
+        { rolesToApply.push(application.deniedrole); }
 
         if (rolesToApply.length > 0 && member.roles) {
-          try {
-            await applyRoles(member, rolesToApply, null, interaction);
-          } catch (e) {
-            console.error("Failed to apply denied role due to auto-action", e);
-          }
+          try 
+          { await applyRoles(member, rolesToApply, null, interaction); } 
+          catch (e) 
+          { console.error("Failed to apply denied role due to auto-action", e); }
         }
       }
 
       if (reason === "kick") {
         const denyReason = "Automated application kick based on response.";
         await sendKickDM(user, interaction.guild.name, denyReason);
-        if (member.kickable) {
-          await member.kick("Auto-kicked during application").catch(() => {});
-        }
+        if (member.kickable) 
+        { await member.kick("Auto-kicked during application").catch(() => {}); }
       } else {
         const denyReason = "Automated application denial based on response.";
         await sendDenyDM("Melpo (Auto-Action)", user, application, interaction.guild.name, denyReason);
@@ -880,16 +834,11 @@ async function Verificationfunc(
     dbObjectsPath,
     DBFunctionsPath,
     resumeState,
-    isPremium,
-  },
+    isPremium
+  }
 ) {
   return new Promise((resolve, reject) => {
-    const {
-      ButtonBuilder,
-      ActionRowBuilder,
-      EmbedBuilder,
-      StringSelectMenuBuilder,
-    } = require("discord.js");
+    const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
     const { Submissions } = require(dbObjectsPath || "../dbObjects.js");
 
     const numberToEmoji = [
@@ -913,7 +862,7 @@ async function Verificationfunc(
       currentQuestionIndex,
       currentMessageId,
       currentQuestion,
-      submittedForReview = false,
+      submittedForReview = false
     ) {
       const transcript = [...responses];
 
@@ -937,7 +886,7 @@ async function Verificationfunc(
         currentQuestionIndex,
         currentMessageId,
         dmChannelId,
-        submittedForReview,
+        submittedForReview
       };
 
       await Submissions.upsert({
@@ -946,38 +895,35 @@ async function Verificationfunc(
         guild_id: guildId,
         app_id: String(configId),
         status: "pending",
-        data: encryptData(payload),
+        data: encryptData(payload)
       });
     }
 
     async function clearProgress() {
       await Submissions.destroy({
-        where: { message_id: sessionId },
+        where: { message_id: sessionId }
       }).catch(() => { });
     }
 
     const questionMap = new Map();
     const questionIndexMap = new Map();
     botQuestions.forEach((question, index) => {
-      if (!question.id) {
-        question.id = `question-${index}`;
-      }
+      if (!question.id) 
+      { question.id = `question-${index}`; }
+
       questionMap.set(question.id, question);
       questionIndexMap.set(question.id, index);
     });
 
-    function getSequentialNextQuestionId(currentQuestionIndex) {
-      return botQuestions[currentQuestionIndex + 1]?.id ?? null;
-    }
+    function getSequentialNextQuestionId(currentQuestionIndex) 
+    { return botQuestions[currentQuestionIndex + 1]?.id ?? null; }
 
     function resolveNextQuestionId(nextQuestionId, currentQuestionIndex) {
-      if (nextQuestionId === "end" || nextQuestionId === "kick" || nextQuestionId === "deny") {
-        return nextQuestionId;
-      }
+      if (nextQuestionId === "end" || nextQuestionId === "kick" || nextQuestionId === "deny") 
+      { return nextQuestionId; }
 
-      if (nextQuestionId === undefined || nextQuestionId === null || nextQuestionId === "") {
-        return getSequentialNextQuestionId(currentQuestionIndex);
-      }
+      if (nextQuestionId === undefined || nextQuestionId === null || nextQuestionId === "") 
+      { return getSequentialNextQuestionId(currentQuestionIndex); }
 
       return nextQuestionId;
     }
@@ -989,16 +935,14 @@ async function Verificationfunc(
       if (
         selectedOptionCount > 1 &&
         currentQuestion.multiSelectNextQuestionId
-      ) {
-        return resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex);
-      }
+      ) 
+      { return resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex); }
 
       // If MCQ with a selected option and that option has a nextQuestionId
       if (selectedOptionIndex !== null && currentQuestion.mcq && currentQuestion.mcq.length > 0) {
         const selectedOption = currentQuestion.mcq[selectedOptionIndex];
-        if (selectedOption && selectedOption.nextQuestionId) {
-          return resolveNextQuestionId(selectedOption.nextQuestionId, currentQuestionIndex);
-        }
+        if (selectedOption && selectedOption.nextQuestionId) 
+        { return resolveNextQuestionId(selectedOption.nextQuestionId, currentQuestionIndex); }
       }
 
       // Check regex branches
@@ -1008,22 +952,21 @@ async function Verificationfunc(
             try {
               const regex = new RegExp(branch.pattern, "i"); // case-insensitive
               if (regex.test(answerText)) {
-                if (branch.nextQuestionId) {
-                  return resolveNextQuestionId(branch.nextQuestionId, currentQuestionIndex);
-                }
+                if (branch.nextQuestionId) 
+                { return resolveNextQuestionId(branch.nextQuestionId, currentQuestionIndex); }
+
                 return getSequentialNextQuestionId(currentQuestionIndex);
               }
-            } catch (error) {
-              console.error(`Invalid regex pattern "${branch.pattern}":`, error);
-            }
+            } 
+            catch (error) 
+            { console.error(`Invalid regex pattern "${branch.pattern}":`, error); }
           }
         }
       }
 
       // Default, use nextQuestionId, otherwise just follow order.
-      if (Object.prototype.hasOwnProperty.call(currentQuestion, "nextQuestionId")) {
-        return resolveNextQuestionId(currentQuestion.nextQuestionId, currentQuestionIndex);
-      }
+      if (Object.prototype.hasOwnProperty.call(currentQuestion, "nextQuestionId")) 
+      { return resolveNextQuestionId(currentQuestion.nextQuestionId, currentQuestionIndex); }
 
       return getSequentialNextQuestionId(currentQuestionIndex);
     }
@@ -1127,7 +1070,7 @@ async function Verificationfunc(
             .setColor("#3f7ff1");
 
           await dmChannel.send({
-            embeds: [continueEmbed],
+            embeds: [continueEmbed]
           })
         }
 
@@ -1137,7 +1080,7 @@ async function Verificationfunc(
           activeQuestionMessage = await dmChannel.send({
             content: resumeState?.currentQuestionId ? "Resuming your previous application from where you left off." : undefined,
             embeds: [DMEmbed],
-            components: [actionRow, cancelbutton].filter(Boolean),
+            components: [actionRow, cancelbutton].filter(Boolean)
           });
         }
 
@@ -1147,16 +1090,16 @@ async function Verificationfunc(
           currentQuestionIndex,
           activeQuestionMessage.id,
           startingQuestion,
-          false,
+          false
         );
 
         const collector = dmChannel.createMessageCollector({
           filter: (m) => !m.author.bot,
-          time: 3600000,
+          time: 3600000
         });
         const cancelcollector = dmChannel.createMessageComponentCollector({
           filter: (i) => i.user.id === user.id,
-          time: 3600000,
+          time: 3600000
         });
 
         // Handle button interactions
@@ -1178,11 +1121,11 @@ async function Verificationfunc(
 
                 await activeQuestionMessage.edit({
                   embeds: [cancelEmbed],
-                  components: [],
+                  components: []
                 }).catch(() => { });
-                await clearProgress().catch((err) => {
-                  console.error("Failed to clear progress on cancel:", err);
-                });
+                await clearProgress().catch((err) => 
+                  { console.error("Failed to clear progress on cancel:", err); }
+                );
                 reject(new Error("Application was canceled"));
                 return;
               }
@@ -1248,7 +1191,7 @@ async function Verificationfunc(
                   .setColor("#008000")
                   .addFields({
                     name: `Answer`,
-                    value: fieldValue,
+                    value: fieldValue
                   });
 
                 await activeQuestionMessage.edit({
@@ -1260,7 +1203,7 @@ async function Verificationfunc(
                   questionId: currentQuestion.id,
                   questionContent: currentQuestion.content,
                   mcqIndex: selectedOptions.length > 0 ? selectedOptions.map((option) => option.index) : [selectedOptionIndex],
-                  content: fieldValue,
+                  content: fieldValue
                 };
                 responses.push(responseAnswer);
                 collector.resetTimer();
@@ -1273,7 +1216,7 @@ async function Verificationfunc(
                   isPremium,
                   selectedOptionIndex,
                   fieldValue,
-                  i.isStringSelectMenu() ? selectedOptions.length : 1,
+                  i.isStringSelectMenu() ? selectedOptions.length : 1
                 );
 
                 console.log(`User selected option index ${selectedOptionIndex} for question ${currentQuestionId}. Determined next question ID: ${nextQuestionId}`);
@@ -1311,17 +1254,17 @@ async function Verificationfunc(
                   currentQuestionIndex,
                   activeQuestionMessage.id,
                   nextQuestion,
-                  false,
+                  false
                 );
               }
             } catch (error) {
               console.error(
                 `Error in MCQ handler for user ${userid}:`,
-                error,
+                error
               );
               try {
                 await dmChannel.send(
-                  "An error occurred. Please try again or contact support.",
+                  "An error occurred. Please try again or contact support."
                 );
               } catch (dmError) {
                 console.error("Failed to send error message:", dmError);
@@ -1345,13 +1288,11 @@ async function Verificationfunc(
             try {
               const currentQuestion = questionMap.get(currentQuestionId);
 
-              if (!currentQuestion) {
-                return;
-              }
+              if (!currentQuestion) 
+              { return; }
 
-              if (currentQuestion.mcq && currentQuestion.mcq.length > 0) {
-                return;
-              }
+              if (currentQuestion.mcq && currentQuestion.mcq.length > 0) 
+              { return; }
 
               let totalcontent = collected.content;
               let answercontent = collected.content;
@@ -1384,7 +1325,7 @@ async function Verificationfunc(
 
               await activeQuestionMessage.edit({
                 embeds: [answerEmbed],
-                components: [],
+                components: []
               });
 
               totalcontent = {
@@ -1392,7 +1333,7 @@ async function Verificationfunc(
                 questionContent: currentQuestion.content,
                 content: totalcontent,
                 attachments: collected.attachments?.map(
-                  (attachment) => attachment.url,
+                  (attachment) => attachment.url
                 ),
               };
 
@@ -1426,7 +1367,7 @@ async function Verificationfunc(
               const { DMEmbed, actionRow } = createQuestionEmbed(nextQuestion, responses.length);
               activeQuestionMessage = await dmChannel.send({
                 embeds: [DMEmbed],
-                components: [actionRow, cancelbutton].filter(Boolean),
+                components: [actionRow, cancelbutton].filter(Boolean)
               });
 
               await saveProgress(
@@ -1435,16 +1376,16 @@ async function Verificationfunc(
                 currentQuestionIndex,
                 activeQuestionMessage.id,
                 nextQuestion,
-                false,
+                false
               );
             } catch (error) {
               console.error(
                 `Error handling text message for user ${userid}:`,
-                error,
+                error
               );
               await collected.author
                 .send(
-                  "An error occurred processing your answer. Please try again.",
+                  "An error occurred processing your answer. Please try again."
                 )
                 .catch(() => { });
               collector.stop("error");
@@ -1463,7 +1404,7 @@ async function Verificationfunc(
           try {
             cancelcollector.stop();
             console.log(
-              `Verification ended for user ${userid} with reason: ${reason}`,
+              `Verification ended for user ${userid} with reason: ${reason}`
             );
 
             if (reason === "completed" || reason === "kick" || reason === "deny") {
@@ -1475,7 +1416,7 @@ async function Verificationfunc(
               const timeoutEmbed = new EmbedBuilder()
                 .setTitle("Verification Timed Out")
                 .setDescription(
-                  "The verification process has timed out. Please restart the verification.",
+                  "The verification process has timed out. Please restart the verification."
                 )
                 .setColor("#ff0000");
 
@@ -1488,28 +1429,27 @@ async function Verificationfunc(
               reject(new Error("Verification ended due to an internal error"));
             } else {
               reject(
-                new Error(`Verification ended unexpectedly: ${reason}`),
+                new Error(`Verification ended unexpectedly: ${reason}`)
               );
             }
           } catch (error) {
             console.error(
               `Error in verification end handler for user ${userid}:`,
-              error,
+              error
             );
             reject(error);
           }
         });
-      } catch (error) {
-        reject(error);
-      }
+      } 
+      catch (error) 
+      { reject(error); }
     })();
   });
 }
 
 async function resumeApplication(client) {
-  if (client.cluster && client.cluster.id !== 0) {
-    return;
-  }
+  if (client.cluster && client.cluster.id !== 0) 
+  { return; }
 
   if (!process.env.ENCRYPTION_KEY) {
     console.error("ENCRYPTION_KEY is not configured!!");
@@ -1518,18 +1458,17 @@ async function resumeApplication(client) {
 
   const pendingRows = await Submissions.findAll({
     where: { status: "pending" },
-    order: [["updatedAt", "ASC"]],
+    order: [["updatedAt", "ASC"]]
   });
 
   for (const progressRow of pendingRows) {
     try {
-      if (activeVerifications.has(progressRow.user_id)) {
-        continue;
-      }
+      if (activeVerifications.has(progressRow.user_id)) 
+      { continue; }
 
       const payload = decryptData(
         progressRow.data,
-        process.env.ENCRYPTION_KEY,
+        process.env.ENCRYPTION_KEY
       );
 
       if (
@@ -1540,53 +1479,48 @@ async function resumeApplication(client) {
         !payload.dmChannelId ||
         !Array.isArray(payload.questionObjects) ||
         payload.questionObjects.length === 0
-      ) {
-        continue;
-      }
+      ) 
+      { continue; }
 
       const [guild, user] = await Promise.all([
         client.guilds.fetch(progressRow.guild_id).catch(() => null),
         client.users.fetch(progressRow.user_id).catch(() => null),
       ]);
 
-      if (!guild || !user) {
-        continue;
-      }
+      if (!guild || !user) 
+      { continue;  }
 
       const { application, error } = await getApplicationByIdWithFallback(
         progressRow.app_id,
-        progressRow.guild_id,
+        progressRow.guild_id
       );
 
-      if (error || !application) {
-        continue;
-      }
+      if (error || !application) 
+      { continue; }
 
       const verifyLogsChannel = guild.channels.cache.get(application.reviewchannel);
-      if (!verifyLogsChannel) {
-        continue;
-      }
+      if (!verifyLogsChannel) 
+      { continue; }
 
       const cancelbutton = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId(`cancelverification-${progressRow.message_id}`)
           .setLabel("Cancel")
-          .setStyle("Danger"),
+          .setStyle("Danger")
       );
 
       const dmChannel = await client.channels.fetch(payload.dmChannelId).catch(() => null);
-      if (!dmChannel) {
-        continue;
-      }
+      if (!dmChannel) 
+      { continue; }
 
       const pseudoInteraction = {
         guild,
-        user,
+        user
       };
 
       activeVerifications.set(progressRow.user_id, {
         sessionId: progressRow.message_id,
-        startTime: Date.now(),
+        startTime: Date.now()
       });
 
       void (async () => {
@@ -1602,7 +1536,7 @@ async function resumeApplication(client) {
             dbObjectsPath: require.resolve("../dbObjects.js"),
             DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
             encryptionKey: process.env.ENCRYPTION_KEY,
-            resumeState: payload,
+            resumeState: payload
           });
 
           if (reason === "completed") {
@@ -1630,21 +1564,18 @@ async function resumeApplication(client) {
             `Failed to resume application progress ${progressRow.message_id}:`,
             error,
           );
-        } finally {
-          activeVerifications.delete(progressRow.user_id);
-        }
+        } 
+        finally 
+        { activeVerifications.delete(progressRow.user_id); }
       })();
     } catch (error) {
       console.error(
         `Failed to resume application progress ${progressRow.message_id}:`,
-        error,
+        error
       );
       activeVerifications.delete(progressRow.user_id);
     }
   }
 }
 
-module.exports = {
-  resumeApplication,
-  handleApplicationStart
-}
+module.exports = { resumeApplication, handleApplicationStart }

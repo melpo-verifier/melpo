@@ -38,32 +38,32 @@ module.exports = {
         {
           name: ":stopwatch: Uptime",
           value: `${days}d ${hours}h ${minutes}m ${seconds}s`,
-          inline: true,
+          inline: true
         },
         {
           name: ":gear: Roundtrip Latency",
           value: `${apiLatency}ms`,
-          inline: true,
+          inline: true
         },
         {
           name: ":globe_with_meridians: WebSocket Latency",
           value: `${wsLatency}ms`,
-          inline: true,
+          inline: true
         },
         {
           name: ":satellite: Shard Info",
           value: `• Shard ID: ${shardId}\n• Total Shards: ${totalShards}`,
-          inline: true,
+          inline: true
         },
         {
           name: ":computer: System Uptime",
           value: `${sysDays}d ${sysHours}h ${sysMinutes}m ${sysSeconds}s`,
-          inline: true,
+          inline: true
         },
       )
       .setFooter({
         text: `Requested by ${interaction.user.tag}`,
-        iconURL: interaction.user.displayAvatarURL(),
+        iconURL: interaction.user.displayAvatarURL()
       })
       .setTimestamp();
 

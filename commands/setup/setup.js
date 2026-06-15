@@ -5,7 +5,7 @@ const {
   EmbedBuilder,
   PermissionsBitField,
   ChannelSelectMenuBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { ServerConfig, Application } = require("../../dbObjects.js");
 const { createTempApplication } = require("../../js/tempconfigfuncs.js");
@@ -63,7 +63,7 @@ module.exports = {
 
   async autocomplete(interaction) {
     const applications = await Application.findAll({
-      where: { server_id: interaction.guild.id },
+      where: { server_id: interaction.guild.id }
     });
 
     const focusedValue = interaction.options.getFocused().toLowerCase();
@@ -79,20 +79,20 @@ module.exports = {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
       return interaction.reply({
         content: "You need the `Manage Server` permission to run setup.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     const subcommand = interaction.options.getSubcommand();
     const name = interaction.options.getString('name');
     let serverConfig = await ServerConfig.findOne({
-      where: { server_id: interaction.guild.id },
+      where: { server_id: interaction.guild.id }
     });
 
     if (!serverConfig) {
       serverConfig = await ServerConfig.create({
         server_id: interaction.guild.id,
-        autorole: [],
+        autorole: []
       });
     }
 
@@ -105,7 +105,7 @@ module.exports = {
       PermissionsBitField.Flags.SendMessages,
       PermissionsBitField.Flags.EmbedLinks,
       PermissionsBitField.Flags.AttachFiles,
-      PermissionsBitField.Flags.ManageMessages,
+      PermissionsBitField.Flags.ManageMessages
     ];
 
     if (!channelPermissions.has(requiredPermissions)) {
@@ -118,7 +118,7 @@ module.exports = {
 
       return interaction.reply({
         content: `I'm missing the following permissions to work properly in this channel: ${missingPermissions}. Please ensure I have these permissions and try again.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -131,14 +131,14 @@ module.exports = {
       if (applications.length >= maxApps) {
         return interaction.reply({
           content: `You can only have up to ${maxApps} applications.`,
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
       const existing = applications.find(a => a.name.toLowerCase() === name.toLowerCase());
       if (existing) {
         return interaction.reply({
           content: 'An application with this name already exists.',
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -156,7 +156,7 @@ module.exports = {
           new ButtonBuilder()
             .setCustomId("generalinfo_" + tempApp.id + "_true")
             .setLabel("Start New Setup")
-            .setStyle("Primary"),
+            .setStyle("Primary")
         );
         return interaction.reply({ embeds: [embed], components: [continuebuttons] });
       }
@@ -170,19 +170,20 @@ module.exports = {
         new ButtonBuilder()
           .setCustomId(`cancelsetup_${tempApp.id}`)
           .setLabel("Cancel")
-          .setStyle("Danger"),
+          .setStyle("Danger")
       );
 
+      //NOTE : Hardcoded invite link, potentially move to DB or table? -mat
       const generalembed = new EmbedBuilder()
         .setColor("#3f7ff1")
         .setTitle(`Application Setup: ${name}`)
         .setDescription(
-          `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nWelcome to the setup of ${name}! I will guide you through the setup process. I need 4 things to be set up in order to start securing your server. We'll start with the User Verification Start Channel.\n\nPlease select the channel where users will start the verification process and then click the "Next" button below to continue...`,
+          `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nWelcome to the setup of ${name}! I will guide you through the setup process. I need 4 things to be set up in order to start securing your server. We'll start with the User Verification Start Channel.\n\nPlease select the channel where users will start the verification process and then click the "Next" button below to continue...`
         )
         .addFields({
           name: "User Verification Channel `(required)`",
           value: `No channel set up yet`,
-          inline: false,
+          inline: false
         });
 
       const channelmenu = new ChannelSelectMenuBuilder()
@@ -196,7 +197,7 @@ module.exports = {
 
       await interaction.reply({
         embeds: [generalembed],
-        components: [verificationchannelmenu, nextbuttons],
+        components: [verificationchannelmenu, nextbuttons]
       });
     }
 
@@ -206,7 +207,7 @@ module.exports = {
       if (!app) {
         return interaction.reply({
           content: 'Application not found.',
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
       const { tempApp, created } = await createTempApplication(interaction.guild.id, { applicationId: app.id, name: app.name });
@@ -237,12 +238,12 @@ module.exports = {
       const component = ServerConfigComponent({
         guild: interaction.guild,
         serverConfig,
-        applicationCount: applications.length,
+        applicationCount: applications.length
       });
 
       return interaction.reply({
         ...component,
-        flags: [MessageFlags.IsComponentsV2],
+        flags: [MessageFlags.IsComponentsV2]
       });
     }
 
@@ -250,7 +251,7 @@ module.exports = {
       if (applications.length === 0) {
         return interaction.reply({
           content: 'No applications found for this server.',
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
       const appList = applications
@@ -263,9 +264,7 @@ module.exports = {
         .setColor("#3f7ff1");
 
 
-      return interaction.reply({
-        embeds: [applicationlistEmbed],
-      });
+      return interaction.reply({ embeds: [applicationlistEmbed] });
     }
 
     else if (subcommand === 'delete') {
@@ -273,7 +272,7 @@ module.exports = {
       if (!app) {
         return interaction.reply({
           content: 'Application not found.',
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -295,7 +294,7 @@ module.exports = {
 
       return interaction.reply({
         embeds: [confirmationEmbed],
-        components: [confirmationButtons],
+        components: [confirmationButtons]
       });
     }
   },

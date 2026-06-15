@@ -1,9 +1,4 @@
-const {
-  ActionRowBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-} = require("discord.js");
+const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const { updateTempApplication, getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const customizationMenu = require("./selectcustomizationMenu.js");
 
@@ -13,21 +8,17 @@ module.exports = async ({ interaction, context }) => {
 
   // Validate tempApplicationId
   const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
-  if (error || !tempApp) {
-    return interaction.reply({
-      content: error || "Application not found or does not belong to this server.",
-      flags: 64,
-    });
-  }
+  if (error || !tempApp) 
+  { return interaction.reply({ content: error || "Application not found or does not belong to this server.",  flags: 64 }); }
 
   const value = interaction.values[0];
 
   if (value !== "custom") {
-    await updateTempApplication(interaction.guild.id, {
-      [customIdValue]: { color: value },
-    }, { id: tempApplicationId });
+    await updateTempApplication(interaction.guild.id, { [customIdValue]: { color: value } }, { id: tempApplicationId });
     customizationMenu({ interaction, customIdValue, tempApplicationId });
-  } else if (value === "custom") {
+  } 
+  else if (value === "custom") 
+  {
     const modal = new ModalBuilder()
       .setCustomId(`setColorModal_${customIdValue}_${tempApplicationId}`)
       .setTitle("Set Embed Color");

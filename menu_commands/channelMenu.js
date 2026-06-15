@@ -4,7 +4,7 @@ const CHANNEL_FIELDS = {
   0: "verifychannel",
   1: "reviewchannel",
   2: "verifylogs",
-  3: "verificationwelcomechannel",
+  3: "verificationwelcomechannel"
 };
 
 module.exports = async ({ interaction, context }) => {
@@ -16,11 +16,7 @@ module.exports = async ({ interaction, context }) => {
 
   const fieldName = CHANNEL_FIELDS[number];
   if (fieldName) {
-    await updateTempApplication(
-      interaction.guild.id,
-      { [fieldName]: selectedValue },
-      { id: tempApplicationId }
-    );
+    await updateTempApplication( interaction.guild.id, { [fieldName]: selectedValue }, { id: tempApplicationId } );
     embed.fields[number].value =
       selectedValue !== "deleted" ? `<#${selectedValue}>` : `**Not set up**`;
   }

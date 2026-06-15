@@ -4,18 +4,12 @@ const EventEmitter = require("events");
 class PerformanceMonitor extends EventEmitter {
   constructor() {
     super();
-    this.metrics = {
-      commands: new Map(),
-      interactions: new Map(),
-      errors: new Map(),
-      memory: [],
-      uptime: Date.now(),
-    };
+    this.metrics = { commands: new Map(), interactions: new Map(), errors: new Map(), memory: [], uptime: Date.now() };
 
     this.thresholds = {
       commandExecutionTime: 5000, // 5 seconds
-      memoryUsage: 512, // MB
-      errorRate: 10, // errors per minute
+      memoryUsage: 512,           // MB
+      errorRate: 10               // errors per minute
     };
 
     this.startMonitoring();
@@ -23,31 +17,18 @@ class PerformanceMonitor extends EventEmitter {
 
   startMonitoring() {
     // Memory monitoring every 30 seconds
-    setInterval(() => {
-      this.recordMemoryUsage();
-    }, 30000);
+    setInterval(() => { this.recordMemoryUsage(); }, 30000);
 
     // Performance report every 10 minutes
-    setInterval(() => {
-      this.generatePerformanceReport();
-    }, 600000);
+    setInterval(() => { this.generatePerformanceReport(); }, 600000);
 
     // Error rate check every minute
-    setInterval(() => {
-      this.checkErrorRate();
-    }, 60000);
+    setInterval(() => { this.checkErrorRate(); }, 60000);
   }
 
   recordCommandExecution(commandName, executionTime, success = true) {
-    if (!this.metrics.commands.has(commandName)) {
-      this.metrics.commands.set(commandName, {
-        executions: 0,
-        totalTime: 0,
-        averageTime: 0,
-        errors: 0,
-        lastExecuted: null,
-      });
-    }
+    if (!this.metrics.commands.has(commandName)) 
+    { this.metrics.commands.set(commandName, { executions: 0, totalTime: 0, averageTime: 0, errors: 0, lastExecuted: null }); }
 
     const stats = this.metrics.commands.get(commandName);
     stats.executions++;
@@ -55,83 +36,57 @@ class PerformanceMonitor extends EventEmitter {
     stats.averageTime = stats.totalTime / stats.executions;
     stats.lastExecuted = Date.now();
 
-    if (!success) {
-      stats.errors++;
-    }
+    if (!success) { stats.errors++; }
 
     // Emit warning for slow commands
-    if (executionTime > this.thresholds.commandExecutionTime) {
-      this.emit("slowCommand", {
-        command: commandName,
-        executionTime,
-        threshold: this.thresholds.commandExecutionTime,
-      });
-    }
+    if (executionTime > this.thresholds.commandExecutionTime) 
+    { this.emit("slowCommand", { command: commandName, executionTime, threshold: this.thresholds.commandExecutionTime }); }
   }
 
   recordInteraction(type, customId, executionTime, success = true) {
     const key = `${type}:${customId}`;
 
-    if (!this.metrics.interactions.has(key)) {
-      this.metrics.interactions.set(key, {
-        count: 0,
-        totalTime: 0,
-        averageTime: 0,
-        errors: 0,
-      });
-    }
+    if (!this.metrics.interactions.has(key)) 
+    { this.metrics.interactions.set(key, { count: 0, totalTime: 0, averageTime: 0, errors: 0 }); }
 
     const stats = this.metrics.interactions.get(key);
     stats.count++;
     stats.totalTime += executionTime;
     stats.averageTime = stats.totalTime / stats.count;
 
-    if (!success) {
-      stats.errors++;
-    }
+    if (!success) { stats.errors++; }
   }
 
   recordError(errorType, context = null) {
     const minute = Math.floor(Date.now() / 60000);
 
-    if (!this.metrics.errors.has(minute)) {
-      this.metrics.errors.set(minute, new Map());
-    }
+    if (!this.metrics.errors.has(minute)) { this.metrics.errors.set(minute, new Map()); }
 
     const minuteErrors = this.metrics.errors.get(minute);
-    if (!minuteErrors.has(errorType)) {
-      minuteErrors.set(errorType, { count: 0, contexts: [] });
-    }
+    if (!minuteErrors.has(errorType))     { minuteErrors.set(errorType, { count: 0, contexts: [] }); }
 
     const errorStats = minuteErrors.get(errorType);
     errorStats.count++;
-    if (context) {
-      errorStats.contexts.push(context);
-    }
+    if (context) { errorStats.contexts.push(context); }
   }
 
   recordMemoryUsage() {
     const memUsage = process.memoryUsage();
-    const memData = {
-      timestamp: Date.now(),
-      rss: Math.round(memUsage.rss / 1024 / 1024),
-      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
-      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
-      external: Math.round(memUsage.external / 1024 / 1024),
+    const memData = { timestamp: Date.now(),
+      rss:        Math.round(memUsage.rss / 1024 / 1024),
+      heapUsed:   Math.round(memUsage.heapUsed / 1024 / 1024),
+      heapTotal:  Math.round(memUsage.heapTotal / 1024 / 1024),
+      external:   Math.round(memUsage.external / 1024 / 1024),
     };
 
     this.metrics.memory.push(memData);
 
     // Keep only last 24 hours of memory data
     const oneDayAgo = Date.now() - 86400000;
-    this.metrics.memory = this.metrics.memory.filter(
-      (m) => m.timestamp > oneDayAgo,
-    );
+    this.metrics.memory = this.metrics.memory.filter( (m) => m.timestamp > oneDayAgo );
 
     // Emit warning for high memory usage
-    if (memData.heapUsed > this.thresholds.memoryUsage) {
-      this.emit("highMemoryUsage", memData);
-    }
+    if (memData.heapUsed > this.thresholds.memoryUsage) { this.emit("highMemoryUsage", memData); }
   }
 
   checkErrorRate() {
@@ -140,16 +95,15 @@ class PerformanceMonitor extends EventEmitter {
 
     if (minuteErrors) {
       let totalErrors = 0;
-      for (const [stats] of minuteErrors.entries()) {
-        totalErrors += stats.count;
-      }
+      for (const [stats] of minuteErrors.entries()) { totalErrors += stats.count; }
 
-      if (totalErrors > this.thresholds.errorRate) {
+      if (totalErrors > this.thresholds.errorRate) 
+      {
         this.emit("highErrorRate", {
           minute: currentMinute,
           errorCount: totalErrors,
           threshold: this.thresholds.errorRate,
-          breakdown: Array.from(minuteErrors.entries()),
+          breakdown: Array.from(minuteErrors.entries())
         });
       }
     }
@@ -163,7 +117,7 @@ class PerformanceMonitor extends EventEmitter {
       commands: this.getCommandStats(),
       interactions: this.getInteractionStats(),
       errors: this.getErrorStats(),
-      cache: global.dbOptimizer ? global.dbOptimizer.getCacheStats() : null,
+      cache: global.dbOptimizer ? global.dbOptimizer.getCacheStats() : null
     };
 
     // console.log('\n📊 PERFORMANCE REPORT');
@@ -174,11 +128,7 @@ class PerformanceMonitor extends EventEmitter {
     // console.log(`⚡ Average command time: ${report.commands.averageTime}ms`);
     // console.log(`❌ Total errors (last hour): ${report.errors.lastHourTotal}`);
 
-    if (report.cache) {
-      console.log(
-        `🗄️ Cache: ${report.cache.cacheSize} entries, ${report.cache.hitRate} hit rate`,
-      );
-    }
+    if (report.cache) { console.log(`🗄️ Cache: ${report.cache.cacheSize} entries, ${report.cache.hitRate} hit rate`); }
 
     // console.log('═'.repeat(50));
 
@@ -199,10 +149,7 @@ class PerformanceMonitor extends EventEmitter {
 
   getMemoryStats() {
     const current = this.metrics.memory[this.metrics.memory.length - 1] || {};
-    const peak = this.metrics.memory.reduce(
-      (max, curr) => (curr.heapUsed > max.heapUsed ? curr : max),
-      current,
-    );
+    const peak = this.metrics.memory.reduce( (max, curr) => (curr.heapUsed > max.heapUsed ? curr : max), current );
 
     return { current, peak };
   }
@@ -215,12 +162,11 @@ class PerformanceMonitor extends EventEmitter {
 
     for (const [name, stats] of this.metrics.commands.entries()) {
       totalExecutions += stats.executions;
-      totalTime += stats.totalTime;
-      totalErrors += stats.errors;
+      totalTime       += stats.totalTime;
+      totalErrors     += stats.errors;
 
-      if (!slowestCommand || stats.averageTime > slowestCommand.averageTime) {
-        slowestCommand = { name, ...stats };
-      }
+      if (!slowestCommand || stats.averageTime > slowestCommand.averageTime) 
+      { slowestCommand = { name, ...stats }; }
     }
 
     return {
@@ -228,7 +174,7 @@ class PerformanceMonitor extends EventEmitter {
       averageTime:
         totalExecutions > 0 ? Math.round(totalTime / totalExecutions) : 0,
       totalErrors,
-      slowestCommand,
+      slowestCommand
     };
   }
 
@@ -244,7 +190,7 @@ class PerformanceMonitor extends EventEmitter {
     return {
       totalInteractions,
       averageTime:
-        totalInteractions > 0 ? Math.round(totalTime / totalInteractions) : 0,
+        totalInteractions > 0 ? Math.round(totalTime / totalInteractions) : 0
     };
   }
 
@@ -257,18 +203,12 @@ class PerformanceMonitor extends EventEmitter {
       if (minute > oneHourAgo) {
         for (const [errorType, stats] of minuteErrors.entries()) {
           lastHourTotal += stats.count;
-          breakdown.set(
-            errorType,
-            (breakdown.get(errorType) || 0) + stats.count,
-          );
+          breakdown.set( errorType, (breakdown.get(errorType) || 0) + stats.count );
         }
       }
     }
 
-    return {
-      lastHourTotal,
-      breakdown: Array.from(breakdown.entries()),
-    };
+    return { lastHourTotal, breakdown: Array.from(breakdown.entries()) };
   }
 
   // Clean up old data
@@ -277,9 +217,8 @@ class PerformanceMonitor extends EventEmitter {
 
     // Clean old error data
     for (const minute of this.metrics.errors.keys()) {
-      if (minute < oneHourAgo) {
-        this.metrics.errors.delete(minute);
-      }
+      if (minute < oneHourAgo) 
+      { this.metrics.errors.delete(minute); }
     }
 
     console.log("Performance monitor cleaned up old data");
@@ -291,27 +230,19 @@ const perfMonitor = new PerformanceMonitor();
 
 // Set up event listeners for performance issues
 perfMonitor.on("slowCommand", (data) => {
-  console.warn(
-    `⚠️ Slow command detected: ${data.command} took ${data.executionTime}ms (threshold: ${data.threshold}ms)`,
-  );
+  console.warn(`⚠️ Slow command detected: ${data.command} took ${data.executionTime}ms (threshold: ${data.threshold}ms)`);
 });
 
 perfMonitor.on("highMemoryUsage", (data) => {
-  console.warn(
-    `⚠️ High memory usage: ${data.heapUsed}MB (threshold: ${perfMonitor.thresholds.memoryUsage}MB)`,
-  );
+  console.warn(`⚠️ High memory usage: ${data.heapUsed}MB (threshold: ${perfMonitor.thresholds.memoryUsage}MB)`);
 });
 
 perfMonitor.on("highErrorRate", (data) => {
-  console.warn(
-    `⚠️ High error rate: ${data.errorCount} errors in minute ${data.minute} (threshold: ${data.threshold})`,
-  );
+  console.warn(`⚠️ High error rate: ${data.errorCount} errors in minute ${data.minute} (threshold: ${data.threshold})` );
 });
 
 // Cleanup old data every hour
-setInterval(() => {
-  perfMonitor.cleanup();
-}, 3600000);
+setInterval(() => { perfMonitor.cleanup(); }, 3600000);
 
 // Make it globally available
 global.perfMonitor = perfMonitor;

@@ -2,18 +2,19 @@ const {
   ButtonBuilder,
   ActionRowBuilder,
   EmbedBuilder,
-  StringSelectMenuBuilder,
+  StringSelectMenuBuilder
 } = require("discord.js");
 const { createCategoryButtons } = require("../../js/constants.js");
 
 module.exports = async ({ interaction, context, applicationId, tempApplicationId }) => {
   tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
 
+  //Note : Static invite token.
   const customizationEmbed = new EmbedBuilder()
     .setColor("#3f7ff1")
     .setTitle("Customization setup")
     .setDescription(
-      '[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nYou can customize all messages that the bot sends. Please note that the verification welcome message only has effect when a verification welcome channel is set up in the "Channels" section.\nThe following messages can be customized:\n- Verify channel Embed\n- Verification start message\n- Verification finish message\n- On verify message\n- Verification welcome message',
+      '[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nYou can customize all messages that the bot sends. Please note that the verification welcome message only has effect when a verification welcome channel is set up in the "Channels" section.\nThe following messages can be customized:\n- Verify channel Embed\n- Verification start message\n- Verification finish message\n- On verify message\n- Verification welcome message'
     );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
@@ -29,8 +30,8 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
       .setLabel("Configure on dashboard")
       .setStyle("Link")
       .setURL(
-        `https://melpo.app/dashboard/${interaction.guild.id}`,
-      ),
+        `https://melpo.app/dashboard/${interaction.guild.id}`
+      )
   );
 
   const selectcustomizationMenu = new ActionRowBuilder().addComponents(
@@ -41,27 +42,27 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
         {
           label: "Verify channel Embed",
           description: `Message to which users click "verify" to start verification`,
-          value: "verifychannelembed",
+          value: "verifychannelembed"
         },
         {
           label: "Verification start message",
           description: `Message user gets when starting verification`,
-          value: "startmessage",
+          value: "startmessage"
         },
         {
           label: "Verification finish message",
           description: "Message user gets when finishing verification",
-          value: "finishmessage",
+          value: "finishmessage"
         },
         {
           label: "On verify message",
           description: "Message user gets when getting verified",
-          value: "verifymessage",
+          value: "verifymessage"
         },
         {
           label: "Verification welcome message",
           description: "Welcome message in the server when user gets verified",
-          value: "verificationwelcomemessage",
+          value: "verificationwelcomemessage"
         },
       ),
   );
@@ -72,13 +73,13 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     await interaction.message.edit({
       content: "",
       embeds: [customizationEmbed],
-      components: [categoryButtons, selectcustomizationMenu, finishbuttons],
+      components: [categoryButtons, selectcustomizationMenu, finishbuttons]
     });
   } else {
     await interaction.update({
       content: "",
       embeds: [customizationEmbed],
-      components: [categoryButtons, selectcustomizationMenu, finishbuttons],
+      components: [categoryButtons, selectcustomizationMenu, finishbuttons]
     });
   }
 };

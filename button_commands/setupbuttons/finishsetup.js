@@ -2,19 +2,19 @@ const {
   EmbedBuilder,
   MessageFlags,
   ActionRowBuilder,
-  ButtonBuilder,
+  ButtonBuilder
 } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const {
   deleteTempApplication,
   getApplicationById,
-  getTempApplicationById,
+  getTempApplicationById
 } = require("../../js/tempconfigfuncs.js");
 const { resolveImage } = require("../../js/imageUtils.js");
 const {
   promoteCustomizationImage,
   purgeOldImages,
-  isR2ImageResource,
+  isR2ImageResource
 } = require("../../js/customizationImages.js");
 const { updateVerifyMessage, isValidHexColor } = require("../../js/verifyChannelUtils.js");
 
@@ -25,7 +25,7 @@ module.exports = async ({ interaction, client, context }) => {
   if (tempAppError || !tempApp) {
     return interaction.reply({
       content: "Temp setup not found. This can happen if you already had a different setup in progress and finished that. Please click cancel and use `/setup` again.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -38,7 +38,7 @@ module.exports = async ({ interaction, client, context }) => {
     if (error) {
       return interaction.reply({
         content: `Error: ${error}`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
     existingApp = application;
@@ -52,14 +52,14 @@ module.exports = async ({ interaction, client, context }) => {
   if (!(verifyChannel?.length > 0 && reviewChannel?.length > 0 && verifiedRole?.length > 0 && questions?.length > 0)) {
     return interaction.reply({
       content: "You need to set up all the *required* channels, roles and questions before finishing the setup.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
   if (questions.length === 0) {
     return interaction.reply({
       content: "You need to add at least one question.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -67,7 +67,7 @@ module.exports = async ({ interaction, client, context }) => {
   if (!verifyChannelObj) {
     return interaction.reply({
       content: "The user verification channel has been deleted. Please set up the user verification channel again.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -85,31 +85,31 @@ module.exports = async ({ interaction, client, context }) => {
     tempApp,
     "verifychannelembed",
     "images/verifychannelembed",
-    interaction.guild.id,
+    interaction.guild.id
   );
   await finalizeCustomizationImage(
     tempApp,
     "startmessage",
     "images/startmessage",
-    interaction.guild.id,
+    interaction.guild.id
   );
   await finalizeCustomizationImage(
     tempApp,
     "finishmessage",
     "images/finishmessage",
-    interaction.guild.id,
+    interaction.guild.id
   );
   await finalizeCustomizationImage(
     tempApp,
     "verifymessage",
     "images/verifymessage",
-    interaction.guild.id,
+    interaction.guild.id
   );
   await finalizeCustomizationImage(
     tempApp,
     "verificationwelcomemessage",
     "images/verificationwelcomemessage",
-    interaction.guild.id,
+    interaction.guild.id
   );
 
   cleanConfig(verifychannelembed);
@@ -123,7 +123,7 @@ module.exports = async ({ interaction, client, context }) => {
     "startmessage",
     "finishmessage",
     "verifymessage",
-    "verificationwelcomemessage",
+    "verificationwelcomemessage"
   ];
 
   for (const category of imageCategories) {
@@ -132,9 +132,8 @@ module.exports = async ({ interaction, client, context }) => {
       continue;
     }
 
-    if (isR2ImageResource(tempApp[category]?.image)) {
-      continue;
-    }
+    if (isR2ImageResource(tempApp[category]?.image)) 
+    { continue; }
   }
 
   const appData = { server_id: interaction.guild.id, name: tempApp.name };
@@ -151,19 +150,17 @@ module.exports = async ({ interaction, client, context }) => {
     if (value == null) continue;
     
     // Include empty arrays (to allow clearing roles)
-    if (Array.isArray(value)) {
-      appData[field] = value;
-    }
+    if (Array.isArray(value)) 
+    { appData[field] = value; }
+
     // Skip empty objects, include non-empty objects
     else if (typeof value === 'object') {
-      if (Object.keys(value).length > 0) {
-        appData[field] = value;
-      }
+      if (Object.keys(value).length > 0) 
+      { appData[field] = value; }
     }
     // Include all other non-null/non-empty values
-    else if (value !== '') {
-      appData[field] = value;
-    }
+    else if (value !== '') 
+    { appData[field] = value; }
   }
 
   // Create new or update existing application
@@ -175,16 +172,16 @@ module.exports = async ({ interaction, client, context }) => {
     finalApp = existingApp;
   } else {
     // Check if application exists (in case of error)
-    const appExists = await Application.findOne({
-      where: { server_id: interaction.guild.id, name: tempApp.name },
-    });
+    const appExists = await Application.findOne(
+      { where: { server_id: interaction.guild.id, name: tempApp.name } }
+    );
     if (appExists) {
       Object.assign(appExists, appData);
       await appExists.save();
       finalApp = appExists;
-    } else {
-      finalApp = await Application.create(appData);
-    }
+    } 
+    else 
+    { finalApp = await Application.create(appData); }
   }
 
   const embedColor = isValidHexColor(finalApp?.verifychannelembed?.color) ? finalApp.verifychannelembed.color : (tempApp?.verifychannelembed?.color ?? "#3f7ff1");
@@ -201,10 +198,10 @@ module.exports = async ({ interaction, client, context }) => {
       title: embedTitle,
       description: embedDescription,
       imageUrl: embedImageAsset.embedUrl,
-      footer: tempApp.name,
+      footer: tempApp.name
     },
     messageId: finalApp.verifymessage_id,
-    appId: finalApp.id,
+    appId: finalApp.id
   });
 
   if (result?.messageId && result.messageId !== finalApp.verifymessage_id) {
@@ -225,6 +222,7 @@ module.exports = async ({ interaction, client, context }) => {
       .setLabel("Configure on dashboard")
   );
 
+  //Note : Static invite token.
   if (interaction.customId.includes("firsttime")) {
     finishembed.setDescription(
       `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" is now ready to verify users.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nThis is just the basic setup. You can further customize messages, roles and channels by running the \`/setup edit ${tempApp.name}\` command again.\nTry out our dashboard for more customization options and an easier way to manage your verification system: https://melpo.app/dashboard/${interaction.guild.id}`,
@@ -238,19 +236,18 @@ module.exports = async ({ interaction, client, context }) => {
   await interaction.editReply({
     embeds: [finishembed],
     components: [dashboardlink],
-    files: [],
+    files: []
   });
 };
 
 function cleanConfig(config) {
   for (const key in config) {
-    if (config[key] === "deleted") {
-      delete config[key];
-    } else if (typeof config[key] === "object" && config[key] !== null) {
+    if (config[key] === "deleted") 
+    { delete config[key]; } 
+    else if (typeof config[key] === "object" && config[key] !== null) {
       cleanConfig(config[key]);
-      if (Object.keys(config[key]).length === 0) {
-        delete config[key];
-      }
+      if (Object.keys(config[key]).length === 0) 
+      { delete config[key]; }
     }
   }
   return config;
@@ -258,9 +255,8 @@ function cleanConfig(config) {
 
 async function finalizeCustomizationImage(tempApp, sectionKey, imageDir, guildId) {
   const section = tempApp[sectionKey];
-  if (!section || !section.image) {
-    return;
-  }
+  if (!section || !section.image) 
+  { return; }
 
   if (section.image === "deleted") {
     section.image = null;
@@ -269,7 +265,7 @@ async function finalizeCustomizationImage(tempApp, sectionKey, imageDir, guildId
     await purgeOldImages({
       serverId: guildId,
       appName: tempApp.name,
-      section: sectionKey,
+      section: sectionKey
     });
     return;
   }
@@ -282,16 +278,15 @@ async function finalizeCustomizationImage(tempApp, sectionKey, imageDir, guildId
 
 async function finalizeRemoteImage(image) {
   let finalizedImage = image;
-  if (image.isTemp) {
-    finalizedImage = await promoteCustomizationImage(image);
-  }
+  if (image.isTemp) 
+  { finalizedImage = await promoteCustomizationImage(image); }
 
   await purgeOldImages({
     serverId: finalizedImage.serverId,
     appName: finalizedImage.appName,
     section: finalizedImage.section,
     keepKey: finalizedImage.key,
-    filter: "final",
+    filter: "final"
   });
 
   return finalizedImage;

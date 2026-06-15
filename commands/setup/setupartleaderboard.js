@@ -3,7 +3,7 @@ const {
   ActionRowBuilder,
   PermissionsBitField,
   ChannelSelectMenuBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { Whitelist } = require("../../dbObjects.js");
 
@@ -19,7 +19,7 @@ module.exports = {
       return await interaction.reply({
         content:
           "You do not have the required permissions (Manage Server) to use this command.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -28,7 +28,7 @@ module.exports = {
     });
     if (!guildwhitelist || guildwhitelist.artLeaderboard === false) {
       return await interaction.reply(
-        `This command currently isn't yet available for everyone to use yet. If you wish to use the art leaderboard, please contact the developer \`milo_dev\`.\nThe art leaderboard allows users to "vote" for images by reacting to them. At the end of each week (every Saturday), the bot counts the reactions and posts the top 3 images in a gallary.`,
+        `This command currently isn't yet available for everyone to use yet. If you wish to use the art leaderboard, please contact the developer \`milo_dev\`.\nThe art leaderboard allows users to "vote" for images by reacting to them. At the end of each week (every Saturday), the bot counts the reactions and posts the top 3 images in a gallary.`
       );
     }
 
@@ -38,13 +38,13 @@ module.exports = {
         .setChannelTypes("GuildText")
         .setPlaceholder("Select the art channel(s)")
         .setMinValues(1)
-        .setMaxValues(5),
+        .setMaxValues(5)
     );
 
     await interaction.reply({
       content:
         "Alrighty! Let's get started with setting up the art leaderboard!\n\nFirst, let's set up the art channel(s).",
-      components: [artchannelcomponent],
+      components: [artchannelcomponent]
     });
   },
 };

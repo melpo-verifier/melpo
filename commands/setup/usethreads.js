@@ -6,13 +6,13 @@ module.exports = {
     .setName("usethreads")
     .setContexts(0)
     .setDescription(
-      "Toggles the use of threads for applications in both review and log channel.",
+      "Toggles the use of threads for applications in both review and log channel."
     )
     .addBooleanOption((option) =>
       option
         .setName("usethreads")
         .setDescription(
-          "Enable or disable the use of threads for applications in both review and log channel.",
+          "Enable or disable the use of threads for applications in both review and log channel."
         )
         .setRequired(true),
     )
@@ -20,14 +20,14 @@ module.exports = {
       option
         .setName("application")
         .setDescription(
-          "The application to toggle threads for (required if multiple exist)",
+          "The application to toggle threads for (required if multiple exist)"
         )
         .setAutocomplete(true)
         .setRequired(false),
     ),
   async autocomplete(interaction) {
     const applications = await Application.findAll({
-      where: { server_id: interaction.guild.id },
+      where: { server_id: interaction.guild.id }
     });
 
     const focusedValue = interaction.options.getFocused().toLowerCase();
@@ -37,7 +37,7 @@ module.exports = {
       .slice(0, 25);
 
     await interaction.respond(
-      filtered.map((name) => ({ name, value: name })),
+      filtered.map((name) => ({ name, value: name }))
     );
   },
   async execute({ interaction }) {
@@ -46,7 +46,7 @@ module.exports = {
     ) {
       return interaction.reply({
         content: "You need the `Manage Server` permission to use this command.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -59,7 +59,7 @@ module.exports = {
       if (!applications || applications.length === 0) {
         return interaction.reply({
           content: "No applications configured for this server. Please set up an application using `/setup`.",
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -74,13 +74,13 @@ module.exports = {
         if (!application) {
           return interaction.reply({
             content: `Application "${appNameOption}" not found. Available applications: ${applications.map((a) => a.name).join(", ")}`,
-            flags: MessageFlags.Ephemeral,
+            flags: MessageFlags.Ephemeral
           });
         }
       } else {
         return interaction.reply({
           content: `Multiple applications exist for this server. Please specify which one to toggle with the \`application\` option.\nAvailable: ${applications.map((a) => a.name).join(", ")}`,
-          flags: MessageFlags.Ephemeral,
+          flags: MessageFlags.Ephemeral
         });
       }
 
@@ -90,14 +90,14 @@ module.exports = {
 
       await interaction.reply({
         content: `Thread usage has been **${useThreadsOption ? "enabled" : "disabled"}** for the "${application.name}" application.\nAll applications will now attach a thread in which staff can discuss and all answers to questions will be sent.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     } catch (error) {
       console.error("Error toggling thread usage:", error);
       await interaction.reply({
         content:
           "An error occurred while toggling thread usage. Please try again later.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
   },

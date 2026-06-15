@@ -5,6 +5,7 @@ const {
   ActionRowBuilder,
 } = require("discord.js");
 
+//NOTE : Hardcoded invite link, potentially move to DB or table? -mat
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("whatsnew")
@@ -25,7 +26,7 @@ module.exports = {
       new ButtonBuilder()
         .setStyle("Link")
         .setLabel("Review on Top.gg")
-        .setURL("https://top.gg/bot/916372883087974440#reviews"),
+        .setURL("https://top.gg/bot/916372883087974440#reviews")
     );
 
     const changesEmbed = new EmbedBuilder()
@@ -36,7 +37,7 @@ module.exports = {
 
     await interaction.reply({
       embeds: [changesEmbed],
-      components: [linkbuttons],
+      components: [linkbuttons]
     });
   },
 };

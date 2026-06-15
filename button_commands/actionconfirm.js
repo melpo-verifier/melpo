@@ -1,7 +1,7 @@
 const {
   EmbedBuilder,
   PermissionsBitField,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { Verification, Application } = require("../dbObjects.js");
 const {
@@ -11,7 +11,7 @@ const {
   relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
-  getMessageIds,
+  getMessageIds
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 
@@ -23,19 +23,18 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (originaluserid && originaluserid !== interaction.user.id) {
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
-  if (!userid) {
-    throw new Error("Could not fetch user ID from the embed");
-  }
+  if (!userid) 
+  { throw new Error("Could not fetch user ID from the embed"); }
 
   const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
   if (error) {
     return interaction.followUp({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -44,7 +43,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (!permCheck.allowed) {
     return interaction.followUp({
       content: permCheck.message,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -60,7 +59,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     if (!member) {
       return interaction.followUp({
         content: "This user is no longer in the server.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
   } catch (error) {
@@ -68,7 +67,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       // Unknown Member
       return interaction.followUp({
         content: "This user is no longer in the server.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
     throw error;
@@ -79,7 +78,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (!member) {
     return interaction.followUp({
       content: `Could not find member with ID ${userid}, probably because they have left the server.`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -87,7 +86,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (!botMember.permissions.has(PermissionsBitField.Flags.KickMembers)) {
     return interaction.followUp({
       content: "I don't have permission to kick members",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -95,7 +94,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (member.id === interaction.guild.ownerId) {
     return interaction.followUp({
       content: "I cannot kick the server owner",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -104,7 +103,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return interaction.followUp({
       content:
         "I cannot kick this user - they have a role higher than or equal to mine, please make sure my highest role is higher than the user's highest role",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -112,12 +111,12 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   await member.kick(`Kicked by ${interaction.user.username}`);
 
   const verification = await Verification.findOne({
-    where: { userId: userid },
+    where: { userId: userid }
   });
 
   const allApplications = await Application.findAll({
     where: { server_id: interaction.guild.id },
-    attributes: ["id", "reviewchannel", "verifylogs"],
+    attributes: ["id", "reviewchannel", "verifylogs"]
   });
 
   // Edit messages from all applications
@@ -133,12 +132,11 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         messageids: appMessageIds,
         user: member,
         status: VerificationStatus.KICKED,
-        useRateLimiting: false,
+        useRateLimiting: false
       });
     } catch (logError) {
-      if (!logError.code === 50001 || !logError.code === 50013) {
-        console.error("Error processing log messages:", logError);
-      }
+      if (!logError.code === 50001 || !logError.code === 50013) 
+      { console.error("Error processing log messages:", logError); }
     }
   }
 
@@ -156,14 +154,13 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
       const editPayload = {
         flags: [MessageFlags.IsComponentsV2],
-        components: [kickedContainer],
+        components: [kickedContainer]
       };
       if (files) editPayload.files = files;
       await interaction.editReply(editPayload);
 
-      if (interaction.message.thread) {
-        await interaction.message.thread.setArchived(true);
-      }
+      if (interaction.message.thread) 
+      { await interaction.message.thread.setArchived(true); }
     }
   }
 

@@ -1,9 +1,4 @@
-const {
-  SlashCommandBuilder,
-  PermissionsBitField,
-  ChannelType,
-  MessageFlags,
-} = require("discord.js");
+const { SlashCommandBuilder, PermissionsBitField, ChannelType, MessageFlags } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -13,14 +8,14 @@ module.exports = {
       option
         .setName("message")
         .setDescription("What should I say?")
-        .setRequired(true),
+        .setRequired(true)
     )
     .addChannelOption((option) =>
       option
         .setName("channel")
         .setDescription("Where should I say it?")
         .addChannelTypes(ChannelType.GuildText)
-        .setRequired(false),
+        .setRequired(false)
     )
     .setDefaultMemberPermissions(PermissionsBitField.ManageMessages)
     .setContexts(0),
@@ -37,23 +32,23 @@ module.exports = {
         .permissionsFor(interaction.client.user)
         .has(PermissionsBitField.Flags.ViewChannel) ||
       !interaction.member.permissions.has(
-        PermissionsBitField.Flags.ManageMessages,
+        PermissionsBitField.Flags.ManageMessages
       )
     ) {
       return interaction.reply({
         content: `I don't have permission to view or send messages in ${channel}!`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     await channel.send(
       message +
-        (interaction.user ? `\n- *${interaction.user.displayName}*` : ""),
+        (interaction.user ? `\n- *${interaction.user.displayName}*` : "")
     );
 
     await interaction.reply({
       content: `Message sent in ${channel}!`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   },
 };

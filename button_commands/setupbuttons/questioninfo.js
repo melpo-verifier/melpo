@@ -3,7 +3,7 @@ const {
   ActionRowBuilder,
   EmbedBuilder,
   StringSelectMenuBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const {
   updateTempApplication,
@@ -19,14 +19,15 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
   if (!tempApplicationId) {
     return interaction.reply({
       content: 'Temp Application ID is missing. Please try again.',
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
+  //Note : Static invite token.
   const questionembed = new EmbedBuilder()
     .setTitle("Questions setup")
     .setDescription(
-      "[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply for verification.",
+      "[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply for verification."
     )
     .setColor("#0099ff");
 
@@ -35,7 +36,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
   if (error) {
     return interaction.reply({
       content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -52,7 +53,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
     new ButtonBuilder()
       .setCustomId(`addquestion_0_${tempApplicationId}`)
       .setLabel("Add Question")
-      .setStyle("Primary"),
+      .setStyle("Primary")
   );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
@@ -68,8 +69,8 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
       .setLabel("Configure on dashboard")
       .setStyle("Link")
       .setURL(
-        `https://melpo.app/dashboard/${interaction.guild.id}`,
-      ),
+        `https://melpo.app/dashboard/${interaction.guild.id}`
+      )
   );
 
   const editmenu = new ActionRowBuilder();
@@ -109,7 +110,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
         return {
           name: `Question ${index + 1}`,
           value: (question.content + mcqContent).slice(0, 1024),
-          inline: false,
+          inline: false
         };
       }),
     );
@@ -121,14 +122,14 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
         content: "",
         embeds: [questionembed],
         components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
-        files: [],
+        files: []
       });
     } else {
       interaction.update({
         content: "",
         embeds: [questionembed],
         components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
-        files: [],
+        files: []
       });
     }
   } else {
@@ -138,7 +139,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
       content: "",
       embeds: [questionembed],
       components: [categoryButtons, questionbuttons, finishbuttons],
-      files: [],
+      files: []
     });
   }
 };

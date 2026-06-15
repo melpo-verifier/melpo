@@ -6,27 +6,23 @@ module.exports = {
     .setName("blacklist")
     .setDescription("Blacklists servers/users from using the bot")
     .setContexts(0)
-    .addStringOption((option) =>
-      option.setName("server_id").setDescription("Server ID").setRequired(false),
+    .addStringOption(
+      (option) => option.setName("server_id").setDescription("Server ID").setRequired(false)
     )
-    .addStringOption((option) =>
-      option.setName("user_id").setDescription("User ID").setRequired(false),
+    .addStringOption(
+      (option) => option.setName("user_id").setDescription("User ID").setRequired(false)
     )
-    .addBooleanOption((option) =>
-      option
-        .setName("blacklist")
-        .setDescription("Blacklist server/user?"),
+    .addBooleanOption(
+      (option) => option.setName("blacklist").setDescription("Blacklist server/user?")
     )
-    .addStringOption((option) =>
-      option
-        .setName("reason")
-        .setDescription("Give a reason for blacklist server/user?"),
+    .addStringOption(
+      (option) => option.setName("reason").setDescription("Give a reason for blacklist server/user?")
     ),
   async execute({ interaction }) {
     if (interaction.user.id !== "808738877945675786")
       return interaction.reply({
         content: "You are not allowed to use this command.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
 
     const serverId = interaction.options.getString("server_id");
@@ -37,18 +33,17 @@ module.exports = {
     if (serverId === null && userId === null) {
       return await interaction.reply({
         content: "Please provide either a server ID or a user ID.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     if (blacklist !== null) {
       const [blacklistEntry] = await Blacklist.findOrCreate({
-        where: { server_id: serverId, user_id: userId },
+        where: { server_id: serverId, user_id: userId }
       });
       blacklistEntry.blacklisted = blacklist;
-      if (reason) {
-        blacklistEntry.reason = reason;
-      }
+      if (reason) 
+      { blacklistEntry.reason = reason; }
       let ownerId = null;
       let guildName = null;
 
@@ -69,9 +64,8 @@ module.exports = {
       }
 
       if (serverId && !userId) {
-        if (ownerId) {
-          blacklistEntry.user_id = ownerId;
-        }
+        if (ownerId) 
+        { blacklistEntry.user_id = ownerId; }
       }
 
       await blacklistEntry.save();
@@ -85,9 +79,9 @@ module.exports = {
             const owner = await interaction.client.users.fetch(ownerId);
             await owner.send(`Your server "${guildName}" has been blacklisted from using Melpo Verifier. Reason: ${reason || "No reason provided"}`);
             sendmessage_success = true;
-          } catch (error) {
-            console.error(`Could not send message to owner of server for blacklisting ${guildName}:`, error);
-          }
+          } 
+          catch (error) 
+          { console.error(`Could not send message to owner of server for blacklisting ${guildName}:`, error); }
         
         try {
           await interaction.client.cluster.broadcastEval(

@@ -1,10 +1,4 @@
-const {
-  SlashCommandBuilder,
-  ActionRowBuilder,
-  EmbedBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-} = require("discord.js");
+const { SlashCommandBuilder, ActionRowBuilder, EmbedBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -39,13 +33,14 @@ module.exports = {
     try {
       let imageUrl;
 
-      if (interaction.options.getSubcommand() === "url") {
-        imageUrl = interaction.options.getString("url");
-      } else {
+      if (interaction.options.getSubcommand() === "url") 
+      { imageUrl = interaction.options.getString("url"); } 
+      else 
+      {
         const attachment = interaction.options.getAttachment("image-file");
-        if (!attachment.contentType?.startsWith("image/")) {
-          return interaction.editReply("Please provide a valid image file!");
-        }
+        if (!attachment.contentType?.startsWith("image/")) 
+        { return interaction.editReply("Please provide a valid image file!"); }
+
         imageUrl = attachment.url;
       }
 
@@ -53,19 +48,19 @@ module.exports = {
         new ButtonBuilder()
           .setLabel("Google Lens")
           .setURL(
-            `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`,
+            `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`
           )
           .setStyle(ButtonStyle.Link),
         new ButtonBuilder()
           .setLabel("TinEye")
           .setURL(
-            `https://tineye.com/search?url=${encodeURIComponent(imageUrl)}`,
+            `https://tineye.com/search?url=${encodeURIComponent(imageUrl)}`
           )
           .setStyle(ButtonStyle.Link),
         new ButtonBuilder()
           .setLabel("SauceNAO")
           .setURL(
-            `https://saucenao.com/search.php?url=${encodeURIComponent(imageUrl)}`,
+            `https://saucenao.com/search.php?url=${encodeURIComponent(imageUrl)}`
           )
           .setStyle(ButtonStyle.Link),
       );
@@ -77,19 +72,16 @@ module.exports = {
           "- **Google Lens** - Best for general searches and finding similar images\n" +
             "- **TinEye** - Best for finding exact copies\n" +
             "- **SauceNAO** - Best for artwork sources\n\n" +
-            "Click a button below to search using your preferred engine",
+            "Click a button below to search using your preferred engine"
         )
         .setImage(imageUrl)
         .setFooter({ text: "Image preview above • Click buttons to search" });
 
-      await interaction.editReply({
-        embeds: [embed],
-        components: [row],
-      });
+      await interaction.editReply({ embeds: [embed], components: [row] });
     } catch (error) {
       console.error("Reverse search error:", error);
       await interaction.editReply(
-        "Failed to process image search. Please try again.",
+        "Failed to process image search. Please try again."
       );
     }
   },

@@ -1,10 +1,4 @@
-const {
-  ActionRowBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  MessageFlags,
-} = require("discord.js");
+const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
 const { getTempApplicationById, getApplicationById } = require("../js/tempconfigfuncs.js");
 const { normalizeQuestions } = require("../js/questionSetupUtils.js");
@@ -18,7 +12,7 @@ module.exports = async ({ interaction, client, context }) => {
   if (error || !tempApp) {
     return interaction.reply({
       content: error || "Application not found.",
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -64,9 +58,9 @@ module.exports = async ({ interaction, client, context }) => {
   modal.addComponents(questionRow, mcqRow);
 
   await interaction.showModal(modal);
-  if (isfirsttime === 0) {
-    questioninfo({ interaction, client, tempApplicationId });
-  } else {
+  if (isfirsttime === 0) 
+  { questioninfo({ interaction, client, tempApplicationId }); } 
+  else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 
     firsttimequestions({ interaction, client, tempApplicationId });

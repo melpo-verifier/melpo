@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder,
   EmbedBuilder,
   PermissionsBitField,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 
@@ -10,7 +10,7 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName("checkpermissions")
     .setDescription(
-      "Check if Melpo has the required permissions to function properly",
+      "Check if Melpo has the required permissions to function properly"
     )
     .setContexts(0),
   async execute({ interaction }) {
@@ -19,13 +19,13 @@ module.exports = {
     if (!botMember) {
       await interaction.reply({
         content: "Unable to fetch bot permissions",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
       return;
     }
 
     const applications = await Application.findAll({
-      where: { server_id: interaction.guild.id },
+      where: { server_id: interaction.guild.id }
     });
 
 
@@ -59,7 +59,7 @@ module.exports = {
     for (const perm of requiredPermissions) {
       try {
         const hasPermission = botMember.permissions.has(
-          PermissionsBitField.Flags[perm.name?.replace(/ /g, "")],
+          PermissionsBitField.Flags[perm.name?.replace(/ /g, "")]
         );
         description += `${hasPermission ? "✅" : "❌"} ${perm.name}\n`;
       } catch (error) {
@@ -90,24 +90,23 @@ module.exports = {
           dangerousExcessPerms.forEach(([name]) => {
             description += `⚠️ ${name?.replace(/([A-Z])/g, " $1").trim()}\n`;
           });
-        } else {
-          description += "*Perfect! No unneeded (dangerous) permissions*\n";
-        }
-      } catch {
-        description += "*Unable to check additional permissions*\n";
-      }
+        } 
+        else 
+        { description += "*Perfect! No unneeded (dangerous) permissions*\n"; }
+      } 
+      catch 
+      { description += "*Unable to check additional permissions*\n"; }
     }
 
     description += "\n### Channel-Specific Permissions\n";
 
     for (const app of applications) {
-      if (applications.length > 1) {
-        description += `\n**Application: ${app.name}**\n`;
-      }
+      if (applications.length > 1) 
+      { description += `\n**Application: ${app.name}**\n`; }
 
       if (app?.verifychannel) {
         const verifyChannel = interaction.guild.channels.cache.get(
-          app.verifychannel,
+          app.verifychannel
         );
         description += `**Verify Channel (${verifyChannel ? verifyChannel : 'Unknown/Deleted'})**\n`;
         if (verifyChannel) {
@@ -116,14 +115,14 @@ module.exports = {
           description += `${verifyPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${verifyPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
           description += `${verifyPerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
-        } else {
-          description += `❌ Channel not found or deleted\n`;
-        }
+        } 
+        else 
+        { description += `❌ Channel not found or deleted\n`; }
       }
 
       if (app?.reviewchannel) {
         const reviewChannel = interaction.guild.channels.cache.get(
-          app.reviewchannel,
+          app.reviewchannel
         );
         description += `\n**Review Channel (${reviewChannel ? reviewChannel : 'Unknown/Deleted'})**\n`;
         if (reviewChannel) {
@@ -135,14 +134,14 @@ module.exports = {
           description += `${reviewPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
-        } else {
-          description += `❌ Channel not found or deleted\n`;
-        }
+        } 
+        else 
+        { description += `❌ Channel not found or deleted\n`; }
       }
 
       if (app?.verifylogs) {
         const logsChannel = interaction.guild.channels.cache.get(
-          app.verifylogs,
+          app.verifylogs
         );
         description += `\n**Verification Logs Channel (${logsChannel ? logsChannel : 'Unknown/Deleted'})**\n`;
         if (logsChannel) {
@@ -154,14 +153,14 @@ module.exports = {
           description += `${logsPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
-        } else {
-          description += `❌ Channel not found or deleted\n`;
-        }
+        } 
+        else 
+        { description += `❌ Channel not found or deleted\n`; }
       }
 
       if (app?.verificationwelcomechannel) {
         const welcomeChannel = interaction.guild.channels.cache.get(
-          app.verificationwelcomechannel,
+          app.verificationwelcomechannel
         );
         description += `\n**Verification Welcome Channel (${welcomeChannel ? welcomeChannel : 'Unknown/Deleted'})**\n`;
         if (welcomeChannel) {
@@ -170,9 +169,9 @@ module.exports = {
           description += `${welcomePerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${welcomePerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
           description += `${welcomePerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
-        } else {
-          description += `❌ Channel not found or deleted\n`;
-        }
+        } 
+        else 
+        { description += `❌ Channel not found or deleted\n`; }
       }
     }
 
@@ -184,9 +183,8 @@ module.exports = {
     let roleHierarchyIssues = 0;
 
     for (const app of applications) {
-      if (applications.length > 1) {
-        description += `\n**Application: ${app.name}**\n`;
-      }
+      if (applications.length > 1) 
+      { description += `\n**Application: ${app.name}**\n`; }
 
       if (app?.verifiedrole && app.verifiedrole.length > 0) {
         const verifiedRoles = Array.isArray(app.verifiedrole)
@@ -236,9 +234,8 @@ module.exports = {
           : [app.managerrole];
         for (const roleId of managerRoles) {
           const managerRole = interaction.guild.roles.cache.get(roleId);
-          if (managerRole) {
-            description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`;
-          }
+          if (managerRole) 
+          { description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`; }
         }
       }
     }
@@ -249,22 +246,20 @@ module.exports = {
         return !botMember.permissions.has(
           PermissionsBitField.Flags[perm.name?.replace(/ /g, "")],
         );
-      } catch {
-        return true;
-      }
+      } 
+      catch 
+      { return true; }
     });
 
-    if (missingPermissions.length === 0) {
-      description += "✅ **All required permissions are present**\n";
-    } else {
-      description += `❌ **Missing ${missingPermissions.length} required permission(s)**\n`;
-    }
+    if (missingPermissions.length === 0) 
+    { description += "✅ **All required permissions are present**\n"; } 
+    else 
+    { description += `❌ **Missing ${missingPermissions.length} required permission(s)**\n`; }
 
-    if (roleHierarchyIssues === 0) {
-      description += "✅ **Bot can manage all configured roles**\n";
-    } else {
-      description += `❌ **Cannot manage ${roleHierarchyIssues} role(s) - Move bot role higher**\n`;
-    }
+    if (roleHierarchyIssues === 0) 
+    { description += "✅ **Bot can manage all configured roles**\n"; } 
+    else 
+    { description += `❌ **Cannot manage ${roleHierarchyIssues} role(s) - Move bot role higher**\n`; }
 
     const hasIssues = missingPermissions.length > 0 || roleHierarchyIssues > 0;
 
@@ -278,5 +273,5 @@ module.exports = {
       .setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });
-  },
+  }
 };

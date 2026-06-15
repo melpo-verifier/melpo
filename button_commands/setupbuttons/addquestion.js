@@ -2,7 +2,7 @@ const {
   ActionRowBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle,
+  TextInputStyle
 } = require("discord.js");
 
 module.exports = async ({ interaction, context }) => {

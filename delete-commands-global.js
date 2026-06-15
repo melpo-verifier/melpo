@@ -1,5 +1,5 @@
 const { REST, Routes } = require("discord.js");
-require("dotenv").config();
+require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
 if (process.argv.length < 3)
   return console.error("Please provide a bot name as a command-line argument.");
@@ -17,22 +17,22 @@ async function deleteCommands() {
     );
 
     const commandsToDelete = commands.filter((cmd) =>
-      blacklistedCommands.includes(`${cmd.name}.js`),
+      blacklistedCommands.includes(`${cmd.name}.js`)
     );
 
     console.log(`Found ${commandsToDelete.length} commands to delete`);
 
     for (const command of commandsToDelete) {
       await rest.delete(
-        Routes.applicationCommand(process.env[`${botName}_ID`], command.id),
+        Routes.applicationCommand(process.env[`${botName}_ID`], command.id)
       );
       console.log(`Deleted command ${command.name}`);
     }
 
     console.log("Successfully removed specified commands globally");
-  } catch (error) {
-    console.error(error);
-  }
+  } 
+  catch (error) 
+  { console.error(error); }
 }
 
 deleteCommands();

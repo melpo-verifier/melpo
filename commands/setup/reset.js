@@ -18,7 +18,7 @@ module.exports = {
     ) {
       return interaction.reply({
         content: "You need the `Manage Server` permission to run this command.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
@@ -31,7 +31,7 @@ module.exports = {
       .setColor("#3f7ff1")
       .setTitle("Server configuration reset")
       .setDescription(
-        "Your server configuration has been completely reset. You can now run `/setup` to set up the bot again.",
+        "Your server configuration has been completely reset. You can now run `/setup` to set up the bot again."
       );
 
     return interaction.reply({ embeds: [Embed] });

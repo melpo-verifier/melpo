@@ -6,6 +6,7 @@ module.exports = {
     .setDescription("Custom Melpo with your own avatar and name!")
     .setContexts(0),
   async execute({ interaction }) {
+    //NOTE : Hardcoded invite link, potentially move to DB or table? -mat
     const adembed = new EmbedBuilder()
       .setColor("#3f7ff1")
       .setTitle("Custom Melpo")

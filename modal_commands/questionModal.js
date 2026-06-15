@@ -10,7 +10,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
   if (userid && userid.includes(" | ")) {
     await interaction.reply({
       content: `Oop! It seems this user has already been handled by someone else!`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
     return;
   }
@@ -44,7 +44,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
     const user = await client.users.fetch(userid);
     const questionsend = await user.send({
       embeds: [questionform],
-      components: [confirmrow],
+      components: [confirmrow]
     });
     await QuestionId.create({
       interactionMessageId: questionsend.id,
@@ -53,32 +53,32 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
       channelId: interaction.channel.id,
       guildId: interaction.guild.id,
       userId: userid,
-      applicationId: applicationId,
+      applicationId: applicationId
     });
   } catch (error) {
     if (error.code === 50007 || error.code === 50278) {
       return await interaction.reply({
         content: `Cannot send question: this user has DMs disabled, has blocked the bot or left the server.`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
-    } else {
-      throw error;
-    }
+    } 
+    else 
+    { throw error; }
   }
 
   const thread = interaction.message.thread;
 
   if (thread) {
     await thread.send({
-      content: `${interaction.user.username} has sent the following to <@${userid}>: ${interaction.fields.getTextInputValue("questionInput")}`,
+      content: `${interaction.user.username} has sent the following to <@${userid}>: ${interaction.fields.getTextInputValue("questionInput")}`
     });
     await interaction.reply({
       content: `Message sent succesfully! The answer will be sent in the thread linked to this message.`,
-      flags: MessageFlags.Ephemeral,
+      flags: MessageFlags.Ephemeral
     });
   } else {
     await interaction.reply({
-      content: `${interaction.user.username} has sent the following to <@${userid}>: ${interaction.fields.getTextInputValue("questionInput")}`,
+      content: `${interaction.user.username} has sent the following to <@${userid}>: ${interaction.fields.getTextInputValue("questionInput")}`
     });
   }
 

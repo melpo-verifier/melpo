@@ -12,21 +12,16 @@ const { isValidHexColor } = require("../js/verifyChannelUtils.js");
 
 module.exports = async ({ interaction, customIdValue, tempApplicationId, context }) => {
   let chosenvalue;
-  if (customIdValue) {
-    chosenvalue = customIdValue;
-  } else {
-    chosenvalue = interaction.values[0];
-  }
+  if (customIdValue) 
+  { chosenvalue = customIdValue; } 
+  else 
+  { chosenvalue = interaction.values[0]; }
 
   tempApplicationId = tempApplicationId || parseInt(context[0], 10);
 
   const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
-  if (error) {
-    return interaction.reply({
-      content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
+  if (error) 
+  { return interaction.reply({ content: `Error: ${error}`, flags: MessageFlags.Ephemeral }); }
 
   // If editing an existing application, get the application for default values
   let applicationSetup = null;
@@ -70,22 +65,10 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
         null;
 
   const setImage = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`setText_${chosenvalue}_${tempApplicationId}`)
-      .setLabel("Set Text")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`setImage_${chosenvalue}_${tempApplicationId}`)
-      .setLabel("Set Image")
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`removeImage_${chosenvalue}_${tempApplicationId}`)
-      .setLabel("Remove Image")
-      .setStyle(ButtonStyle.Danger),
-    new ButtonBuilder()
-      .setCustomId(`resetText_${chosenvalue}_${tempApplicationId}`)
-      .setLabel("Reset Text")
-      .setStyle(ButtonStyle.Danger),
+    new ButtonBuilder({custom_id:`setText_${chosenvalue}_${tempApplicationId}`,     label:"Set Text",     style: ButtonStyle.Primary}),
+    new ButtonBuilder({custom_id:`setImage_${chosenvalue}_${tempApplicationId}`,    label:"Set Image",    style: ButtonStyle.Primary}),
+    new ButtonBuilder({custom_id:`removeImage_${chosenvalue}_${tempApplicationId}`, label:"Remove Image", style: ButtonStyle.Danger}),
+    new ButtonBuilder({custom_id:`resetText_${chosenvalue}_${tempApplicationId}`,   label:"Reset Text",   style: ButtonStyle.Danger})
   );
 
   const colourmenu = new ActionRowBuilder().addComponents(
@@ -93,15 +76,15 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
       .setCustomId(`colorMenu_${chosenvalue}_${tempApplicationId}`)
       .setPlaceholder("Select color")
       .setOptions(
-        { label: "Custom hex color", value: "custom", emoji: "🎨" },
-        { label: "Blue", value: "#3f7ff1", emoji: "🔵" },
-        { label: "Red", value: "#f03e3e", emoji: "🔴" },
-        { label: "Green", value: "#3ef03e", emoji: "🟢" },
-        { label: "Yellow", value: "#f0f03e", emoji: "🟡" },
-        { label: "Purple", value: "#9d3ef0", emoji: "🟣" },
-        { label: "Orange", value: "#f08b3e", emoji: "🟠" },
-        { label: "Black", value: "#000000", emoji: "⚫" },
-        { label: "White", value: "#ffffff", emoji: "⚪" },
+        { label: "Custom hex color",  value: "custom",    emoji: "🎨" },
+        { label: "Blue",              value: "#3f7ff1", emoji: "🔵" },
+        { label: "Red",               value: "#f03e3e", emoji: "🔴" },
+        { label: "Green",             value: "#3ef03e", emoji: "🟢" },
+        { label: "Yellow",            value: "#f0f03e", emoji: "🟡" },
+        { label: "Purple",            value: "#9d3ef0", emoji: "🟣" },
+        { label: "Orange",            value: "#f08b3e", emoji: "🟠" },
+        { label: "Black",             value: "#000000", emoji: "⚫" },
+        { label: "White",             value: "#ffffff", emoji: "⚪" },
       ),
   );
 
@@ -121,15 +104,10 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
       if (image) {
         embed.setAuthor({
           name: interaction.user.globalName ?? interaction.user.username,
-          iconURL: interaction.user.displayAvatarURL({
-            dynamic: true,
-            size: 128,
-          }),
+          iconURL: interaction.user.displayAvatarURL({ dynamic: true, size: 128 })
         });
       } else {
-        embed.setThumbnail(
-          interaction.user.displayAvatarURL({ dynamic: true, size: 512 }),
-        );
+        embed.setThumbnail( interaction.user.displayAvatarURL({ dynamic: true, size: 512 }) );
       }
     }
 
@@ -164,20 +142,17 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
       );
   }
 
-  if (infoembed) {
-    infoembed.setColor("#3f7ff1");
-  }
+  if (infoembed) 
+  { infoembed.setColor("#3f7ff1"); }
 
   if (image && embed) {
     const asset = resolveImage(image);
-    if (asset.embedUrl) {
-      embed.setColor(isValidHexColor(color) ? color : "#3f7ff1").setImage(asset.embedUrl);
-    }
+    if (asset.embedUrl) 
+    { embed.setColor(isValidHexColor(color) ? color : "#3f7ff1").setImage(asset.embedUrl); }
   }
 
-  if (embed !== undefined) {
-    embed.setFooter({ text: `This is the ${chosenvalue}.` });
-  }
+  if (embed !== undefined) 
+  { embed.setFooter({ text: `This is the ${chosenvalue}.` }); }
 
   // Rebuild the customization select menu with the correct default
   const selectcustomizationMenu = new ActionRowBuilder().addComponents(
@@ -214,8 +189,8 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           description: "Welcome message in the server when user gets verified",
           value: "verificationwelcomemessage",
           default: chosenvalue === "verificationwelcomemessage",
-        },
-      ),
+        }
+      )
   );
 
   // Get the finish buttons from the last component
@@ -234,8 +209,8 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           selectcustomizationMenu,
           colourmenu,
           setImage,
-          finishbuttons,
-        ],
+          finishbuttons
+        ]
       });
     } else {
       interaction.message.edit({
@@ -245,8 +220,8 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           interaction.message.components[0],
           selectcustomizationMenu,
           setImage,
-          finishbuttons,
-        ],
+          finishbuttons
+        ]
       });
     }
   } else {
@@ -262,8 +237,8 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           selectcustomizationMenu,
           colourmenu,
           setImage,
-          finishbuttons,
-        ],
+          finishbuttons
+        ]
       });
     } else {
       interaction.update({
@@ -273,8 +248,8 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
           interaction.message.components[0],
           selectcustomizationMenu,
           setImage,
-          finishbuttons,
-        ],
+          finishbuttons
+        ]
       });
     }
   }

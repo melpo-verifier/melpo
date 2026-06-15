@@ -11,9 +11,7 @@ module.exports = async ({ interaction, context }) => {
   if (channelnumber === 0) {
     const channel = interaction.values[0];
 
-    await updateTempApplication(interaction.guild.id, {
-      verifychannel: channel,
-    }, { id: tempApplicationId });
+    await updateTempApplication(interaction.guild.id, { verifychannel: channel }, { id: tempApplicationId });
 
     embed.data.fields[channelnumber].value = `<#${channel}>`;
 
@@ -24,21 +22,13 @@ module.exports = async ({ interaction, context }) => {
     const nextButton = ButtonBuilder.from(originalButtons[0]);
     nextButton.setDisabled(false);
 
-    const updatedActionRow = new ActionRowBuilder().addComponents(
-      nextButton,
-      originalButtons[1],
-    );
+    const updatedActionRow = new ActionRowBuilder().addComponents( nextButton, originalButtons[1] );
 
-    await interaction.editReply({
-      embeds: [embed],
-      components: [interaction.message.components[0], updatedActionRow],
-    });
+    await interaction.editReply({ embeds: [embed], components: [interaction.message.components[0], updatedActionRow] });
   } else if (channelnumber === 1) {
     const channel = interaction.values[0];
 
-    await updateTempApplication(interaction.guild.id, {
-      reviewchannel: channel,
-    }, { id: tempApplicationId });
+    await updateTempApplication(interaction.guild.id, { reviewchannel: channel }, { id: tempApplicationId });
     
     embed.data.fields[channelnumber].value = `<#${channel}>`;
 
@@ -49,21 +39,13 @@ module.exports = async ({ interaction, context }) => {
     const nextButton = ButtonBuilder.from(originalButtons[0]);
     nextButton.setDisabled(false).setCustomId(`next_1_${tempApplicationId}`);
 
-    const updatedActionRow = new ActionRowBuilder().addComponents(
-      nextButton,
-      originalButtons[1],
-    );
+    const updatedActionRow = new ActionRowBuilder().addComponents( nextButton, originalButtons[1] );
 
-    await interaction.editReply({
-      embeds: [embed],
-      components: [interaction.message.components[0], updatedActionRow],
-    });
+    await interaction.editReply({ embeds: [embed], components: [interaction.message.components[0], updatedActionRow] });
   } else if (channelnumber === 2) {
     const role = interaction.values;
 
-    await updateTempApplication(interaction.guild.id, {
-      verifiedrole: role,
-    }, { id: tempApplicationId });
+    await updateTempApplication(interaction.guild.id, { verifiedrole: role }, { id: tempApplicationId });
 
     embed.data.fields[channelnumber].value = role
       ?.map((role) => `<@&${role}>`)
@@ -76,14 +58,8 @@ module.exports = async ({ interaction, context }) => {
     const nextButton = ButtonBuilder.from(originalButtons[0]);
     nextButton.setDisabled(false).setCustomId(`next_2_${tempApplicationId}`);
 
-    const updatedActionRow = new ActionRowBuilder().addComponents(
-      nextButton,
-      originalButtons[1],
-    );
+    const updatedActionRow = new ActionRowBuilder().addComponents( nextButton, originalButtons[1] );
 
-    await interaction.editReply({
-      embeds: [embed],
-      components: [interaction.message.components[0], updatedActionRow],
-    });
+    await interaction.editReply({ embeds: [embed], components: [interaction.message.components[0], updatedActionRow] });
   }
 };

@@ -44,7 +44,7 @@ module.exports = {
         } else {
           catagoryEmbed.addFields({
             name: `/${command.data.name}`,
-            value: description,
+            value: description
           });
         }
       }
@@ -68,7 +68,7 @@ module.exports = {
       ["⏪", "⏩"],
       0,
       0,
-      "help",
+      "help"
     );
   },
 };

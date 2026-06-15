@@ -10,6 +10,6 @@ module.exports = async ({ interaction }) => {
 
   await interaction.editReply({
     embeds: [cancelEmbed],
-    components: [],
+    components: []
   });
 };

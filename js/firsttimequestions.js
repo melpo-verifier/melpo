@@ -1,9 +1,4 @@
-const {
-  ButtonBuilder,
-  ActionRowBuilder,
-  EmbedBuilder,
-  StringSelectMenuBuilder,
-} = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
 const { getTempApplicationById } = require("./tempconfigfuncs.js");
 
 async function firsttimequestions({ interaction, applicationId, tempApplicationId }) {
@@ -12,22 +7,17 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
   if (!interaction.id) return;
 
   const { tempApp: temporarySetup, error } = await getTempApplicationById(parseInt(tempApplicationId), interaction.guild.id);
-  if (error) {
-    return interaction.reply({ content: `Error: ${error}`, flags: require("discord.js").MessageFlags.Ephemeral });
-  }
+  if (error) { return interaction.reply({ content: `Error: ${error}`, flags: require("discord.js").MessageFlags.Ephemeral }); }
 
   let questions = temporarySetup.questions;
   const reviewChannel = temporarySetup.reviewchannel;
   const verifyChannel = temporarySetup.verifychannel;
   const verifiedRole = temporarySetup.verifiedrole;
 
-  if (
-    Array.isArray(questions) &&
-    questions.every((q) => typeof q === "string")
-  ) {
-    try {
-      questions = questions?.map((q) => JSON.parse(q));
-    } catch (error) {
+  if ( Array.isArray(questions) && questions.every((q) => typeof q === "string") ) {
+    try 
+    { questions = questions?.map((q) => JSON.parse(q)); } 
+    catch (error) {
       console.error("Failed to parse questions:", error);
       questions = [];
     }
@@ -41,17 +31,17 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
       {
         name: "Verification Channel `(required)`",
         value: `<#${verifyChannel}>`,
-        inline: false,
+        inline: false
       },
       {
         name: "Verification Review Channel `(required)`",
         value: `<#${reviewChannel}>`,
-        inline: false,
+        inline: false
       },
       {
         name: "Verified Role `(required)`",
         value: verifiedRole?.map((role) => `<@&${role}>`).join(", "),
-        inline: false,
+        inline: false
       },
       { name: "Questions", value: "_ _", inline: false },
     ]);
@@ -77,9 +67,7 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
   const editmenu = new ActionRowBuilder();
 
   if (questions && questions.length > 0) {
-    questions = questions?.map((question) => {
-      return question;
-    });
+    questions = questions?.map((question) => { return question; });
 
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId(`questionSelectMenu_1_${tempApplicationId}`)
@@ -88,17 +76,16 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
       .setMaxValues(1);
 
     questions.forEach((question, index) => {
-      const desc = question.mcq?.length > 0
-        ? question.mcq.map((option) => option.label ?? option).join("; ")
-        : "No multiple choice options";
-
       selectMenu.addOptions({
         label:
           question.content.length > 100
             ? question.content.slice(0, 97) + "..."
             : question.content,
-        description: desc.length > 100 ? desc.slice(0, 97) + "..." : desc,
-        value: `${index + 1}`,
+        description:
+          question.mcq?.length > 0
+            ? question.mcq.map((option) => (option.label ?? option) > 100 ? (option.label ?? option).slice(0, 97) + "..." : (option.label ?? option)).join("; ")
+            : "No multiple choice options",
+        value: `${index + 1}`
       });
     });
 
@@ -108,37 +95,19 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
       questions?.map((question, index) => {
         const mcqContent =
           question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
-        return {
-          name: `Question ${index + 1}`,
-          value: (question.content + mcqContent).slice(0, 1024),
-          inline: false,
-        };
-      }),
+        return { name: `Question ${index + 1}`, value: (question.content + mcqContent).slice(0, 1024), inline: false };
+      })
     );
 
-    if (interaction.replied || interaction.deferred) {
-      interaction.message.edit({
-        embeds: [questionembed],
-        components: [editmenu, questionbuttons, finishbuttons],
-      });
-    } else {
-      interaction.update({
-        embeds: [questionembed],
-        components: [editmenu, questionbuttons, finishbuttons],
-      });
-    }
+    if (interaction.replied || interaction.deferred) 
+    { interaction.message.edit({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] }); } 
+    else 
+    { interaction.update({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] }); }
   } else {
-    if (interaction.replied || interaction.deferred) {
-      interaction.message.edit({
-        embeds: [questionembed],
-        components: [questionbuttons, finishbuttons],
-      });
-    } else {
-      interaction.update({
-        embeds: [questionembed],
-        components: [questionbuttons, finishbuttons],
-      });
-    }
+    if (interaction.replied || interaction.deferred) 
+    { interaction.message.edit({ embeds: [questionembed], components: [questionbuttons, finishbuttons] }); } 
+    else 
+    { interaction.update({ embeds: [questionembed], components: [questionbuttons, finishbuttons] }); }
   }
 }
 

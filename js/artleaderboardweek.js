@@ -1,15 +1,9 @@
 // Not optimised at all, works, but a lot is hardcoded which should use values that are already stored in the database (like whitelist and custom bot lists)
-const {
-  ArtBoardConfig,
-  ArtLeaderboard,
-  Whitelist,
-} = require("../dbObjects.js");
+const { ArtBoardConfig, ArtLeaderboard, Whitelist } = require("../dbObjects.js");
 const { PermissionsBitField } = require("discord.js");
 
 module.exports = async (client) => {
-  const CUSTOM_BOT_CONFIG = {
-    "1129975568646025216": "1291000170032402433",
-  };
+  const CUSTOM_BOT_CONFIG = { "1129975568646025216": "1291000170032402433" };
 
   function shouldSkipProcessing(guildId, clientId) {
     const customBotId = CUSTOM_BOT_CONFIG[guildId];
@@ -37,14 +31,11 @@ module.exports = async (client) => {
       console.log("Registered font: Montserrat-Italic");
     }
 
-    if (!fs.existsSync(regular) && !fs.existsSync(italic)) {
-      console.warn(
-        "Montserrat font files not found.",
-      );
-    }
-  } catch (err) {
-    console.warn("Canvas font registration failed!", err?.message || err);
-  }
+    if (!fs.existsSync(regular) && !fs.existsSync(italic)) 
+    { console.warn("Montserrat font files not found."); }
+  } 
+  catch (err) 
+  { console.warn("Canvas font registration failed!", err?.message || err); }
 
   const resetDay = 6;
   const resetHour = 10;
@@ -52,30 +43,22 @@ module.exports = async (client) => {
 
   async function updatedb(reaction, user) {
     if (reaction.partial) {
-      try {
-        await reaction.fetch().catch(() => {});
-      } catch (error) {
+      try 
+      { await reaction.fetch().catch(() => {}); } 
+      catch (error) 
+      {
         console.error("Something went wrong when fetching the message:", error);
         return;
       }
     }
 
-    if (
-      reaction.message?.channel?.isDMBased() ||
-      !reaction.message?.author ||
-      reaction.message?.author.bot ||
-      user.bot
-    )
+    if ( reaction.message?.channel?.isDMBased() || !reaction.message?.author || reaction.message?.author.bot || user.bot )
       return;
 
-    const config = await ArtBoardConfig.findOne({
-      where: { server_id: reaction.message.guild.id },
-    });
+    const config = await ArtBoardConfig.findOne({ where: { server_id: reaction.message.guild.id } });
     if (!config || !config.artchannels) return;
 
-    const guildwhitelist = await Whitelist.findOne({
-      where: { server_id: reaction.message.guild.id },
-    });
+    const guildwhitelist = await Whitelist.findOne({ where: { server_id: reaction.message.guild.id } });
     if (!guildwhitelist || guildwhitelist.artLeaderboard === false) return;
 
     const channels = config.artchannels;
@@ -84,46 +67,35 @@ module.exports = async (client) => {
 
     let reactedemoji;
 
-    if (reaction.emoji.id === null) {
-      reactedemoji = reaction.emoji.name;
-    } else if (reaction.emoji.animated === true) {
-      reactedemoji = `<a:${reaction.emoji.name}:${reaction.emoji.id}>`;
-    } else {
-      reactedemoji = `<:${reaction.emoji.name}:${reaction.emoji.id}>`;
-    }
+    if (reaction.emoji.id === null) 
+    { reactedemoji = reaction.emoji.name; } 
+    else if (reaction.emoji.animated === true) 
+    { reactedemoji = `<a:${reaction.emoji.name}:${reaction.emoji.id}>`; } 
+    else 
+    { reactedemoji = `<:${reaction.emoji.name}:${reaction.emoji.id}>`; }
 
     if (reactedemoji !== config.emoji) return;
 
     const date = new Date();
     const dayOfWeek = date.getDay();
     const daysSinceLastSaturday = (dayOfWeek + 1) % 7;
-    const lastSaturday = new Date(
-      date.getTime() - daysSinceLastSaturday * 24 * 60 * 60 * 1000,
-    );
+    const lastSaturday = new Date( date.getTime() - daysSinceLastSaturday * 24 * 60 * 60 * 1000 );
     lastSaturday.setUTCHours(10, 0, 0, 0);
 
-    if (reaction.message.createdTimestamp < lastSaturday.getTime()) {
-      return;
-    }
+    if (reaction.message.createdTimestamp < lastSaturday.getTime()) 
+    { return; }
 
     const users = await reaction.users.fetch();
     const nonBotUsers = users.filter((user) => !user.bot);
 
-    let [leaderboard] = await ArtLeaderboard.findOrCreate({
-      where: { server_id: reaction.message.guild.id },
-      defaults: { JSON: {} },
-    });
+    let [leaderboard] = await ArtLeaderboard.findOrCreate({ where: { server_id: reaction.message.guild.id }, defaults: { JSON: {} } });
 
     const currentData = leaderboard.JSON || {};
 
-    if (nonBotUsers.size === 0) {
-      delete currentData[reaction.message.id];
-    } else {
-      currentData[reaction.message.id] = {
-        reactions: nonBotUsers.size,
-        author: reaction.message.author.id,
-      };
-    }
+    if (nonBotUsers.size === 0) 
+    { delete currentData[reaction.message.id]; } 
+    else 
+    { currentData[reaction.message.id] = { reactions: nonBotUsers.size, author: reaction.message.author.id }; }
 
     leaderboard.JSON = currentData;
     leaderboard.changed("JSON", true);
@@ -135,9 +107,8 @@ module.exports = async (client) => {
 
   client.on("messageReactionAdd", async (reaction, user) => {
     const key = reaction.message.id;
-    if (reactionUpdate.has(key)) {
-      clearTimeout(reactionUpdate.get(key));
-    }
+    if (reactionUpdate.has(key)) 
+    { clearTimeout(reactionUpdate.get(key)); }
     reactionUpdate.set(key, setTimeout(async () => {
       reactionUpdate.delete(key);
       await updatedb(reaction, user);
@@ -146,9 +117,9 @@ module.exports = async (client) => {
 
   client.on("messageReactionRemove", async (reaction, user) => {
     const key = reaction.message.id;
-    if (reactionUpdate.has(key)) {
-      clearTimeout(reactionUpdate.get(key));
-    }
+    if (reactionUpdate.has(key)) 
+    { clearTimeout(reactionUpdate.get(key)); }
+
     reactionUpdate.set(key, setTimeout(async () => {
       reactionUpdate.delete(key);
       await updatedb(reaction, user);
@@ -161,29 +132,21 @@ module.exports = async (client) => {
     if (shouldSkipProcessing(message.guild.id, client.user.id)) return;
 
     if (message.content === "&resetlb") {
-      if (
-        !message.member.permissions.has(PermissionsBitField.Flags.ManageGuild)
-      )
-        return;
+      if ( !message.member.permissions.has(PermissionsBitField.Flags.ManageGuild) ) { return; }
+
       const guildid = message.guild.id;
       const guild = client.guilds.cache.get(guildid);
-      if (guild) {
-        resetleaderboard(guild, client);
-      }
+      if (guild) { resetleaderboard(guild, client); }
     } else if (message.content === "&resetfwlb") {
       if (message.author.id !== "808738877945675786") return;
       const guildid = "840703269390647296";
       const guild = client.guilds.cache.get(guildid);
-      if (guild) {
-        resetleaderboard(guild, client);
-      }
+      if (guild) { resetleaderboard(guild, client); }
     } else if (message.content === "&resetfvlb") {
       if (message.author.id !== "808738877945675786") return;
       const guildid = "1129975568646025216";
       const guild = client.guilds.cache.get(guildid);
-      if (guild) {
-        resetleaderboard(guild, client);
-      }
+      if (guild) { resetleaderboard(guild, client); }
     } else if (message.content === "&topic") {
       const fs = require("fs");
       const data = fs.readFileSync("topics.json", "utf8");
@@ -196,14 +159,10 @@ module.exports = async (client) => {
 
     if (message.attachments.size === 0) return;
 
-    const config = await ArtBoardConfig.findOne({
-      where: { server_id: message.guild.id },
-    });
+    const config = await ArtBoardConfig.findOne({ where: { server_id: message.guild.id } });
     if (!config || !config.artchannels) return;
 
-    const guildwhitelist = await Whitelist.findOne({
-      where: { server_id: message.guild.id },
-    });
+    const guildwhitelist = await Whitelist.findOne({ where: { server_id: message.guild.id } });
     if (!guildwhitelist || guildwhitelist.artLeaderboard === false) return;
 
     const channels = config.artchannels;
@@ -218,11 +177,7 @@ module.exports = async (client) => {
     let canvas, ctx, n1, n2, n3, frame, gold, silver, bronze;
     if (shouldSkipProcessing(guild.id, client.user.id)) return;
 
-    const config = await ArtBoardConfig.findOne({
-      where: {
-        server_id: guild.id,
-      },
-    });
+    const config = await ArtBoardConfig.findOne({  where: { server_id: guild.id } });
 
     if (!config || !config.artchannels || !config.artleaderboardchannel) {
       console.error("Missing config data");
@@ -248,9 +203,7 @@ module.exports = async (client) => {
       .catch((e) => console.log(e));
 
     try {
-      const leaderboard = await ArtLeaderboard.findOne({
-        where: { server_id: guild.id },
-      });
+      const leaderboard = await ArtLeaderboard.findOne({ where: { server_id: guild.id } });
 
       if (!leaderboard || !leaderboard.JSON) {
         console.error("No leaderboard data found");
@@ -260,10 +213,7 @@ module.exports = async (client) => {
       console.log("2");
 
       const values = Object.entries(leaderboard.JSON)?.map(
-        ([messageId, data]) => ({
-          id: messageId,
-          ...data,
-        }),
+        ([messageId, data]) => ({ id: messageId, ...data })
       );
 
       console.log("2.5");
@@ -275,52 +225,33 @@ module.exports = async (client) => {
         for (const channelId of artchannels) {
           try {
 
-            const channel = await client.channels.fetch(channelId, {
-              force: true,
-            });
+            const channel = await client.channels.fetch(channelId, { force: true });
             if (!channel) {
               console.error(`Channel ID ${channelId} not found`);
               continue;
             }
             await channel.messages.cache.delete(messageId);
-            const msg = await channel.messages.fetch(messageId, {
-              force: true,
-            });
+            const msg = await channel.messages.fetch(messageId, { force: true });
             if (msg) {
               const attachment = msg.attachments.first();
-              if (
-                attachment &&
-                supportedImageTypes.includes(attachment.contentType)
-              ) {
+              if ( attachment && supportedImageTypes.includes(attachment.contentType) ) {
                 try {
-                  const response = await fetch(attachment.url, {
-                    method: "HEAD",
-                  });
+                  const response = await fetch(attachment.url, { method: "HEAD" });
                   if (!response.ok) {
-                    console.error(
-                      `Attachment URL invalid: ${attachment.url} (${response.status})`,
-                    );
+                    console.error(`Attachment URL invalid: ${attachment.url} (${response.status})`);
                     continue;
                   }
                   return attachment;
                 } catch (urlError) {
-                  console.error(
-                    `Failed to validate URL: ${attachment.url}`,
-                    urlError,
-                  );
+                  console.error(`Failed to validate URL: ${attachment.url}`, urlError);
                   continue;
                 }
-              } else {
-                console.error(
-                  `Unsupported type: ${attachment.contentType} for msg ${messageId}`,
-                );
-              }
+              } 
+              else 
+              { console.error(`Unsupported type: ${attachment.contentType} for msg ${messageId}`); }
             }
           } catch (error) {
-            console.error(
-              `Error in channel ${channelId}, msg ${messageId}:`,
-              error,
-            );
+            console.error(`Error in channel ${channelId}, msg ${messageId}:`, error );
             continue;
           }
         }
@@ -334,23 +265,19 @@ module.exports = async (client) => {
           continue;
         }
 
-        const isDuplicate = topPlaces.some(
-          (place) => place.author === sortedValues[i].author,
-        );
+        const isDuplicate = topPlaces.some( (place) => place.author === sortedValues[i].author );
         if (isDuplicate) {
           console.log(`Skipping duplicate author: ${sortedValues[i].author}`);
           continue;
         }
 
         let image = await fetchImage(artchannels, sortedValues[i].id);
-        if (image) {
-          topPlaces.push({ ...sortedValues[i], image });
-        }
+        if (image) 
+        { topPlaces.push({ ...sortedValues[i], image }); }
 
         // Delay to not get ratelimited
-        if (topPlaces.length < 3) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
+        if (topPlaces.length < 3) 
+        { await new Promise((resolve) => setTimeout(resolve, 1000)); }
       }
 
       console.log("3");
@@ -365,9 +292,7 @@ module.exports = async (client) => {
       const Canvas = require("canvas");
       canvas = Canvas.createCanvas(1920, 1080);
       ctx = canvas.getContext("2d");
-      const background = await Canvas.loadImage(
-        "./leaderboardimages/gallery2.png",
-      );
+      const background = await Canvas.loadImage("./leaderboardimages/gallery2.png");
 
       console.log(topPlaces);
 
@@ -457,7 +382,7 @@ module.exports = async (client) => {
         xOffset1 - test1,
         yOffset1 - test2,
         newWidth1 * verhouding,
-        newHeight1 * verhouding,
+        newHeight1 * verhouding
       );
       ctx.fillRect(xOffset1, yOffset1, newWidth1, newHeight1);
       ctx.drawImage(n1, xOffset1, yOffset1, newWidth1, newHeight1);
@@ -466,7 +391,7 @@ module.exports = async (client) => {
         xOffset1 - test1 + medalx,
         yOffset1 - test2 + medaly,
         gold.width / medalverklein,
-        gold.height / medalverklein,
+        gold.height / medalverklein
       );
 
       test1 = (newWidth2 * verhouding - newWidth2) / 2;
@@ -477,7 +402,7 @@ module.exports = async (client) => {
         xOffset2 - test1,
         yOffset2 - test2,
         newWidth2 * verhouding,
-        newHeight2 * verhouding,
+        newHeight2 * verhouding
       );
       ctx.fillRect(xOffset2, yOffset2, newWidth2, newHeight2);
       ctx.drawImage(n2, xOffset2, yOffset2, newWidth2, newHeight2);
@@ -486,7 +411,7 @@ module.exports = async (client) => {
         xOffset2 - test1 + medalx,
         yOffset2 - test2 + medaly,
         silver.width / medalverklein,
-        silver.height / medalverklein,
+        silver.height / medalverklein
       );
 
       test1 = (newWidth3 * verhouding - newWidth3) / 2;
@@ -497,7 +422,7 @@ module.exports = async (client) => {
         xOffset3 - test1,
         yOffset3 - test2,
         newWidth3 * verhouding,
-        newHeight3 * verhouding,
+        newHeight3 * verhouding
       );
       ctx.fillRect(xOffset3, yOffset3, newWidth3, newHeight3);
       ctx.drawImage(n3, xOffset3, yOffset3, newWidth3, newHeight3);
@@ -506,7 +431,7 @@ module.exports = async (client) => {
         xOffset3 - test1 + medalx,
         yOffset3 - test2 + medaly,
         bronze.width / medalverklein,
-        bronze.height / medalverklein,
+        bronze.height / medalverklein
       );
 
       function getDisplayName(user) {
@@ -514,23 +439,18 @@ module.exports = async (client) => {
 
         // eslint-disable-next-line no-control-regex
         const specialchar = /[^\x00-\x7F]/.test(user.globalName);
-        if (specialchar) {
-          return user.username;
-        } else {
-          return user.globalName;
-        }
+        if (specialchar) 
+        { return user.username; } 
+        else 
+        { return user.globalName; }
       }
 
       // Truncate text
       // function truncateText(ctx, text, maxWidth) {
-      //     if (ctx.measureText(text).width <= maxWidth) {
-      //         return text;
-      //     }
+      //     if (ctx.measureText(text).width <= maxWidth) { return text; }
 
       //     let truncated = text;
-      //     while (ctx.measureText(truncated + '...').width > maxWidth && truncated.length > 0) {
-      //         truncated = truncated.slice(0, -1);
-      //     }
+      //     while (ctx.measureText(truncated + '...').width > maxWidth && truncated.length > 0) { truncated = truncated.slice(0, -1); }
 
       //     return truncated + '...';
       // }
@@ -544,9 +464,10 @@ module.exports = async (client) => {
         for (let i = 1; i < words.length; i++) {
           const word = words[i];
           const width = ctx.measureText(currentLine + " " + word).width;
-          if (width < maxWidth) {
-            currentLine += " " + word;
-          } else {
+          if (width < maxWidth) 
+          { currentLine += " " + word; } 
+          else 
+          {
             lines.push(currentLine);
             currentLine = word;
           }
@@ -587,41 +508,34 @@ module.exports = async (client) => {
         getDisplayName(artist1),
         canvas.width / 2 - pixlinks,
         yOffset1 + newHeight1 + 90 + 75 / wrh1,
-        nameMaxWidth,
+        nameMaxWidth
       );
       drawWrappedText(
         ctx,
         getDisplayName(artist2),
         canvas.width / 2,
         yOffset2 + newHeight2 + 90 + 75 / wrh2,
-        nameMaxWidth,
+        nameMaxWidth
       );
       drawWrappedText(
         ctx,
         getDisplayName(artist3),
         canvas.width / 2 + pixlinks,
         yOffset3 + newHeight3 + 90 + 75 / wrh3,
-        nameMaxWidth,
+        nameMaxWidth
       );
 
       const final = canvas.toBuffer();
 
       console.log("6");
 
-      const message = messages.find(
-        (msg) =>
-          msg.author.id === client.user.id && msg.content === messageContent,
-      );
-      if (message) {
-        await message.delete();
-      }
+      const message = messages.find( (msg) => msg.author.id === client.user.id && msg.content === messageContent );
+      if (message) 
+      { await message.delete(); }
 
       console.log("7");
 
-      channeltosend.send({
-        content: `# This week's top three artists:\n`,
-        files: [{ attachment: final }],
-      });
+      channeltosend.send({ content: `# This week's top three artists:\n`, files: [{ attachment: final }] });
       console.log("8");
 
       await ArtLeaderboard.destroy({ where: { server_id: guild.id } });
@@ -631,7 +545,7 @@ module.exports = async (client) => {
       channeltosend.send(
         "An error occurred while resetting the leaderboard. Please contact the bot dev with the following error message:\n```\n" +
           error +
-          "\n```",
+          "\n```"
       );
       console.error("Error resetting leaderboard:", error);
     } finally {
