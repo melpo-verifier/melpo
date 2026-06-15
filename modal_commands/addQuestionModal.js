@@ -24,8 +24,9 @@ module.exports = async ({ interaction, client, context }) => {
   const mcq = interaction.fields.getTextInputValue(`mcq`);
   let mcqArray = mcq ? mcq.split("\n") : [];
 
-  if (mcqArray.length > 9) 
-  { mcqArray = mcqArray.slice(0, 9); }
+  //allow max of 20 MCQ questions.
+  if (mcqArray.length > 20) 
+  { mcqArray = mcqArray.slice(0, 20); }
 
   const { tempApp: temporarySetup, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
   if (error || !temporarySetup) {
