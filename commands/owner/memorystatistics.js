@@ -17,11 +17,11 @@ module.exports = {
         .setName("type")
         .setDescription("Type of statistics to display")
         .addChoices(
-          { name: "System Performance"  , value: "system" },
-          { name: "Bot Usage Stats"     , value: "usage" },
+          { name: "System Performance"  , value: "system"   },
+          { name: "Bot Usage Stats"     , value: "usage"    },
           { name: "Database Performance", value: "database" },
-          { name: "Cache Statistics"    , value: "cache" },
-          { name: "All Statistics"      , value: "all" }
+          { name: "Cache Statistics"    , value: "cache"    },
+          { name: "All Statistics"      , value: "all"      }
         ),
     )
     .addStringOption((option) =>
@@ -30,7 +30,7 @@ module.exports = {
         .setDescription("Time period for usage statistics")
         .addChoices(
           { name: "Today"       , value: "today" },
-          { name: "Last 7 days" , value: "week" },
+          { name: "Last 7 days" , value: "week"  },
           { name: "Last 30 days", value: "month" }
         ),
     ),
@@ -51,14 +51,17 @@ module.exports = {
     try {
       const embeds = [];
 
-      if (type === "system" || type === "all") 
-      { embeds.push(await getSystemPerformanceEmbed(client, interaction)); }
+      if (type === "system" || type === "all") { 
+        embeds.push(await getSystemPerformanceEmbed(client, interaction)); 
+      }
 
-      if (type === "usage" || type === "all") 
-      { embeds.push(await getUsageStatisticsEmbed(timeframe)); }
+      if (type === "usage" || type === "all") { 
+        embeds.push(await getUsageStatisticsEmbed(timeframe)); 
+      }
 
-      if (type === "cache" || type === "all") 
-      { embeds.push(await getCacheStatisticsEmbed(client)); }
+      if (type === "cache" || type === "all") { 
+        embeds.push(await getCacheStatisticsEmbed(client)); 
+      }
 
       await interaction.editReply({ embeds });
     } catch (error) {
@@ -230,8 +233,9 @@ async function getCacheStatisticsEmbed(client) {
     cacheStats.voiceStates += guild.voiceStates.cache.size;
 
     guild.channels.cache.forEach((channel) => {
-      if (channel.messages) 
-      { cacheStats.messages += channel.messages.cache.size; }
+      if (channel.messages) { 
+        cacheStats.messages += channel.messages.cache.size; 
+      }
     });
   });
 
@@ -274,14 +278,14 @@ function getDateRange(timeframe) {
     case "today":
       return {
         start: today.toISOString().split("T")[0],
-        end: today.toISOString().split("T")[0]
+        end:   today.toISOString().split("T")[0]
       };
     case "week": {
       const weekAgo = new Date(today);
       weekAgo.setDate(weekAgo.getDate() - 7);
       return {
         start: weekAgo.toISOString().split("T")[0],
-        end: today.toISOString().split("T")[0]
+        end:   today.toISOString().split("T")[0]
       };
     }
     case "month": {
@@ -289,26 +293,27 @@ function getDateRange(timeframe) {
       monthAgo.setDate(monthAgo.getDate() - 30);
       return {
         start: monthAgo.toISOString().split("T")[0],
-        end: today.toISOString().split("T")[0]
+        end:   today.toISOString().split("T")[0]
       };
     }
     default:
       return {
         start: today.toISOString().split("T")[0],
-        end: today.toISOString().split("T")[0]
+        end:   today.toISOString().split("T")[0]
       };
   }
 }
 
 function formatUptime(seconds) {
-  const days = Math.floor(seconds / 86400);
-  const hours = Math.floor((seconds % 86400) / 3600);
+  const days    = Math.floor(seconds / 86400);
+  const hours   = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
 
-  if (days > 0) 
-  { return `${days}d ${hours}h ${minutes}m`; } 
-  else if (hours > 0) 
-  { return `${hours}h ${minutes}m`; } 
-  else 
-  { return `${minutes}m`; }
+  if (days > 0) { 
+    return `${days}d ${hours}h ${minutes}m`; 
+  } else if (hours > 0) { 
+    return `${hours}h ${minutes}m`; 
+  } else { 
+    return `${minutes}m`; 
+  }
 }

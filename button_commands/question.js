@@ -3,7 +3,7 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { OptOut } = require("../dbObjects.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");

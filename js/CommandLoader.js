@@ -32,9 +32,9 @@ class CommandLoader {
         );
 
         this.client.commandLoader = this;
-      } 
-      catch (error) 
-      { console.error("Failed to load commands:", error); }
+      } catch (error) { 
+        console.error("Failed to load commands:", error); 
+      }
     })();
   }
 
@@ -59,23 +59,25 @@ class CommandLoader {
             .filter((dirent) => dirent.isFile() && dirent.name.endsWith(".js"))
             ?.map((dirent) => dirent.name);
 
-          for (const file of commandFiles) 
-          { this.loadSingleCommand(commandsPath, file, folder); }
-        } 
-        catch (error) 
-        { console.error(`Failed to read folder ${folder}:`, error.message); }
+          for (const file of commandFiles) { 
+            this.loadSingleCommand(commandsPath, file, folder); 
+          }
+        } catch (error) { 
+          console.error(`Failed to read folder ${folder}:`, error.message); 
+        }
       }
-    } 
-    catch (error) 
-    { console.error("Failed to load commands:", error.message); }
+    } catch (error) { 
+      console.error("Failed to load commands:", error.message); 
+    }
   }
 
   loadSingleCommand(commandsPath, file, folder) {
     try {
       const filePath = path.join(commandsPath, file);
 
-      if (this.loadedModules.has(filePath)) 
-      { delete require.cache[require.resolve(filePath)]; }
+      if (this.loadedModules.has(filePath)) { 
+        delete require.cache[require.resolve(filePath)]; 
+      }
 
       const command = require(filePath);
       this.loadedModules.add(filePath);
@@ -88,21 +90,21 @@ class CommandLoader {
 
         this.client.commands.set(command.data.name, command);
         console.log(`✓ Loaded command: ${command.data.name} from ${folder}`);
-      } 
-      else 
-      { console.warn(`[WARNING] Command at ${filePath} missing required properties (data/execute)`); }
-    } 
-    catch (error) 
-    { console.error(`Failed to load command ${file}:`, error.message); }
+      } else { 
+        console.warn(`[WARNING] Command at ${filePath} missing required properties (data/execute)`); 
+      }
+    } catch (error) { 
+      console.error(`Failed to load command ${file}:`, error.message); 
+    }
   }
 
   loadButtonCommands() {
     this.loadFromDirectory("./button_commands", this.client.buttonCommands, "button command");
 
     const subDirs = ["setupbuttons", "customization"];
-    subDirs.forEach((dir) => {
-      this.loadFromDirectory(`./button_commands/${dir}`, this.client.buttonCommands, "button command");
-    });
+    subDirs.forEach(
+      (dir) => { this.loadFromDirectory(`./button_commands/${dir}`, this.client.buttonCommands, "button command"); }
+    );
   }
 
   loadMenus()   { this.loadFromDirectory("./menu_commands", this.client.menus, "menu"); }
@@ -127,8 +129,9 @@ class CommandLoader {
           const filePath = path.join(directory, file);
           const absolutePath = path.join(this.basePath, filePath);
 
-          if (this.loadedModules.has(absolutePath)) 
-          { delete require.cache[require.resolve(absolutePath)]; }
+          if (this.loadedModules.has(absolutePath)) { 
+            delete require.cache[require.resolve(absolutePath)]; 
+          }
 
           const command = require(absolutePath);
           const commandName = path.basename(file, ".js");
@@ -136,18 +139,17 @@ class CommandLoader {
           this.loadedModules.add(absolutePath);
           collection.set(commandName, command);
           console.log(`✓ Loaded ${type}: ${commandName} from ${directory}`);
-        } 
-        catch (error) 
-        { console.error(`Failed to load ${type} ${file}:`, error.message); }
+        } catch (error) { 
+          console.error(`Failed to load ${type} ${file}:`, error.message); 
+        }
       }
-    } 
-    catch (error) 
-    { console.error(`Failed to read directory ${directory}:`, error.message); }
+    } catch (error) { 
+      console.error(`Failed to read directory ${directory}:`, error.message); 
+    }
   }
 
   clearCache() {
-    for (const modulePath of this.loadedModules) 
-    { delete require.cache[modulePath]; }
+    for (const modulePath of this.loadedModules) { delete require.cache[modulePath]; }
     this.loadedModules.clear();
     console.log("Command cache cleared");
   }
@@ -155,8 +157,7 @@ class CommandLoader {
   reloadCommand(commandName) {
     try {
       const command = this.client.commands.get(commandName);
-      if (!command) 
-      { throw new Error(`Command ${commandName} not found`); }
+      if (!command) { throw new Error(`Command ${commandName} not found`); }
 
       for (const [filePath] of this.loadedModules) {
         if (filePath.includes(commandName)) {

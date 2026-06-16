@@ -27,9 +27,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     });
   }
 
-  if (!userid) {
-    throw new Error("Could not fetch user ID from the embed");
-  }
+  if (!userid) { throw new Error("Could not fetch user ID from the embed"); }
 
   const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
 
@@ -57,10 +55,11 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
   // Try to get member for processLogMessages
   let member;
-  try 
-  { member = await interaction.guild.members.fetch(userid); } 
-  catch 
-  { member = { user, id: userid }; }
+  try { 
+    member = await interaction.guild.members.fetch(userid); 
+  } catch { 
+    member = { user, id: userid }; 
+  }
   
   let rolesToApply = [];
   console.log(application.deniedrole)
@@ -72,11 +71,14 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     const denyCount = await Submissions.count({
       where: { user_id: userid, guild_id: interaction.guild.id, app_id: String(applicationId), status: "denied" },
     });
-    if (denyCount + 1 >= application.maxdenials) 
-    { rolesToApply.push(application.deniedrole); }
+
+    if (denyCount + 1 >= application.maxdenials) { 
+      rolesToApply.push(application.deniedrole); 
+    }
   } 
-  else if (application.deniedrole?.length > 0) 
-  { rolesToApply.push(application.deniedrole); }
+  else if (application.deniedrole?.length > 0) { 
+    rolesToApply.push(application.deniedrole); 
+  }
 
   if(rolesToApply.length > 0) {
     // Validate roles
@@ -114,8 +116,9 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         flags: MessageFlags.Ephemeral
       }).catch(() => { });
     } 
-    else 
-    { throw logError; }
+    else { 
+      throw logError; 
+    }
   }
 
   // If no separate log channel, edit the current message
@@ -134,11 +137,14 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         flags: [MessageFlags.IsComponentsV2],
         components: [deniedContainer]
       };
+
       if (files) editPayload.files = files;
+      
       await interaction.editReply(editPayload);
 
-      if (interaction.message.thread) 
-      { await interaction.message.thread.setArchived(true); }
+      if (interaction.message.thread) { 
+        await interaction.message.thread.setArchived(true); 
+      }
     }
   }
 
@@ -149,8 +155,9 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   ).catch((e) => { console.error("Error updating submission status:", e); });
 
   // Cleanup verification data
-  if (messageids && messageids.length > 0) 
-  { await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId); }
+  if (messageids && messageids.length > 0) { 
+    await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId); 
+  }
 
   // Send denial DM
   const dmResult = await sendDenyDM(interaction.user.username, user, application, interaction.guild.name);

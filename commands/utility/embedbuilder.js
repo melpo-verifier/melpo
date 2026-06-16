@@ -230,14 +230,17 @@ module.exports = {
 
       const message = await channel.messages.fetch(messageId).catch(() => null);
 
-      if (!message) 
-      { return interaction.editReply("Could not find that message!"); }
+      if (!message) { 
+        return interaction.editReply("Could not find that message!"); 
+      }
 
-      if (message.author.id !== interaction.client.user.id) 
-      { return interaction.editReply("I can only edit my own embeds!"); }
+      if (message.author.id !== interaction.client.user.id) { 
+        return interaction.editReply("I can only edit my own embeds!"); 
+      }
 
-      if (!message.embeds?.[0]) 
-      { return interaction.editReply("That message doesn't contain an embed!"); }
+      if (!message.embeds?.[0]) { 
+        return interaction.editReply("That message doesn't contain an embed!"); 
+      }
 
       // Create new embed from old one
       const oldEmbed = message.embeds[0];
@@ -253,16 +256,17 @@ module.exports = {
         timestamp: interaction.options.getBoolean("timestamp"),
       };
 
-      if (updates.title) newEmbed.setTitle(updates.title);
+      if (updates.title)       newEmbed.setTitle(updates.title);
       if (updates.description) newEmbed.setDescription(updates.description);
 
-      if (updates.color?.match(/^#[0-9A-F]{6}$/i)) 
-      { newEmbed.setColor(updates.color); }
+      if (updates.color?.match(/^#[0-9A-F]{6}$/i)) { 
+        newEmbed.setColor(updates.color); 
+      }
 
-      if (updates.image) newEmbed.setImage(updates.image.url);
-      if (updates.thumbnail) newEmbed.setThumbnail(updates.thumbnail.url);
+      if (updates.image)       newEmbed.setImage(updates.image.url);
+      if (updates.thumbnail)   newEmbed.setThumbnail(updates.thumbnail.url);
 
-      if (updates.footer) newEmbed.setFooter({ text: updates.footer });
+      if (updates.footer)      newEmbed.setFooter({ text: updates.footer });
       if (updates.timestamp !== null) {
         updates.timestamp
           ? newEmbed.setTimestamp()
@@ -279,34 +283,37 @@ module.exports = {
 
       const message = await channel.messages.fetch(messageId).catch(() => null);
 
-      if (!message) 
-      { return interaction.editReply("Could not find that message!"); }
+      if (!message) { 
+        return interaction.editReply("Could not find that message!"); 
+      }
 
-      if (message.author.id !== interaction.client.user.id) 
-      { return interaction.editReply("I can only edit my own embeds!"); }
+      if (message.author.id !== interaction.client.user.id) { 
+        return interaction.editReply("I can only edit my own embeds!"); 
+      }
 
-      if (!message.embeds?.[0]) 
-      { return interaction.editReply("That message doesn't contain an embed!"); }
+      if (!message.embeds?.[0]) { 
+        return interaction.editReply("That message doesn't contain an embed!"); 
+      }
 
       // Create new embed from old one
       const oldEmbed = message.embeds[0];
       const newEmbed = EmbedBuilder.from(oldEmbed);
 
       const removals = {
-        title: interaction.options.getBoolean("remove-title"),
+        title:       interaction.options.getBoolean("remove-title"),
         description: interaction.options.getBoolean("remove-description"),
-        color: interaction.options.getBoolean("remove-color"),
-        image: interaction.options.getBoolean("remove-image"),
-        thumbnail: interaction.options.getBoolean("remove-thumbnail"),
-        footer: interaction.options.getBoolean("remove-footer")
+        color:       interaction.options.getBoolean("remove-color"),
+        image:       interaction.options.getBoolean("remove-image"),
+        thumbnail:   interaction.options.getBoolean("remove-thumbnail"),
+        footer:      interaction.options.getBoolean("remove-footer")
       };
 
-      if (removals.title) newEmbed.setTitle(null);
+      if (removals.title)       newEmbed.setTitle(null);
       if (removals.description) newEmbed.setDescription(null);
-      if (removals.color) newEmbed.setColor(null);
-      if (removals.image) newEmbed.setImage(null);
-      if (removals.thumbnail) newEmbed.setThumbnail(null);
-      if (removals.footer) newEmbed.setFooter(null);
+      if (removals.color)       newEmbed.setColor(null);
+      if (removals.image)       newEmbed.setImage(null);
+      if (removals.thumbnail)   newEmbed.setThumbnail(null);
+      if (removals.footer)      newEmbed.setFooter(null);
 
       await message.edit({ embeds: [newEmbed] });
 

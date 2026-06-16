@@ -44,8 +44,9 @@ module.exports = async ({ interaction, context }) => {
           keepKey: null
         });
       } 
-      catch (error) 
-      { console.error(`Failed to delete image for ${field}:`, error); }
+      catch (error) { 
+        console.error(`Failed to delete image for ${field}:`, error); 
+      }
     }
   }
 

@@ -4,7 +4,7 @@ const {
   EmbedBuilder,
   StringSelectMenuBuilder,
   ButtonStyle,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
@@ -84,8 +84,8 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
         { label: "Purple",            value: "#9d3ef0", emoji: "🟣" },
         { label: "Orange",            value: "#f08b3e", emoji: "🟠" },
         { label: "Black",             value: "#000000", emoji: "⚫" },
-        { label: "White",             value: "#ffffff", emoji: "⚪" },
-      ),
+        { label: "White",             value: "#ffffff", emoji: "⚪" }
+      )
   );
 
   let embed;

@@ -7,26 +7,31 @@ async function getApplicationById(applicationId, guildId) {
 
   const application = await Application.findByPk(applicationId);
   
-  if (!application) 
-  { return { application: null, error: "Application not found" }; }
+  if (!application) { 
+    return { application: null, error: "Application not found" }; 
+  }
   
-  if (application.server_id !== guildId) 
-  { return { application: null, error: "Application does not belong to this server" }; }
+  if (application.server_id !== guildId) { 
+    return { application: null, error: "Application does not belong to this server" }; 
+  }
   
   return { application, error: null };
 }
 
 async function getTempApplicationById(tempApplicationId, guildId) {
-  if (!tempApplicationId || isNaN(tempApplicationId)) 
-  { return { tempApp: null, error: "Invalid temp application ID" }; }
+  if (!tempApplicationId || isNaN(tempApplicationId)) { 
+    return { tempApp: null, error: "Invalid temp application ID" }; 
+  }
 
   const tempApp = await TempApplication.findByPk(tempApplicationId);
   
-  if (!tempApp) 
-  { return { tempApp: null, error: "Temp application not found" }; }
+  if (!tempApp) { 
+    return { tempApp: null, error: "Temp application not found" }; 
+  }
   
-  if (tempApp.server_id !== guildId) 
-  { return { tempApp: null, error: "Temp application does not belong to this server" }; }
+  if (tempApp.server_id !== guildId) { 
+    return { tempApp: null, error: "Temp application does not belong to this server" }; 
+  }
   
   return { tempApp, error: null };
 }
@@ -48,19 +53,21 @@ async function updateTemporarySetup(serverID, updates) {
         // If the update is an array, replace the existing array
         // Empty arrays are treated as deleting the field (set to null)
         setupData[key] = updates[key].length === 0 ? null : updates[key];
-      } 
-      else if (typeof updates[key] === "object" && updates[key] !== null) 
-      { setupData[key] = { ...setupData[key], ...updates[key] }; } // If the update is an object, merge it with the existing object
-      else 
-      { setupData[key] = updates[key]; }                           // Otherwise, directly assign the value
+      } else if (typeof updates[key] === "object" && updates[key] !== null) { 
+        setupData[key] = { ...setupData[key], ...updates[key] }; 
+      } // If the update is an object, merge it with the existing object
+      else { 
+        setupData[key] = updates[key]; 
+      } // Otherwise, directly assign the value
     }
   }
 
   await TempConfig.update(setupData, { where: { server_id: serverID } });
 }
 
-async function deleteTemporarySetup(serverID) 
-{ await TempConfig.destroy({ where: { server_id: serverID } }); }
+async function deleteTemporarySetup(serverID) { 
+  await TempConfig.destroy({ where: { server_id: serverID } }); 
+}
 
 async function updateCommandUsage(commandName) {
   const today = new Date().toISOString().split("T")[0];
@@ -187,13 +194,14 @@ async function updateTempApplication(serverID, updates, appIdentifier) {
         // If the update is an object, merge it with the existing object
         const existingValue = existingData[key];
 
-        if (typeof existingValue === "object" && existingValue !== null && !Array.isArray(existingValue)) 
-        { mergedUpdates[key] = { ...existingValue, ...updates[key] }; } 
-        else 
-        { mergedUpdates[key] = updates[key]; }
-      } 
-      else 
-      { mergedUpdates[key] = updates[key]; } // Otherwise, directly assign the value
+        if (typeof existingValue === "object" && existingValue !== null && !Array.isArray(existingValue)) { 
+          mergedUpdates[key] = { ...existingValue, ...updates[key] }; 
+        } else { 
+          mergedUpdates[key] = updates[key]; 
+        }
+      } else { 
+        mergedUpdates[key] = updates[key]; 
+      } // Otherwise, directly assign the value
     }
   }
 
@@ -205,8 +213,9 @@ async function deleteTempApplication(serverID, appIdentifier) {
   await TempApplication.destroy({ where: where });
 }
 
-async function getTempApplications(serverID) 
-{ return await TempApplication.findAll({ where: { server_id: serverID } }); }
+async function getTempApplications(serverID) {
+  return await TempApplication.findAll({ where: { server_id: serverID } }); 
+}
 
 async function getDefaultApplication(guildId) {
   if (!guildId)     { return { application: null, error: "Invalid guild ID" }; }

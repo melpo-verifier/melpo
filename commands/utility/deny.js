@@ -97,9 +97,9 @@ module.exports = {
     }
 
     // Parse user IDs
-    const usersString = interaction.options.getString("users");
+    const usersString  = interaction.options.getString("users");
     const userMentions = usersString.match(/<@!?(\d+)>/g) || [];
-    const userIds = usersString.match(/\b\d{17,19}\b/g) || [];
+    const userIds      = usersString.match(/\b\d{17,19}\b/g) || [];
 
     const allUserIds = [
       ...new Set([
@@ -152,7 +152,7 @@ module.exports = {
         const verification = await Verification.findOne({ where: { userId: userID } });
         const messageids = getMessageIds(verification, interaction.guild.id, application.id);
         const invitetracker = await InviteTracker.findOne({
-          where: { unique_id: `${userID}_${interaction.guild.id}` },
+          where: { unique_id: `${userID}_${interaction.guild.id}` }
         });
 
         // Process log messages
@@ -191,8 +191,9 @@ module.exports = {
         }
 
         // Cleanup verification data
-        if (messageids && messageids.length > 0) 
-        { await cleanupVerificationData(verification, interaction.guild.id, userID, application.id); }
+        if (messageids && messageids.length > 0) { 
+          await cleanupVerificationData(verification, interaction.guild.id, userID, application.id); 
+        }
 
         // Send denial DM
         await sendDenyDM(interaction.user.username, user.user, application, interaction.guild.name);
@@ -205,11 +206,13 @@ module.exports = {
     }
 
     let replyMessage = "";
-    if (results.success.length > 0) 
-    { replyMessage += `**Successfully denied:** ${results.success.map((id) => `<@${id}>`).join(", ")}`; }
+    if (results.success.length > 0) { 
+      replyMessage += `**Successfully denied:** ${results.success.map((id) => `<@${id}>`).join(", ")}`; 
+    }
     
-    if (results.notFound.length > 0) 
-    { replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`; }
+    if (results.notFound.length > 0) { 
+      replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`; 
+    }
 
     await interaction.editReply(replyMessage);
   },

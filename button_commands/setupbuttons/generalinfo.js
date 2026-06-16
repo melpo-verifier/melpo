@@ -77,11 +77,12 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
 
     if(!isPaidUser) {
       const adTexts = await AdTexts.findAll(
-      { type: "setup" }
-    );
+        { type: "setup" }
+      );
       
-      if (adTexts.length > 0) 
-      { adtext = adTexts[Math.floor(Math.random() * adTexts.length)].text; }
+      if (adTexts.length > 0) { 
+        adtext = adTexts[Math.floor(Math.random() * adTexts.length)].text; 
+      }
     }
   }
 
@@ -167,7 +168,7 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
         description: "Channel in which the welcome message will be sent",
         value: "verificationWelcomeChannel",
         default: whichdefault === 3 ? true : false
-      },
+      }
     );
 
   const channelMenu = new ChannelSelectMenuBuilder()

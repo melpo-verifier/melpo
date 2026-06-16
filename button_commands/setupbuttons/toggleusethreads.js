@@ -20,8 +20,9 @@ module.exports = async ({ interaction, context }) => {
     `Toggling useThreads for guild ${interaction.guild.id}. Current value: ${threadenabled}`
   );
 
-  if (!tempApp) 
-  { throw new Error("Failed to fetch temporary setup."); }
+  if (!tempApp) { 
+    throw new Error("Failed to fetch temporary setup."); 
+  }
 
   const newUseThreads = !threadenabled;
 
@@ -29,9 +30,11 @@ module.exports = async ({ interaction, context }) => {
     `New useThreads value for guild ${interaction.guild.id}: ${newUseThreads}`
   );
 
-  await updateTempApplication(interaction.guild.id, {
-    usethreads: newUseThreads
-  }, { id: tempApplicationId });
+  await updateTempApplication(
+    interaction.guild.id, 
+    { usethreads: newUseThreads }, 
+    { id: tempApplicationId     }
+  );
 
   await miscinfo({ interaction, tempApplicationId });
 };

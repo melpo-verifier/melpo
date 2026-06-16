@@ -15,9 +15,9 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
   const verifiedRole = temporarySetup.verifiedrole;
 
   if ( Array.isArray(questions) && questions.every((q) => typeof q === "string") ) {
-    try 
-    { questions = questions?.map((q) => JSON.parse(q)); } 
-    catch (error) {
+    try { 
+      questions = questions?.map((q) => JSON.parse(q)); 
+    } catch (error) {
       console.error("Failed to parse questions:", error);
       questions = [];
     }
@@ -43,14 +43,14 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
         value: verifiedRole?.map((role) => `<@&${role}>`).join(", "),
         inline: false
       },
-      { name: "Questions", value: "_ _", inline: false },
+      { name: "Questions", value: "_ _", inline: false }
     ]);
 
   const questionbuttons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId(`addquestion_1_${tempApplicationId}`)
       .setLabel("Add Question")
-      .setStyle("Primary"),
+      .setStyle("Primary")
   );
 
   const finishbuttons = new ActionRowBuilder().addComponents(
@@ -61,7 +61,7 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
     new ButtonBuilder()
       .setCustomId(`cancelsetup_${tempApplicationId}`)
       .setLabel("Cancel")
-      .setStyle("Danger"),
+      .setStyle("Danger")
   );
 
   const editmenu = new ActionRowBuilder();
@@ -92,22 +92,26 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
     editmenu.addComponents(selectMenu);
 
     questionembed.addFields(
-      questions?.map((question, index) => {
-        const mcqContent =
-          question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
-        return { name: `Question ${index + 1}`, value: (question.content + mcqContent).slice(0, 1024), inline: false };
-      })
+      questions?.map(
+        (question, index) => {
+          const mcqContent =
+            question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
+          return { name: `Question ${index + 1}`, value: (question.content + mcqContent).slice(0, 1024), inline: false };
+        }
+      )
     );
 
-    if (interaction.replied || interaction.deferred) 
-    { interaction.message.edit({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] }); } 
-    else 
-    { interaction.update({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] }); }
+    if (interaction.replied || interaction.deferred) { 
+      interaction.message.edit({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] }); 
+    } else { 
+      interaction.update({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] }); 
+    }
   } else {
-    if (interaction.replied || interaction.deferred) 
-    { interaction.message.edit({ embeds: [questionembed], components: [questionbuttons, finishbuttons] }); } 
-    else 
-    { interaction.update({ embeds: [questionembed], components: [questionbuttons, finishbuttons] }); }
+    if (interaction.replied || interaction.deferred) { 
+      interaction.message.edit({ embeds: [questionembed], components: [questionbuttons, finishbuttons] }); 
+    } else { 
+      interaction.update({ embeds: [questionembed], components: [questionbuttons, finishbuttons] }); 
+    }
   }
 }
 

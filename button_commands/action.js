@@ -1,7 +1,7 @@
 const {
   ButtonBuilder,
   ActionRowBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js"); //the fallback is temporary for migration since button ids aren't updated into the past.
 const { relinkAttachments } = require("../js/verificationHandler.js");
@@ -51,8 +51,7 @@ module.exports = async ({ interaction, applicationId }) => {
       )) ||
     (!hasComponents &&
       originalEmbed?.fields?.some((f) => f.name.includes("Are you sure")))
-  ) 
-  { return; }
+  ) return;
 
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()

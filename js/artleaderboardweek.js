@@ -15,12 +15,12 @@ module.exports = async (client) => {
   try {
     const CanvasModule = require("canvas");
     const { registerFont } = CanvasModule;
-    const fs = require("fs");
+    const fs   = require("fs");
     const path = require("path");
 
     const fontsDir = path.join(__dirname, "..", "leaderboardimages", "fonts");
-    const regular = path.join(fontsDir, "Montserrat-Regular.ttf");
-    const italic = path.join(fontsDir, "Montserrat-Italic.ttf");
+    const regular  = path.join(fontsDir, "Montserrat-Regular.ttf");
+    const italic   = path.join(fontsDir, "Montserrat-Italic.ttf");
 
     if (fs.existsSync(regular)) {
       registerFont(regular, { family: "Montserrat", weight: "normal", style: "normal" });
@@ -33,9 +33,9 @@ module.exports = async (client) => {
 
     if (!fs.existsSync(regular) && !fs.existsSync(italic)) 
     { console.warn("Montserrat font files not found."); }
-  } 
-  catch (err) 
-  { console.warn("Canvas font registration failed!", err?.message || err); }
+  } catch (err) { 
+    console.warn("Canvas font registration failed!", err?.message || err); 
+  }
 
   const resetDay = 6;
   const resetHour = 10;
@@ -43,10 +43,9 @@ module.exports = async (client) => {
 
   async function updatedb(reaction, user) {
     if (reaction.partial) {
-      try 
-      { await reaction.fetch().catch(() => {}); } 
-      catch (error) 
-      {
+      try { 
+        await reaction.fetch().catch(() => {}); 
+      } catch (error) {
         console.error("Something went wrong when fetching the message:", error);
         return;
       }
@@ -67,12 +66,13 @@ module.exports = async (client) => {
 
     let reactedemoji;
 
-    if (reaction.emoji.id === null) 
-    { reactedemoji = reaction.emoji.name; } 
-    else if (reaction.emoji.animated === true) 
-    { reactedemoji = `<a:${reaction.emoji.name}:${reaction.emoji.id}>`; } 
-    else 
-    { reactedemoji = `<:${reaction.emoji.name}:${reaction.emoji.id}>`; }
+    if (reaction.emoji.id === null) { 
+      reactedemoji = reaction.emoji.name; 
+    } else if (reaction.emoji.animated === true) { 
+      reactedemoji = `<a:${reaction.emoji.name}:${reaction.emoji.id}>`; 
+    } else { 
+      reactedemoji = `<:${reaction.emoji.name}:${reaction.emoji.id}>`; 
+    }
 
     if (reactedemoji !== config.emoji) return;
 
@@ -82,8 +82,7 @@ module.exports = async (client) => {
     const lastSaturday = new Date( date.getTime() - daysSinceLastSaturday * 24 * 60 * 60 * 1000 );
     lastSaturday.setUTCHours(10, 0, 0, 0);
 
-    if (reaction.message.createdTimestamp < lastSaturday.getTime()) 
-    { return; }
+    if (reaction.message.createdTimestamp < lastSaturday.getTime()) return;
 
     const users = await reaction.users.fetch();
     const nonBotUsers = users.filter((user) => !user.bot);
@@ -92,10 +91,11 @@ module.exports = async (client) => {
 
     const currentData = leaderboard.JSON || {};
 
-    if (nonBotUsers.size === 0) 
-    { delete currentData[reaction.message.id]; } 
-    else 
-    { currentData[reaction.message.id] = { reactions: nonBotUsers.size, author: reaction.message.author.id }; }
+    if (nonBotUsers.size === 0) { 
+      delete currentData[reaction.message.id]; 
+    } else { 
+      currentData[reaction.message.id] = { reactions: nonBotUsers.size, author: reaction.message.author.id }; 
+    }
 
     leaderboard.JSON = currentData;
     leaderboard.changed("JSON", true);
@@ -107,18 +107,19 @@ module.exports = async (client) => {
 
   client.on("messageReactionAdd", async (reaction, user) => {
     const key = reaction.message.id;
-    if (reactionUpdate.has(key)) 
-    { clearTimeout(reactionUpdate.get(key)); }
-    reactionUpdate.set(key, setTimeout(async () => {
-      reactionUpdate.delete(key);
-      await updatedb(reaction, user);
-    }, DEBOUNCE_MS));
+    if (reactionUpdate.has(key)) { clearTimeout(reactionUpdate.get(key)); }
+
+    reactionUpdate.set(key, setTimeout(
+      async () => {
+        reactionUpdate.delete(key);
+        await updatedb(reaction, user);
+      }, DEBOUNCE_MS)
+    );
   });
 
   client.on("messageReactionRemove", async (reaction, user) => {
     const key = reaction.message.id;
-    if (reactionUpdate.has(key)) 
-    { clearTimeout(reactionUpdate.get(key)); }
+    if (reactionUpdate.has(key)) { clearTimeout(reactionUpdate.get(key)); }
 
     reactionUpdate.set(key, setTimeout(async () => {
       reactionUpdate.delete(key);
@@ -127,25 +128,29 @@ module.exports = async (client) => {
   });
 
   client.on("messageCreate", async (message) => {
-    if (message.author.bot) return;
+    if (message.author.bot)     return;
     if (message.guild === null) return;
     if (shouldSkipProcessing(message.guild.id, client.user.id)) return;
 
     if (message.content === "&resetlb") {
-      if ( !message.member.permissions.has(PermissionsBitField.Flags.ManageGuild) ) { return; }
+      if ( !message.member.permissions.has(PermissionsBitField.Flags.ManageGuild) ) return;
 
       const guildid = message.guild.id;
       const guild = client.guilds.cache.get(guildid);
       if (guild) { resetleaderboard(guild, client); }
     } else if (message.content === "&resetfwlb") {
       if (message.author.id !== "808738877945675786") return;
+
       const guildid = "840703269390647296";
       const guild = client.guilds.cache.get(guildid);
+
       if (guild) { resetleaderboard(guild, client); }
     } else if (message.content === "&resetfvlb") {
       if (message.author.id !== "808738877945675786") return;
+
       const guildid = "1129975568646025216";
       const guild = client.guilds.cache.get(guildid);
+
       if (guild) { resetleaderboard(guild, client); }
     } else if (message.content === "&topic") {
       const fs = require("fs");
@@ -246,9 +251,9 @@ module.exports = async (client) => {
                   console.error(`Failed to validate URL: ${attachment.url}`, urlError);
                   continue;
                 }
-              } 
-              else 
-              { console.error(`Unsupported type: ${attachment.contentType} for msg ${messageId}`); }
+              } else { 
+                console.error(`Unsupported type: ${attachment.contentType} for msg ${messageId}`); 
+              }
             }
           } catch (error) {
             console.error(`Error in channel ${channelId}, msg ${messageId}:`, error );
@@ -272,12 +277,12 @@ module.exports = async (client) => {
         }
 
         let image = await fetchImage(artchannels, sortedValues[i].id);
-        if (image) 
-        { topPlaces.push({ ...sortedValues[i], image }); }
+        if (image) { topPlaces.push({ ...sortedValues[i], image }); }
 
         // Delay to not get ratelimited
-        if (topPlaces.length < 3) 
-        { await new Promise((resolve) => setTimeout(resolve, 1000)); }
+        if (topPlaces.length < 3) { 
+          await new Promise((resolve) => setTimeout(resolve, 1000)); 
+        }
       }
 
       console.log("3");
@@ -289,9 +294,9 @@ module.exports = async (client) => {
 
       console.log("4");
 
-      const Canvas = require("canvas");
-      canvas = Canvas.createCanvas(1920, 1080);
-      ctx = canvas.getContext("2d");
+      const Canvas     = require("canvas");
+      canvas           = Canvas.createCanvas(1920, 1080);
+      ctx              = canvas.getContext("2d");
       const background = await Canvas.loadImage("./leaderboardimages/gallery2.png");
 
       console.log(topPlaces);
@@ -300,10 +305,10 @@ module.exports = async (client) => {
       n2 = await Canvas.loadImage(topPlaces[1].image.url.toString());
       n3 = await Canvas.loadImage(topPlaces[2].image.url.toString());
 
-      frame = await Canvas.loadImage("./leaderboardimages/artframe.png");
-      gold = await Canvas.loadImage("./leaderboardimages/gold2.png");
-      silver = await Canvas.loadImage("./leaderboardimages/silver2.png");
-      bronze = await Canvas.loadImage("./leaderboardimages/bronze2.png");
+      frame         = await Canvas.loadImage("./leaderboardimages/artframe.png");
+      gold          = await Canvas.loadImage("./leaderboardimages/gold2.png");
+      silver        = await Canvas.loadImage("./leaderboardimages/silver2.png");
+      bronze        = await Canvas.loadImage("./leaderboardimages/bronze2.png");
       const artist1 = await client.users.fetch(topPlaces[0].author);
       const artist2 = await client.users.fetch(topPlaces[1].author);
       const artist3 = await client.users.fetch(topPlaces[2].author);
@@ -314,37 +319,37 @@ module.exports = async (client) => {
 
       ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
 
-      const pixlinks = 600;
-      const verklein = 5;
-      const verhouding = 1.35;
-      const medalx = -15;
-      const medaly = -2;
+      const pixlinks      = 600;
+      const verklein      = 5;
+      const verhouding    = 1.35;
+      const medalx        = -15;
+      const medaly        = -2;
       const medalverklein = 3.5;
-      const omhoog = 150;
+      const omhoog        = 150;
 
       const wrh1 = n1.width / n1.height;
       const wrh2 = n2.width / n2.height;
       const wrh3 = n3.width / n3.height;
 
-      let newWidth1 = canvas.width / verklein;
+      let newWidth1  = canvas.width / verklein;
       let newHeight1 = newWidth1 / wrh1;
       if (newHeight1 > canvas.height) {
         newHeight1 = canvas.height;
-        newWidth1 = newHeight1 * wrh1;
+        newWidth1  = newHeight1 * wrh1;
       }
 
-      let newWidth2 = canvas.width / verklein;
+      let newWidth2  = canvas.width / verklein;
       let newHeight2 = newWidth2 / wrh2;
       if (newHeight2 > canvas.height) {
         newHeight2 = canvas.height;
-        newWidth2 = newHeight2 * wrh2;
+        newWidth2  = newHeight2 * wrh2;
       }
 
-      let newWidth3 = canvas.width / verklein;
+      let newWidth3  = canvas.width / verklein;
       let newHeight3 = newWidth3 / wrh3;
       if (newHeight3 > canvas.height) {
         newHeight3 = canvas.height;
-        newWidth3 = newHeight3 * wrh3;
+        newWidth3  = newHeight3 * wrh3;
       }
 
       const xOffset1 =
@@ -439,15 +444,16 @@ module.exports = async (client) => {
 
         // eslint-disable-next-line no-control-regex
         const specialchar = /[^\x00-\x7F]/.test(user.globalName);
-        if (specialchar) 
-        { return user.username; } 
-        else 
-        { return user.globalName; }
+        if (specialchar) { 
+          return user.username; 
+        } else { 
+          return user.globalName; 
+        }
       }
 
       // Truncate text
       // function truncateText(ctx, text, maxWidth) {
-      //     if (ctx.measureText(text).width <= maxWidth) { return text; }
+      //     if (ctx.measureText(text).width <= maxWidth) return text;
 
       //     let truncated = text;
       //     while (ctx.measureText(truncated + '...').width > maxWidth && truncated.length > 0) { truncated = truncated.slice(0, -1); }
@@ -464,10 +470,10 @@ module.exports = async (client) => {
         for (let i = 1; i < words.length; i++) {
           const word = words[i];
           const width = ctx.measureText(currentLine + " " + word).width;
-          if (width < maxWidth) 
-          { currentLine += " " + word; } 
-          else 
-          {
+
+          if (width < maxWidth) { 
+            currentLine += " " + word; 
+          } else {
             lines.push(currentLine);
             currentLine = word;
           }
@@ -482,12 +488,12 @@ module.exports = async (client) => {
         const totalHeight = lines.length * lineHeight;
         const startY = y - totalHeight / 2 + lineHeight / 2;
 
-        lines.forEach((line, index) => {
-          ctx.fillText(line, x, startY + index * lineHeight);
-        });
+        lines.forEach(
+          (line, index) => { ctx.fillText(line, x, startY + index * lineHeight); }
+        );
       }
 
-      ctx.font = "italic 60px \"Montserrat\", sans-serif";
+      ctx.font      = "italic 60px \"Montserrat\", sans-serif";
       ctx.fillStyle = "#ffffff";
       ctx.textAlign = "center";
 
@@ -510,6 +516,7 @@ module.exports = async (client) => {
         yOffset1 + newHeight1 + 90 + 75 / wrh1,
         nameMaxWidth
       );
+
       drawWrappedText(
         ctx,
         getDisplayName(artist2),
@@ -517,6 +524,7 @@ module.exports = async (client) => {
         yOffset2 + newHeight2 + 90 + 75 / wrh2,
         nameMaxWidth
       );
+
       drawWrappedText(
         ctx,
         getDisplayName(artist3),
@@ -530,8 +538,7 @@ module.exports = async (client) => {
       console.log("6");
 
       const message = messages.find( (msg) => msg.author.id === client.user.id && msg.content === messageContent );
-      if (message) 
-      { await message.delete(); }
+      if (message) { await message.delete(); }
 
       console.log("7");
 
@@ -550,16 +557,16 @@ module.exports = async (client) => {
       console.error("Error resetting leaderboard:", error);
     } finally {
       if (canvas) {
-        canvas.width = 0;
+        canvas.width  = 0;
         canvas.height = 0;
-        canvas = null;
+        canvas        = null;
       }      
-      if (ctx) ctx = null;
-      if (n1) n1 = null;
-      if (n2) n2 = null;
-      if (n3) n3 = null;
-      if (frame) frame = null;
-      if (gold) gold = null;
+      if (ctx)    ctx    = null;
+      if (n1)     n1     = null;
+      if (n2)     n2     = null;
+      if (n3)     n3     = null;
+      if (frame)  frame  = null;
+      if (gold)   gold   = null;
       if (silver) silver = null;
       if (bronze) bronze = null;
       
@@ -570,9 +577,9 @@ module.exports = async (client) => {
   }
 
   setInterval(async () => {
-    const now = new Date();
-    const day = now.getUTCDay();
-    const hour = now.getUTCHours();
+    const now    = new Date();
+    const day    = now.getUTCDay();
+    const hour   = now.getUTCHours();
     const minute = now.getUTCMinutes();
 
     if (day === resetDay && hour === resetHour && minute === resetMinute) {

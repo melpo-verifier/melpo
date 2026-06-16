@@ -21,11 +21,12 @@ function createCategoryButtons(tempApplicationId, disabledIndex = -1) {
     new ButtonBuilder()
       .setCustomId(`miscinfo_${tempApplicationId}`)
       .setLabel("Misc")
-      .setStyle("Secondary"),
+      .setStyle("Secondary")
   ];
 
-  if (disabledIndex >= 0 && disabledIndex < buttons.length) 
-  { buttons[disabledIndex].setDisabled(true); }
+  if (disabledIndex >= 0 && disabledIndex < buttons.length) { 
+    buttons[disabledIndex].setDisabled(true); 
+  }
 
   return new ActionRowBuilder().addComponents(...buttons);
 }

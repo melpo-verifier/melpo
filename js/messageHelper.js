@@ -1,6 +1,6 @@
 const { WebhookClient } = require("discord.js");
-const { GuildWebhook } = require("../dbObjects.js");
-const { decryptData } = require("../js/DBFunctions.js");
+const { GuildWebhook }  = require("../dbObjects.js");
+const { decryptData }   = require("../js/DBFunctions.js");
 
 async function sendWebhookMessage(channel, application, payload, threadName) {
   let message;
@@ -25,8 +25,9 @@ async function sendWebhookMessage(channel, application, payload, threadName) {
           message = await wc.send(sendOptions);
         }
       } 
-      catch (error) 
-      { console.error("Branding Webhook Error:", error); }
+      catch (error) { 
+        console.error("Branding Webhook Error:", error); 
+      }
     }
   }
 
@@ -39,8 +40,9 @@ async function sendWebhookMessage(channel, application, payload, threadName) {
         startMessage: message.id
       });
     } 
-    catch (error) 
-    { console.error("Failed to create thread:", error);  }
+    catch (error) { 
+      console.error("Failed to create thread:", error);  
+    }
   }
 
   return message;

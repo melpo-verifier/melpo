@@ -21,8 +21,9 @@ module.exports = async ({ interaction, context }) => {
   const customIdValue = context[0];
   const tempApplicationId = parseInt(context[1], 10);
 
-  if (!customIdValue || isNaN(tempApplicationId)) 
-  { throw new Error("Missing customization context for image setup."); }
+  if (!customIdValue || isNaN(tempApplicationId)) { 
+    throw new Error("Missing customization context for image setup."); 
+  }
 
   // Validate tempApplicationId and get tempApp
   const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
@@ -54,8 +55,7 @@ module.exports = async ({ interaction, context }) => {
   collector.on("collect", async (collected) => {
     try {
       const collectedimage = collected.attachments.first()?.url || collected.content;
-      if (!collectedimage) 
-      { return; }
+      if (!collectedimage) return;
 
       if (!collectedimage.startsWith("http://") && !collectedimage.startsWith("https://")) {
         await interaction.followUp({
@@ -112,15 +112,13 @@ module.exports = async ({ interaction, context }) => {
 
   collector.on("end", (_, reason) => {
     activeCollectors.delete(channelId);
-    if (reason === "time") 
-    { interaction.deleteReply().catch(() => {}); }
+    if (reason === "time") { interaction.deleteReply().catch(() => {}); }
   });
 };
 
 async function refreshCustomizationEmbed({ interaction, image }) {
   const currentEmbeds = interaction.message.embeds;
-  if (!currentEmbeds || currentEmbeds.length === 0) 
-  { return; }
+  if (!currentEmbeds || currentEmbeds.length === 0) { return; }
 
   const targetIndex = currentEmbeds.length > 1 ? 1 : 0;
   const originalFooter = currentEmbeds[targetIndex]?.footer?.text;
@@ -138,8 +136,7 @@ async function refreshCustomizationEmbed({ interaction, image }) {
 }
 
 function targetEmbedFooter(existingFooter) {
-  if (existingFooter && existingFooter.length > 0) 
-  { return existingFooter; }
+  if (existingFooter && existingFooter.length > 0) { return existingFooter; }
 
   return "Customization preview";
 }
@@ -155,13 +152,16 @@ async function fetchImage(url) {
   const fetch = (await import("node-fetch")).default;
   
   let response;
-  try 
-  { response = await fetch(url, { size: 15 * 1024 * 1024 }); } 
-  catch 
-  { throw new Error("Invalid image URL or failed to connect."); }
+  try { 
+    response = await fetch(url, { size: 15 * 1024 * 1024 }); 
+  } 
+  catch { 
+    throw new Error("Invalid image URL or failed to connect."); 
+  }
 
-  if (!response.ok) 
-  { throw new Error("Failed to fetch image. Make sure the URL is public and valid."); }
+  if (!response.ok) { 
+    throw new Error("Failed to fetch image. Make sure the URL is public and valid."); 
+  }
 
   const contentType = response.headers.get("content-type");
   if (!contentType || !ALLOWED_TYPES[contentType]) {
@@ -171,8 +171,7 @@ async function fetchImage(url) {
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
-  if (buffer.length === 0) 
-  { throw new Error("Received empty image data"); }
+  if (buffer.length === 0) { throw new Error("Received empty image data"); }
 
   return {
     buffer,

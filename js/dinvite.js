@@ -17,8 +17,9 @@ module.exports = class InviteManager {
 
     function hasInvitePermission(guild) {
       const hasPermission = guild.members.me?.permissions.has("ManageGuild");
-      if (!hasPermission) 
-      { console.log(`Missing ManageGuild permission in guild: ${guild.name} (${guild.id})`); }
+      if (!hasPermission) { 
+        console.log(`Missing ManageGuild permission in guild: ${guild.name} (${guild.id})`); 
+      }
       return hasPermission;
     }
 
@@ -50,14 +51,17 @@ module.exports = class InviteManager {
                 });
                 client.invites.set(guild.id, collect);
               }
-            } 
-            catch (error) 
-            { console.error(`Error processing guild ${guild.id}:`, error); }
+            } catch (error) { 
+              console.error(`Error processing guild ${guild.id}:`, error); 
+            }
           }),
         );
 
-        if (i + batchSize < guilds.length) 
-        { await new Promise((resolve) => setTimeout(resolve, delay)); }
+        if (i + batchSize < guilds.length) { 
+          await new Promise(
+            (resolve) => setTimeout(resolve, delay)
+          ); 
+        }
       }
       console.log("Finished loading all invites!");
     });
@@ -102,15 +106,17 @@ module.exports = class InviteManager {
           });
           client.invites.set(guild.id, collect);
         }
-      } 
-      catch (error) 
-      { console.error(`Error processing guildCreate for guild ${guild.id}:`, error); }
+      } catch (error) { 
+        console.error(`Error processing guildCreate for guild ${guild.id}:`, error); 
+      }
     });
 
     client.on("guildMemberAdd", async (member) => {
       // Validate member object
-      if (!member || !member.user || !member.guild) 
-      { console.warn("Invalid member object in guildMemberAdd event"); return; }
+      if (!member || !member.user || !member.guild) { 
+        console.warn("Invalid member object in guildMemberAdd event"); 
+        return; 
+      }
 
       if (!hasInvitePermission(member.guild)) return;
 
@@ -136,10 +142,12 @@ module.exports = class InviteManager {
 
       if (!invite && hasVanityFeature && member.guild.vanityURLCode) {
         usedVanity = true;
-        try 
-        { vanityURL = await getVanityURL(member.guild); } 
-        catch 
-        { vanityURL = null; }
+
+        try { 
+          vanityURL = await getVanityURL(member.guild); 
+        } catch { 
+          vanityURL = null; 
+        }
       }
 
       let collect = new Collection();
@@ -150,7 +158,7 @@ module.exports = class InviteManager {
 
       try {
         // Skip bots
-        if (member.user.bot) { return; }
+        if (member.user.bot) return;
 
         const [Tracker] = await InviteTracker.findOrCreate({ where: { unique_id: `${member.user.id}_${member.guild.id}` } });
 
@@ -170,32 +178,37 @@ module.exports = class InviteManager {
             Tracker.uses = invite.uses;
           }
         } else {
-          // Unknown invite
-          return;
+          return; // Unknown invite
         }
 
         await Tracker.save();
-      } catch (error) 
-      { console.error(`An error occurred at processing memberJoin event in dinvite: ${error}`); }
+      } catch (error) { 
+        console.error(`An error occurred at processing memberJoin event in dinvite: ${error}`); 
+      }
     });
-    client.on("guildMemberRemove", async (member) => {
-      // Delete the tracker data from the InviteTracker table if the user leaves again
-      try {
-        await InviteTracker.destroy({ where: { unique_id: `${member.user.id}_${member.guild.id}` } });
-        console.log(`Tracker data for user ${member.id} deleted from the InviteTracker table.`);
-      } catch (error) 
-      { console.error(`Failed to delete tracker data for user ${member.id} from the InviteTracker table: ${error}`); }
-    });
+    client.on("guildMemberRemove", 
+      async (member) => {
+        // Delete the tracker data from the InviteTracker table if the user leaves again
+        try {
+          await InviteTracker.destroy({ where: { unique_id: `${member.user.id}_${member.guild.id}` } });
+          console.log(`Tracker data for user ${member.id} deleted from the InviteTracker table.`);
+        } catch (error) { 
+          console.error(`Failed to delete tracker data for user ${member.id} from the InviteTracker table: ${error}`); 
+        }
+      }
+    );
     
     async function getVanityURL(guild) {
       const now = Date.now();
       const cache = vanityCache[guild.id];
 
-      if (cache && now - cache.timestamp < cache_TTL) 
-      { return Promise.resolve(cache.data); }
+      if (cache && now - cache.timestamp < cache_TTL) { 
+        return Promise.resolve(cache.data); 
+      }
 
-      if (activeVanityFetches[guild.id]) 
-      { return activeVanityFetches[guild.id]; }
+      if (activeVanityFetches[guild.id]) { 
+        return activeVanityFetches[guild.id]; 
+      }
 
       const fetchPromise = guild.fetchVanityData().then((vanityData) => {
         vanityCache[guild.id] = { data: vanityData, timestamp: Date.now() };

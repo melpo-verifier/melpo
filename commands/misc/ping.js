@@ -59,7 +59,7 @@ module.exports = {
           name: ":computer: System Uptime",
           value: `${sysDays}d ${sysHours}h ${sysMinutes}m ${sysSeconds}s`,
           inline: true
-        },
+        }
       )
       .setFooter({
         text: `Requested by ${interaction.user.tag}`,

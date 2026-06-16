@@ -44,8 +44,7 @@ module.exports = async ({ interaction, applicationId }) => {
       )) ||
     (!hasComponents &&
       originalEmbed?.fields?.some((f) => f.name.includes("Are you sure")))
-  ) 
-  { return; }
+  ) return;
 
   const verifyRow = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
@@ -55,7 +54,7 @@ module.exports = async ({ interaction, applicationId }) => {
     new ButtonBuilder()
       .setCustomId(`returntomenu_${applicationId}`)
       .setLabel("Cancel")
-      .setStyle("Danger"),
+      .setStyle("Danger")
   );
 
   if (hasComponents) {

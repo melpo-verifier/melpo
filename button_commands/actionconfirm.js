@@ -27,8 +27,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     });
   }
 
-  if (!userid) 
-  { throw new Error("Could not fetch user ID from the embed"); }
+  if (!userid) { throw new Error("Could not fetch user ID from the embed"); }
 
   const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
   if (error) {
@@ -135,8 +134,9 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         useRateLimiting: false
       });
     } catch (logError) {
-      if (!logError.code === 50001 || !logError.code === 50013) 
-      { console.error("Error processing log messages:", logError); }
+      if (!logError.code === 50001 || !logError.code === 50013) { 
+        console.error("Error processing log messages:", logError); 
+      }
     }
   }
 
@@ -156,11 +156,14 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         flags: [MessageFlags.IsComponentsV2],
         components: [kickedContainer]
       };
+
       if (files) editPayload.files = files;
+
       await interaction.editReply(editPayload);
 
-      if (interaction.message.thread) 
-      { await interaction.message.thread.setArchived(true); }
+      if (interaction.message.thread) { 
+        await interaction.message.thread.setArchived(true); 
+      }
     }
   }
 

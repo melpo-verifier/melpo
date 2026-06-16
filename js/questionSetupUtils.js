@@ -5,10 +5,11 @@ function normalizeQuestions(questions) {
 
   return questions.map((question) => {
     if (typeof question === "string") {
-      try 
-      { question = JSON.parse(question); } 
-      catch 
-      { return null; }
+      try { 
+        question = JSON.parse(question); 
+      } catch { 
+        return null; 
+      }
     }
 
     if (!question || typeof question !== "object") { return null; }
@@ -31,15 +32,17 @@ function normalizeMcqOptions(mcq) {
   if (!Array.isArray(mcq)) { return []; }
 
   return mcq.map((option) => {
-    if (typeof option === "string") 
-    { return { id: randomUUID(), label: option, roles: [], nextQuestionId: null }; }
+    if (typeof option === "string") { 
+      return { id: randomUUID(), label: option, roles: [], nextQuestionId: null }; 
+    }
 
-    if (!option || typeof option !== "object") 
-    { return { id: randomUUID(), label: String(option ?? ""), roles: [], nextQuestionId: null }; }
+    if (!option || typeof option !== "object") { 
+      return { id: randomUUID(), label: String(option ?? ""), roles: [], nextQuestionId: null }; 
+    }
 
     const normalizedOption = { ...option };
 
-    normalizedOption.id = normalizedOption.id || randomUUID();
+    normalizedOption.id    = normalizedOption.id || randomUUID();
     normalizedOption.label = typeof normalizedOption.label === "string" ? normalizedOption.label : String(normalizedOption.label ?? "");
     normalizedOption.roles = Array.isArray(normalizedOption.roles) ? normalizedOption.roles : [];
 

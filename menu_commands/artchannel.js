@@ -25,7 +25,7 @@ module.exports = async ({ interaction, context }) => {
 
     await interaction.editReply({
       content: `Great! The art channel(s) is now set up correctly! \n\nNow please select the art leaderboard channel.`,
-      components: [artchannelcomponent],
+      components: [artchannelcomponent]
     });
   }
 
@@ -46,8 +46,9 @@ module.exports = async ({ interaction, context }) => {
       const emotes = (str) =>
         str.match(/<a?:.+?:\d{18}>|\p{Extended_Pictographic}/gu);
 
-      if (emotes(m.content) === null)
-      { return m.reply("Please enter a valid emoji to use as the reaction emoji."); }
+      if (emotes(m.content) === null) { 
+        return m.reply("Please enter a valid emoji to use as the reaction emoji."); 
+      }
 
       collector.stop();
 
@@ -60,14 +61,14 @@ module.exports = async ({ interaction, context }) => {
           .setCustomId("artchannel_2")
           .setPlaceholder("Select the role(s) to assign to the weekly winners")
           .setMinValues(1)
-          .setMaxValues(5),
+          .setMaxValues(5)
       );
 
       const skipandfinish = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("artchannelfinish")
           .setLabel("Skip & Finish")
-          .setStyle("Primary"),
+          .setStyle("Primary")
       );
 
       await m.reply({
@@ -88,6 +89,7 @@ module.exports = async ({ interaction, context }) => {
     });
   }
 
-  if (num === 3) 
-  { await interaction.editReply({ content: `Great! The setup is now completed!`, components: [] }); }
+  if (num === 3) { 
+    await interaction.editReply({ content: `Great! The setup is now completed!`, components: [] }); 
+  }
 };

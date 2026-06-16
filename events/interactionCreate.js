@@ -12,21 +12,25 @@ module.exports = {
   name: Events.InteractionCreate,
   async execute(interaction, client) {
     try {
-      if (!interaction) { return; }
+      if (!interaction) return;
 
-      if (interaction.isChatInputCommand()) 
-      { return await handleSlashCommand(interaction, client); }
+      if (interaction.isChatInputCommand()) { 
+        return await handleSlashCommand(interaction, client); 
+      }
 
       else if (interaction.isAutocomplete()) {
         const command = interaction.client.commands.get(interaction.commandName);
+
         if (!command) {
           console.error(`No command matching ${interaction.commandName} was found.`);
           return;
+        } 
+        
+        try { 
+          await command.autocomplete(interaction); 
+        } catch (error) { 
+          console.error(error); 
         }
-        try 
-        { await command.autocomplete(interaction); } 
-        catch (error) 
-        { console.error(error); }
       }
 
       const [command, ...context] = interaction.customId?.split("_") || [];
@@ -61,29 +65,31 @@ module.exports = {
         if (!isNaN(parsed)) {
           if (command.includes("info") || command === "next" || command === "cancelsetup" || command === "finishsetup" || command === "toggleusethreads" || command === "setverifyfilter") {
             tempApplicationId = parsed;
-          } 
-          else 
-          { applicationId = parsed; }
+          } else { 
+            applicationId = parsed; 
+          }
         }
       }
       
       const data = { interaction, client, context, userid, applicationId, tempApplicationId };
 
-      if(interaction.customId) 
-      { console.log(`Interaction handled: ${interaction.customId}`); }
+      if(interaction.customId) { 
+        console.log(`Interaction handled: ${interaction.customId}`); 
+      }
       
-      if (interaction.isButton()) 
-      { await handleInteraction(command, data, client, interaction, "buttonCommands", true); } 
-      else if (isSelectMenu(interaction)) 
-      { await handleInteraction(command, data, client, interaction, "menus", true); } 
-      else if (interaction.isModalSubmit()) 
-      { await handleInteraction(command, data, client, interaction, "modals", false); }
+      if (interaction.isButton()) { 
+        await handleInteraction(command, data, client, interaction, "buttonCommands", true); 
+      } else if (isSelectMenu(interaction)) { 
+        await handleInteraction(command, data, client, interaction, "menus", true); 
+      } else if (interaction.isModalSubmit()) { 
+        await handleInteraction(command, data, client, interaction, "modals", false); 
+      }
 
       // Update usage stats
       if (!interaction.customId?.includes("cancelverification") && interaction.customId) {
         // console.timeEnd(`Interaction handled: ${interaction.customId}`);
-        updateComponentUsage(command).catch((err) =>
-          console.error("Failed to update component usage:", err),
+        updateComponentUsage(command).catch(
+          (err) => console.error("Failed to update component usage:", err)
         );
       }
     } catch (error) {
@@ -115,15 +121,16 @@ async function handleSlashCommand(interaction, client) {
     if (interaction.guildId === null) {
       return interaction.reply({
         content: "Sorry, I don't have commands available in DMs.",
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     await command.execute({ interaction, client });
     await updateCommandUsage(command.data.name);
   } 
-  catch (error) 
-  { await ErrorHandler.handle(client, error, interaction); }
+  catch (error) { 
+    await ErrorHandler.handle(client, error, interaction); 
+  }
 }
 
 function isSelectMenu(interaction) {
@@ -143,37 +150,42 @@ async function handleInteraction(command, data, client, interaction, collectionN
     ) {
       return interaction.reply({
         content: `Hey! That's someone else's business!`,
-        flags: MessageFlags.Ephemeral,
+        flags: MessageFlags.Ephemeral
       });
     }
 
     const handler = data.client[collectionName].get(command);
-    if (!handler) { return; }
+    if (!handler) return;
 
     await handler(data);
   } 
-  catch (error) 
-  { await ErrorHandler.handle(client, error, interaction); }
+  catch (error) { 
+    await ErrorHandler.handle(client, error, interaction); 
+  }
 }
 
 async function extractUserId(interaction) {
   if (interaction.message?.embeds[0]?.footer) {
     const footerText = interaction.message.embeds[0].footer.text;
-    if (footerText.startsWith("DM | ")) return footerText.slice(5);
+
+    if (footerText.startsWith("DM | "))        return footerText.slice(5);
     if (footerText.startsWith("DMTimeout | ")) return footerText.slice(12);
-    if (footerText.startsWith("Denied | ")) return footerText.slice(9);
+    if (footerText.startsWith("Denied | "))    return footerText.slice(9);
+
     return footerText;
   }
   
   if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
     if (
       (interaction.customId.includes("question_") ||
-      interaction.customId.includes("questionModal_") ||
-      interaction.customId.includes("denyModal_"))
+       interaction.customId.includes("questionModal_") ||
+       interaction.customId.includes("denyModal_"))
     ) {
       const userIdMatch = interaction.customId.match(/_(\d+)$/);
-      if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) 
-      { return userIdMatch[1]; }
+
+      if (userIdMatch?.[1] && userIdMatch?.[1].length >= 17) { 
+        return userIdMatch[1]; 
+      }
     }
 
     const containerContent =
@@ -181,13 +193,16 @@ async function extractUserId(interaction) {
 
     if (containerContent) {
       const userIdMatch = containerContent.match(/\*\*User ID:\*\* `(\d+)`/);
-      if (userIdMatch?.[1]) 
-      { return userIdMatch[1]; }
+
+      if (userIdMatch?.[1]) { 
+        return userIdMatch[1]; 
+      }
     }
     
     const footerText = interaction.message.embeds?.[0]?.footer?.text;
-    if (footerText && /^\d+$/.test(footerText)) 
-    { return footerText; }
+    if (footerText && /^\d+$/.test(footerText)) { 
+      return footerText; 
+    }
   }
   
   return null;

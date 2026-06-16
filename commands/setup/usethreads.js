@@ -53,7 +53,7 @@ module.exports = {
     try {
       // Fetch all applications for this guild
       const applications = await Application.findAll({
-        where: { server_id: interaction.guild.id },
+        where: { server_id: interaction.guild.id }
       });
 
       if (!applications || applications.length === 0) {

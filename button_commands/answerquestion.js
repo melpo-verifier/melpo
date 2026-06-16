@@ -139,8 +139,9 @@ module.exports = async ({ interaction, client }) => {
     let attachmentUrls = [];
 
     // Truncate if too long
-    if (answercontent.length > 1024) 
-    { answercontent = answercontent.substring(0, 1021) + "..."; }
+    if (answercontent.length > 1024) { 
+      answercontent = answercontent.substring(0, 1021) + "..."; 
+    }
 
     const questionform = interaction.message.embeds[0];
 
@@ -226,7 +227,7 @@ module.exports = async ({ interaction, client }) => {
           let threadchannelid = null;
           let verificationMessage = null;
           const verificationChannel = await c.channels.fetch(
-            verificationChannelId,
+            verificationChannelId
           );
 
           if (verificationChannelId !== channelId) {
@@ -236,30 +237,31 @@ module.exports = async ({ interaction, client }) => {
               if (verificationChannel) {
                 verificationMessage =
                   await verificationChannel.messages.fetch(
-                    verificationMessageId,
+                    verificationMessageId
                   );
                 threadchannelid = verificationMessage?.thread?.id;
               }
             } catch (error) {
               console.error(
                 "Error fetching verification message or thread:",
-                error,
+                error
               );
             }
           }
 
           if (verificationChannel) {
             const { MessageFlags } = require("discord.js");
+
             if (threadchannelid) {
               const threadChannel = c.channels.cache.get(threadchannelid);
               await threadChannel.send({
                 flags: [MessageFlags.IsComponentsV2],
-                components: [container, replybutton],
+                components: [container, replybutton]
               });
             } else if (verificationMessage) {
               await verificationMessage.reply({
                 flags: [MessageFlags.IsComponentsV2],
-                components: [container, replybutton],
+                components: [container, replybutton]
               });
             }
           }

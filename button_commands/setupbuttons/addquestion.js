@@ -8,7 +8,7 @@ const {
 module.exports = async ({ interaction, context }) => {
   const isfirsttime = parseInt(context[0], 10);
   const tempApplicationId = context?.[1] ?? context?.[0];
-  console.log(context)
+  console.log(context);
 
   const modal = new ModalBuilder()
     .setCustomId(`addQuestionModal_${isfirsttime}_${tempApplicationId}`)

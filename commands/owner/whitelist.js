@@ -7,7 +7,7 @@ module.exports = {
     .setDescription("Whitelisting features for servers")
     .setContexts(0)
     .addStringOption(
-      (option) => option.setName("server_id").setDescription("Server ID").setRequired(true),
+      (option) => option.setName("server_id").setDescription("Server ID").setRequired(true)
     )
     .addBooleanOption(
       (option) => option
@@ -29,10 +29,13 @@ module.exports = {
       const [whitelist] = await Whitelist.findOrCreate({
         where: { server_id: serverId }
       });
-      if (whitelistArtLeaderboard === true) 
-      { whitelist.artLeaderboard = true;  } 
-      else 
-      { whitelist.artLeaderboard = false; }
+      
+      if (whitelistArtLeaderboard === true) { 
+        whitelist.artLeaderboard = true;  
+      } else { 
+        whitelist.artLeaderboard = false; 
+      }
+
       await whitelist.save();
       return await interaction.reply({
         content: `Whitelist art leaderboard has been set to ${whitelistArtLeaderboard} for server ${serverId}.`

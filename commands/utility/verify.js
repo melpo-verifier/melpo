@@ -63,9 +63,9 @@ module.exports = {
     let application;
     const appNameOption = interaction.options.getString("application");
 
-    if (applications.length === 1) 
-    { application = applications[0]; } 
-    else if (appNameOption) {
+    if (applications.length === 1) { 
+      application = applications[0]; 
+    } else if (appNameOption) {
       application = applications.find((app) => app.name === appNameOption);
       if (!application) {
         return interaction.reply({
@@ -157,11 +157,11 @@ module.exports = {
 
     await interaction.reply(`Verifying ${users.length} user(s)...`);
 
-    const results = { success: [], notFound: [] };
-    const verifiedRoles = application.verifiedrole;
+    const results         = { success: [], notFound: [] };
+    const verifiedRoles   = application.verifiedrole;
     const unverifiedRoles = application.unverifiedrole;
-    const welcomeMessage = application.verificationwelcomemessage;
-    const welcomeChannel = application.verificationwelcomechannel;
+    const welcomeMessage  = application.verificationwelcomemessage;
+    const welcomeChannel  = application.verificationwelcomechannel;
 
     for (const userID of allUserIds) {
       try {
@@ -182,11 +182,15 @@ module.exports = {
             if (!question) continue;
 
             if (response?.mcqIndex?.length > 0) {
-              response.mcqIndex.forEach(index => {
-                const selectedOption = question.mcq?.[index];
-                if (selectedOption?.roles) 
-                { selectedOption.roles.forEach(role => branchRoles.add(role)); }
-              })
+              response.mcqIndex.forEach(
+                (index) => {
+                  const selectedOption = question.mcq?.[index];
+
+                  if (selectedOption?.roles) { 
+                    selectedOption.roles.forEach(role => branchRoles.add(role)); 
+                  }
+                }
+              )
             }
             else if (question.regexBranches && response.content) {
               for (const regex of question.regexBranches) {
@@ -195,8 +199,9 @@ module.exports = {
                   if (regpattern.test(response.content)) 
                   { regex.roles.forEach(role => branchRoles.add(role)); }
                 } 
-                catch 
-                { regexErrors.push(`${response.questionId}: ${regex.pattern}`) }
+                catch { 
+                  regexErrors.push(`${response.questionId}: ${regex.pattern}`);
+                }
               }
             }
           }
@@ -251,15 +256,15 @@ module.exports = {
         ) {
           const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
           if (logChannel) {
-            await rateLimitedOperation(async () => 
-              { await sendWebhookMessage(logChannel, application, payload); }
+            await rateLimitedOperation(
+              async () => { await sendWebhookMessage(logChannel, application, payload); }
             );
           }
         } 
         else if ( !application.verifylogs && (!messageids || messageids.length === 0) )
         {
-          await rateLimitedOperation(async () => 
-            { await sendWebhookMessage(interaction.channel, application, payload); }
+          await rateLimitedOperation(
+            async () => { await sendWebhookMessage(interaction.channel, application, payload); }
           );
         }
 
@@ -269,10 +274,11 @@ module.exports = {
 
         // Send welcome message
         if (welcomeChannel && welcomeMessage) {
-          try 
-          { await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, null, verifiedRoles, application); } 
-          catch (error) 
-          { console.error("Error sending welcome message:", error); }
+          try { 
+            await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, null, verifiedRoles, application); 
+          } catch (error) { 
+            console.error("Error sending welcome message:", error); 
+          }
         }
 
         // Send verification DM
@@ -285,11 +291,13 @@ module.exports = {
 
     let replyMessage = "";
 
-    if (results.success.length > 0) 
-    { replyMessage += `**Successfully verified:** ${results.success.map((id) => `<@${id}>`).join(", ")}`; }
+    if (results.success.length > 0) { 
+      replyMessage += `**Successfully verified:** ${results.success.map((id) => `<@${id}>`).join(", ")}`; 
+    }
 
-    if (results.notFound.length > 0) 
-    { replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`; }
+    if (results.notFound.length > 0) { 
+      replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`; 
+    }
 
     await interaction.editReply(replyMessage);
   }

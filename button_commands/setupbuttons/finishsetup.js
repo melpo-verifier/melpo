@@ -132,8 +132,7 @@ module.exports = async ({ interaction, client, context }) => {
       continue;
     }
 
-    if (isR2ImageResource(tempApp[category]?.image)) 
-    { continue; }
+    if (isR2ImageResource(tempApp[category]?.image)) continue;
   }
 
   const appData = { server_id: interaction.guild.id, name: tempApp.name };
@@ -150,17 +149,15 @@ module.exports = async ({ interaction, client, context }) => {
     if (value == null) continue;
     
     // Include empty arrays (to allow clearing roles)
-    if (Array.isArray(value)) 
-    { appData[field] = value; }
+    if (Array.isArray(value)) { appData[field] = value; }
 
     // Skip empty objects, include non-empty objects
     else if (typeof value === 'object') {
-      if (Object.keys(value).length > 0) 
-      { appData[field] = value; }
+      if (Object.keys(value).length > 0) { appData[field] = value; }
     }
+
     // Include all other non-null/non-empty values
-    else if (value !== '') 
-    { appData[field] = value; }
+    else if (value !== '') { appData[field] = value; }
   }
 
   // Create new or update existing application
@@ -180,8 +177,9 @@ module.exports = async ({ interaction, client, context }) => {
       await appExists.save();
       finalApp = appExists;
     } 
-    else 
-    { finalApp = await Application.create(appData); }
+    else { 
+      finalApp = await Application.create(appData); 
+    }
   }
 
   const embedColor = isValidHexColor(finalApp?.verifychannelembed?.color) ? finalApp.verifychannelembed.color : (tempApp?.verifychannelembed?.color ?? "#3f7ff1");
@@ -206,7 +204,9 @@ module.exports = async ({ interaction, client, context }) => {
 
   if (result?.messageId && result.messageId !== finalApp.verifymessage_id) {
     finalApp.verifymessage_id = result.messageId;
-    await finalApp.save().catch(e => console.error("Error saving verify message ID", e));
+    await finalApp.save().catch(
+      (e) => console.error("Error saving verify message ID", e)
+    );
   }
 
   await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
@@ -242,12 +242,15 @@ module.exports = async ({ interaction, client, context }) => {
 
 function cleanConfig(config) {
   for (const key in config) {
-    if (config[key] === "deleted") 
-    { delete config[key]; } 
-    else if (typeof config[key] === "object" && config[key] !== null) {
+
+    if (config[key] === "deleted") { 
+      delete config[key]; 
+    } else if (typeof config[key] === "object" && config[key] !== null) {
       cleanConfig(config[key]);
-      if (Object.keys(config[key]).length === 0) 
-      { delete config[key]; }
+
+      if (Object.keys(config[key]).length === 0) { 
+        delete config[key]; 
+      }
     }
   }
   return config;
@@ -255,8 +258,8 @@ function cleanConfig(config) {
 
 async function finalizeCustomizationImage(tempApp, sectionKey, imageDir, guildId) {
   const section = tempApp[sectionKey];
-  if (!section || !section.image) 
-  { return; }
+
+  if (!section || !section.image) return;
 
   if (section.image === "deleted") {
     section.image = null;
@@ -278,8 +281,8 @@ async function finalizeCustomizationImage(tempApp, sectionKey, imageDir, guildId
 
 async function finalizeRemoteImage(image) {
   let finalizedImage = image;
-  if (image.isTemp) 
-  { finalizedImage = await promoteCustomizationImage(image); }
+
+  if (image.isTemp) { finalizedImage = await promoteCustomizationImage(image); }
 
   await purgeOldImages({
     serverId: finalizedImage.serverId,

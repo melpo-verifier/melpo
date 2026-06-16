@@ -8,7 +8,7 @@ const {
 const {
   updateTempApplication,
   getApplicationById,
-  getTempApplicationById,
+  getTempApplicationById
 } = require("../../js/tempconfigfuncs.js");
 const { normalizeQuestions } = require("../../js/questionSetupUtils.js");
 const { createCategoryButtons } = require("../../js/constants.js");

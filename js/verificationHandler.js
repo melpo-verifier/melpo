@@ -13,7 +13,7 @@ const {
   AttachmentBuilder,
   ButtonBuilder,
   ActionRowBuilder,
-  WebhookClient,
+  WebhookClient
 } = require("discord.js");
 const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
@@ -59,14 +59,14 @@ const VerificationStatus = {
   VERIFIED: "verified",
   DENIED: "denied",
   KICKED: "kicked",
-  LEFT: "left",
+  LEFT: "left"
 };
 
 const StatusColors = {
   [VerificationStatus.VERIFIED]: 0x008000,
   [VerificationStatus.DENIED]: 0xeb2121,
   [VerificationStatus.KICKED]: 0xeb2121,
-  [VerificationStatus.LEFT]: 0x808080,
+  [VerificationStatus.LEFT]: 0x808080
 };
 
 async function rateLimitedOperation(operation, maxRetries = 3) {
@@ -79,7 +79,7 @@ async function rateLimitedOperation(operation, maxRetries = 3) {
       if (error.name === "RateLimitError" || error.code === 429) {
         const waitTime = (error.retryAfter || 2000) + retries * 1000;
         console.log(
-          `Rate limited, waiting ${waitTime}ms (attempt ${retries + 1}/${maxRetries})`,
+          `Rate limited, waiting ${waitTime}ms (attempt ${retries + 1}/${maxRetries})`
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
         retries++;
@@ -105,14 +105,14 @@ async function rateLimitedOperation(operation, maxRetries = 3) {
 async function checkManagerPermission(interaction, application) {
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = application.managerrole.some((role) =>
-      member.roles.cache.has(role),
+    const hasManagerRole = application.managerrole.some(
+      (role) => member.roles.cache.has(role)
     );
 
     if (!hasManagerRole) {
       return {
         allowed: false,
-        message: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+        message: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`
       };
     }
   }
@@ -233,7 +233,7 @@ function handleV2Edit(interaction, message, status, reason = null) {
   const statusTextMap = {
     [VerificationStatus.VERIFIED]: "Verified",
     [VerificationStatus.DENIED]: "Denied",
-    [VerificationStatus.KICKED]: "Kicked",
+    [VerificationStatus.KICKED]: "Kicked"
   };
   const statusText = statusTextMap[status] || "Denied";
 
@@ -249,7 +249,7 @@ function handleV2Edit(interaction, message, status, reason = null) {
 
   const clonedContainer = JSON.parse(JSON.stringify(message.components[0] || {}));
   const editedContainer = new ContainerBuilder({
-    accent_color: color,
+    accent_color: color
   });
 
   if (clonedContainer.components) {
@@ -270,14 +270,14 @@ function handleV2Edit(interaction, message, status, reason = null) {
           new SectionBuilder()
             .addTextDisplayComponents(
               new TextDisplayBuilder({
-                content: truncatedContent,
+                content: truncatedContent
               }),
             )
             .setThumbnailAccessory(
               new ThumbnailBuilder({
-                media: { url: component.accessory.media.url },
-              }),
-            ),
+                media: { url: component.accessory.media.url }
+              })
+            )
         );
       } else if (component.type === 10) {
         const available = MAX_DISPLAYABLE_TEXT - totalTextLength - reservedChars;
@@ -291,30 +291,30 @@ function handleV2Edit(interaction, message, status, reason = null) {
 
         editedContainer.addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: content,
-          }),
+            content: content
+          })
         );
       } else if (component.type === 14) {
         editedContainer.addSeparatorComponents(
           new SeparatorBuilder({
-            spacing: component.spacing || SeparatorSpacingSize.Small,
-          }),
+            spacing: component.spacing || SeparatorSpacingSize.Small
+          })
         );
       } else if (component.type === 12) {
         if (component.items?.length > 0) {
           const mappedurls = component.items?.map((item) => ({
-            media: { url: item.media.url },
+            media: { url: item.media.url }
           }));
           editedContainer.addMediaGalleryComponents(
             new MediaGalleryBuilder({
-              items: mappedurls,
-            }),
+              items: mappedurls
+            })
           );
         }
       } else if (component.type === 13) {
         if (component.file?.url?.startsWith('attachment://')) {
           editedContainer.addFileComponents(
-            new FileBuilder().setURL(component.file.url),
+            new FileBuilder().setURL(component.file.url)
           );
         }
       }
@@ -323,8 +323,8 @@ function handleV2Edit(interaction, message, status, reason = null) {
 
   editedContainer.addTextDisplayComponents(
     new TextDisplayBuilder({
-      content: footerText,
-    }),
+      content: footerText
+    })
   );
 
   return editedContainer;
@@ -340,10 +340,10 @@ function createLeftV2Component(message, memberId) {
   let totalTextLength = 0;
 
   const clonedContainer = JSON.parse(
-    JSON.stringify(message.components[0] || {}),
+    JSON.stringify(message.components[0] || {})
   );
   const editedContainer = new ContainerBuilder({
-    accent_color: color,
+    accent_color: color
   });
 
   if (clonedContainer.components) {
@@ -364,12 +364,12 @@ function createLeftV2Component(message, memberId) {
           new SectionBuilder()
             .addTextDisplayComponents(
               new TextDisplayBuilder({
-                content: truncatedContent,
+                content: truncatedContent
               }),
             )
             .setThumbnailAccessory(
               new ThumbnailBuilder({
-                media: { url: component.accessory.media.url },
+                media: { url: component.accessory.media.url }
               }),
             ),
         );
@@ -385,30 +385,30 @@ function createLeftV2Component(message, memberId) {
 
         editedContainer.addTextDisplayComponents(
           new TextDisplayBuilder({
-            content: content,
+            content: content
           }),
         );
       } else if (component.type === 14) {
         editedContainer.addSeparatorComponents(
           new SeparatorBuilder({
-            spacing: component.spacing || SeparatorSpacingSize.Small,
+            spacing: component.spacing || SeparatorSpacingSize.Small
           }),
         );
       } else if (component.type === 12) {
         if (component.items?.length > 0) {
           const mappedurls = component.items.map((item) => ({
-            media: { url: item.media.url },
+            media: { url: item.media.url }
           }));
           editedContainer.addMediaGalleryComponents(
             new MediaGalleryBuilder({
-              items: mappedurls,
+              items: mappedurls
             }),
           );
         }
       } else if (component.type === 13) {
         if (component.file?.url?.startsWith("attachment://")) {
           editedContainer.addFileComponents(
-            new FileBuilder().setURL(component.file.url),
+            new FileBuilder().setURL(component.file.url)
           );
         }
       }
@@ -417,7 +417,7 @@ function createLeftV2Component(message, memberId) {
 
   editedContainer.addTextDisplayComponents(
     new TextDisplayBuilder({
-      content: footerText,
+      content: footerText
     }),
   );
 
@@ -450,7 +450,7 @@ function createDisabledButtons() {
       .setCustomId("action")
       .setLabel("Kick")
       .setStyle("Secondary")
-      .setDisabled(true),
+      .setDisabled(true)
   );
 }
 
@@ -493,7 +493,7 @@ async function processText(text, user, interaction, originalEmbed, verifiedRoles
       .fetch()
       .then((members) => {
         return members.filter((member) =>
-          verifiedRoles.some((role) => member.roles.cache.has(role)),
+          verifiedRoles.some((role) => member.roles.cache.has(role))
         ).size;
       })
       .catch((error) => {
@@ -535,7 +535,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
       user,
       interaction,
       originalEmbed,
-      verifiedRoles,
+      verifiedRoles
     );
     const textImage = resolveImage(welcomeMessage.image);
 
@@ -566,7 +566,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
     if (imageAsset.embedUrl) {
       welcomeEmbed.setAuthor({
         name: user.user.globalName ?? user.user.username,
-        iconURL: user.user.displayAvatarURL({ dynamic: true, size: 128 }),
+        iconURL: user.user.displayAvatarURL({ dynamic: true, size: 128 })
       });
     } else {
       welcomeEmbed.setThumbnail(user.user.displayAvatarURL({ dynamic: true, size: 512 }));
@@ -592,13 +592,13 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
             username: name,
             avatarURL: avatarURL,
             content: messageContent || null,
-            embeds: [welcomeEmbed],
+            embeds: [welcomeEmbed]
           });
           return;
         } catch (error) {
           interaction.followUp({
             content: `Welcome channel webhook error: ${error.message}`,
-            flags: MessageFlags.Ephemeral,
+            flags: MessageFlags.Ephemeral
           }).catch(() => { });
           console.error("Error sending welcome webhook:", error.message);
         }
@@ -607,7 +607,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 
     await channel.send({
       content: messageContent || null,
-      embeds: [welcomeEmbed],
+      embeds: [welcomeEmbed]
     });
   }
 }
@@ -629,7 +629,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
     .setImage(dmImage.embedUrl);
 
   await user.send({
-    embeds: [finalEmbed],
+    embeds: [finalEmbed]
   }).catch(() => { });
 }
 
@@ -732,7 +732,7 @@ async function processLogMessages(options) {
     user,
     status,
     reason = null,
-    useRateLimiting = false,
+    useRateLimiting = false
   } = options;
 
   const hasSeparateLogChannel =
@@ -751,7 +751,7 @@ async function processLogMessages(options) {
         !botPermissions ||
         !botPermissions.has([
           PermissionsBitField.Flags.SendMessages,
-          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.ViewChannel
         ])
       ) {
         return await interaction.channel.send({
@@ -767,7 +767,7 @@ async function processLogMessages(options) {
 
       const fetchedMessages = await reviewChannel.messages.fetch({
         limit: 100,
-        before: beforeId,
+        before: beforeId
       });
 
       const messages = [];
@@ -800,7 +800,7 @@ async function processLogMessages(options) {
       let webhookClient = null;
       if (application.branding_enabled) {
         const webhookRecord = await GuildWebhook.findOne({
-          where: { channel_id: logChannel.id },
+          where: { channel_id: logChannel.id }
         });
 
         if (webhookRecord) {
@@ -808,7 +808,7 @@ async function processLogMessages(options) {
             const webhookData = decryptData(String(webhookRecord.encrypted_token));
             webhookClient = new WebhookClient({
               id: webhookData.id,
-              token: webhookData.token,
+              token: webhookData.token
             });
           } catch (e) {
             console.error("Failed to decrypt webhook token:", e);
@@ -828,7 +828,7 @@ async function processLogMessages(options) {
             const sendPayload = {
               flags: [MessageFlags.IsComponentsV2],
               components: [editedContainer],
-              files: files || [],
+              files: files || []
             };
 
             let threadEmbed;
@@ -856,7 +856,7 @@ async function processLogMessages(options) {
               sentMessage = await webhookClient.send({
                 ...sendPayload,
                 username: application.custom_name || client.user.username,
-                avatarURL: application.custom_avatar_url || client.user.displayAvatarURL(),
+                avatarURL: application.custom_avatar_url || client.user.displayAvatarURL()
               });
             } else {
               // Normal bot message fallback
@@ -878,7 +878,7 @@ async function processLogMessages(options) {
               : sentMessage;
 
             const threadOp = async () => messageToThread.startThread({
-              name: `${user.user?.username || user.username}'s log`,
+              name: `${user.user?.username || user.username}'s log`
             });
 
             const threadchannel = useRateLimiting ? await rateLimitedOperation(threadOp) : await threadOp();
@@ -913,7 +913,7 @@ async function processLogMessages(options) {
       let webhookClient = null;
       if (application.branding_enabled) {
         const webhookRecord = await GuildWebhook.findOne({
-          where: { channel_id: interaction.channelId },
+          where: { channel_id: interaction.channelId }
         });
         if (webhookRecord) {
           const webhookData = decryptData(String(webhookRecord.encrypted_token));
@@ -929,7 +929,7 @@ async function processLogMessages(options) {
 
       const fetchedMessages = await interaction.channel.messages.fetch({
         limit: 100,
-        before: beforeId,
+        before: beforeId
       });
 
       for (const messageId of messageids) {
@@ -966,7 +966,7 @@ async function processLogMessages(options) {
             const editedContainer = handleV2Edit(interaction, foundMessage, status, reason);
             const payload = {
               flags: [MessageFlags.IsComponentsV2],
-              components: [editedContainer],
+              components: [editedContainer]
             }
             // const editOp = async () =>
             //   message.edit({
@@ -1012,7 +1012,7 @@ async function processLeaveMessages(options) {
 
   const fetchedMessages = await reviewChannel.messages.fetch({
     limit: 100,
-    before: beforeId,
+    before: beforeId
   });
 
   for (const messageId of messageIds) {
@@ -1060,24 +1060,23 @@ async function processLeaveMessages(options) {
 
           const payload = {
             flags: [MessageFlags.IsComponentsV2],
-            components: [leftContainer],
+            components: [leftContainer]
           };
           if (files) payload.files = files;
 
           const sentMessage = await logChannel.send(payload);
 
           const thread = await sentMessage.startThread({
-            name: `${member.user?.username || member.id}'s log`,
+            name: `${member.user?.username || member.id}'s log`
           });
 
-          if (threadEmbed) {
-            await thread.send({ embeds: [threadEmbed] });
-          }
+          if (threadEmbed) { await thread.send({ embeds: [threadEmbed] }); }
           await thread.setArchived(true);
 
           if (foundMessage.thread) {
             await foundMessage.thread.delete().catch(console.error);
           }
+
           await foundMessage.delete().catch(console.error);
         }
       } else {
@@ -1087,12 +1086,12 @@ async function processLeaveMessages(options) {
         ) {
           const { container, files } = relinkAttachments(foundMessage);
           const tempMsg = { ...foundMessage, components: [container] };
-          const leftContainer = createLeftV2Component(tempMsg, member.id);
+          const leftContainer   = createLeftV2Component(tempMsg, member.id);
           const disabledButtons = createDisabledButtons();
 
           const editPayload = {
             flags: [MessageFlags.IsComponentsV2],
-            components: [leftContainer, disabledButtons],
+            components: [leftContainer, disabledButtons]
           };
           if (files) editPayload.files = files;
 
@@ -1119,7 +1118,7 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
   if (applicationId != null && !Array.isArray(guildData)) {
 
     await Submissions.destroy({
-      where: { user_id: memberId, app_id: String(applicationId), status: { [Op.not]: "denied" } },
+      where: { user_id: memberId, app_id: String(applicationId), status: { [Op.not]: "denied" } }
     }).catch((e) => { console.error("Error deleting submission:", e); });
     delete guildData[applicationId];
     if (Object.keys(guildData).length === 0) {
@@ -1129,7 +1128,7 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
     delete verification.guildVerifications[guildId];
     //destroy if status isn't "denied"
     await Submissions.destroy({
-      where: { user_id: memberId, guild_id: guildId, status: { [Op.not]: "denied" } },
+      where: { user_id: memberId, guild_id: guildId, status: { [Op.not]: "denied" } }
     }).catch((e) => { console.error("Error deleting submission:", e); });
   }
 
@@ -1149,7 +1148,7 @@ function createNoApplicationEmbed(user, interaction, invitetracker, status) {
     .setThumbnail(user.displayAvatarURL({ size: 2048, format: "png" }))
     .addFields({
       name: "Member info",
-      value: `[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.globalName ?? user.user.username}\`\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+      value: `[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.globalName ?? user.user.username}\`\n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`
     })
     .setFooter({ text: `${actionText} by ${interaction.user.username}` });
 }
@@ -1162,7 +1161,7 @@ async function verifyUser(options) {
     userId,
     application,
     originalEmbed = null,
-    useRateLimiting = false,
+    useRateLimiting = false
   } = options;
 
   const user = await interaction.guild.members.fetch(userId);
@@ -1170,19 +1169,19 @@ async function verifyUser(options) {
     throw new Error("User not found");
   }
 
-  const verifiedRoles = application.verifiedrole;
+  const verifiedRoles   = application.verifiedrole;
   const unverifiedRoles = application.unverifiedrole;
-  const welcomeMessage = application.verificationwelcomemessage;
-  const welcomeChannel = application.verificationwelcomechannel;
+  const welcomeMessage  = application.verificationwelcomemessage;
+  const welcomeChannel  = application.verificationwelcomechannel;
 
   // Apply roles
   await applyRoles(user, verifiedRoles, unverifiedRoles, interaction);
 
   // Get verification data
-  const verification = await Verification.findOne({ where: { userId } });
-  const messageids = getMessageIds(verification, interaction.guild.id, application.id);
+  const verification  = await Verification.findOne({ where: { userId } });
+  const messageids    = getMessageIds(verification, interaction.guild.id, application.id);
   const invitetracker = await InviteTracker.findOne({
-    where: { unique_id: `${userId}_${interaction.guild.id}` },
+    where: { unique_id: `${userId}_${interaction.guild.id}` }
   });
 
   // Process log messages
@@ -1193,7 +1192,7 @@ async function verifyUser(options) {
     messageids,
     user,
     status: VerificationStatus.VERIFIED,
-    useRateLimiting,
+    useRateLimiting
   });
 
   // If no messages and separate log channel, send "no application" embed
@@ -1236,7 +1235,7 @@ async function denyUser(options) {
     userId,
     application,
     reason = null,
-    useRateLimiting = false,
+    useRateLimiting = false
   } = options;
 
   const user = await client.users.fetch(userId);
@@ -1256,7 +1255,7 @@ async function denyUser(options) {
   const verification = await Verification.findOne({ where: { userId } });
   const messageids = getMessageIds(verification, interaction.guild.id, application.id);
   const invitetracker = await InviteTracker.findOne({
-    where: { unique_id: `${userId}_${interaction.guild.id}` },
+    where: { unique_id: `${userId}_${interaction.guild.id}` }
   });
 
   // Process log messages
@@ -1267,7 +1266,7 @@ async function denyUser(options) {
     messageids,
     user: member,
     status: VerificationStatus.DENIED,
-    useRateLimiting,
+    useRateLimiting
   });
 
   // If no messages and separate log channel, send "no application" embed
@@ -1312,7 +1311,7 @@ function relinkAttachments(message) {
     fileComp.file.url = `attachment://${name}`;
     return {
       container,
-      files: [new AttachmentBuilder(url, { name })],
+      files: [new AttachmentBuilder(url, { name })]
     };
   }
 
@@ -1344,5 +1343,5 @@ module.exports = {
   cleanupVerificationData,
   createNoApplicationEmbed,
   verifyUser,
-  denyUser,
+  denyUser
 };

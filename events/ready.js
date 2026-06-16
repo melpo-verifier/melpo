@@ -15,9 +15,9 @@ module.exports = {
       const guildids = client.guilds.cache?.map((guild) => guild.id);
       console.log(`Found ${guildids.length} guilds.`);
       await Instances.upsert({ client_id: client.user.id, guilds: guildids });
-    } 
-    else 
-    { client.cluster.triggerReady(); }
+    } else { 
+      client.cluster.triggerReady(); 
+    }
 
     const setPresence = async () => {
       try {
@@ -29,9 +29,9 @@ module.exports = {
           ],
           status: statusData.status
         });
-      } 
-      catch (error) 
-      { console.error("Failed to set presence:", error); }
+      } catch (error) { 
+        console.error("Failed to set presence:", error); 
+      }
     };
 
     await setPresence();
@@ -39,9 +39,9 @@ module.exports = {
     //Resume applications
     setTimeout(async () => {
       if (!client.cluster || client.cluster.id === 0) {
-        await resumeApplication(client).catch((error) => {
-          console.error("Failed to resume verification sessions:", error);
-        });
+        await resumeApplication(client).catch(
+          (error) => { console.error("Failed to resume verification sessions:", error); }
+        );
       }
     }, 60000); // Delay to make sure other clusters are ready too.
 

@@ -1,7 +1,7 @@
 const {
   ButtonBuilder,
   ActionRowBuilder,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
 const { relinkAttachments } = require("../js/verificationHandler.js");
@@ -12,17 +12,16 @@ module.exports = async ({ interaction, applicationId }) => {
   const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
 
   if (error) {
-    return interaction.followUp({
-      content: `Error: ${error}`,
-      flags: MessageFlags.Ephemeral
-    });
+    return interaction.followUp(
+      { content: `Error: ${error}`, flags: MessageFlags.Ephemeral }
+    );
   }
 
   // Permission check
   if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
     const member = await interaction.guild.members.fetch(interaction.user.id);
-    const hasManagerRole = application.managerrole.some((role) =>
-      member.roles.cache.has(role)
+    const hasManagerRole = application.managerrole.some(
+      (role) => member.roles.cache.has(role)
     );
 
     if (!hasManagerRole) {
@@ -52,8 +51,7 @@ module.exports = async ({ interaction, applicationId }) => {
       )) ||
     (!hasComponents &&
       originalEmbed?.fields?.some((f) => f.name.includes("Are you sure")))
-  ) 
-  { return; }
+  ) return;
 
   // Create confirm buttons
   const verifyRow = new ActionRowBuilder().addComponents(
@@ -64,7 +62,7 @@ module.exports = async ({ interaction, applicationId }) => {
     new ButtonBuilder()
       .setCustomId(`returntomenu_${applicationId}`)
       .setLabel("Cancel")
-      .setStyle("Danger"),
+      .setStyle("Danger")
   );
 
   if (hasComponents) {

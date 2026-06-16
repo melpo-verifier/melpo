@@ -27,8 +27,9 @@ class PerformanceMonitor extends EventEmitter {
   }
 
   recordCommandExecution(commandName, executionTime, success = true) {
-    if (!this.metrics.commands.has(commandName)) 
-    { this.metrics.commands.set(commandName, { executions: 0, totalTime: 0, averageTime: 0, errors: 0, lastExecuted: null }); }
+    if (!this.metrics.commands.has(commandName)) { 
+      this.metrics.commands.set(commandName, { executions: 0, totalTime: 0, averageTime: 0, errors: 0, lastExecuted: null }); 
+    }
 
     const stats = this.metrics.commands.get(commandName);
     stats.executions++;
@@ -39,15 +40,17 @@ class PerformanceMonitor extends EventEmitter {
     if (!success) { stats.errors++; }
 
     // Emit warning for slow commands
-    if (executionTime > this.thresholds.commandExecutionTime) 
-    { this.emit("slowCommand", { command: commandName, executionTime, threshold: this.thresholds.commandExecutionTime }); }
+    if (executionTime > this.thresholds.commandExecutionTime) { 
+      this.emit("slowCommand", { command: commandName, executionTime, threshold: this.thresholds.commandExecutionTime }); 
+    }
   }
 
   recordInteraction(type, customId, executionTime, success = true) {
     const key = `${type}:${customId}`;
 
-    if (!this.metrics.interactions.has(key)) 
-    { this.metrics.interactions.set(key, { count: 0, totalTime: 0, averageTime: 0, errors: 0 }); }
+    if (!this.metrics.interactions.has(key)) { 
+      this.metrics.interactions.set(key, { count: 0, totalTime: 0, averageTime: 0, errors: 0 }); 
+    }
 
     const stats = this.metrics.interactions.get(key);
     stats.count++;
@@ -229,17 +232,17 @@ class PerformanceMonitor extends EventEmitter {
 const perfMonitor = new PerformanceMonitor();
 
 // Set up event listeners for performance issues
-perfMonitor.on("slowCommand", (data) => {
-  console.warn(`⚠️ Slow command detected: ${data.command} took ${data.executionTime}ms (threshold: ${data.threshold}ms)`);
-});
+perfMonitor.on("slowCommand", 
+  (data) => { console.warn(`⚠️ Slow command detected: ${data.command} took ${data.executionTime}ms (threshold: ${data.threshold}ms)`); }
+);
 
-perfMonitor.on("highMemoryUsage", (data) => {
-  console.warn(`⚠️ High memory usage: ${data.heapUsed}MB (threshold: ${perfMonitor.thresholds.memoryUsage}MB)`);
-});
+perfMonitor.on("highMemoryUsage", 
+  (data) => { console.warn(`⚠️ High memory usage: ${data.heapUsed}MB (threshold: ${perfMonitor.thresholds.memoryUsage}MB)`); }
+);
 
-perfMonitor.on("highErrorRate", (data) => {
-  console.warn(`⚠️ High error rate: ${data.errorCount} errors in minute ${data.minute} (threshold: ${data.threshold})` );
-});
+perfMonitor.on("highErrorRate", 
+  (data) => { console.warn(`⚠️ High error rate: ${data.errorCount} errors in minute ${data.minute} (threshold: ${data.threshold})` ); }
+);
 
 // Cleanup old data every hour
 setInterval(() => { perfMonitor.cleanup(); }, 3600000);

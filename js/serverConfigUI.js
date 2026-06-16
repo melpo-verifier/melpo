@@ -1,8 +1,7 @@
 const { ButtonStyle, ActionRowBuilder, RoleSelectMenuBuilder, SeparatorSpacingSize, ContainerBuilder, ButtonBuilder } = require("discord.js");
 
 const toArray = (value) => {
-  if (!value) 
-  { return []; }
+  if (!value) { return []; }
   return Array.isArray(value) ? value : [value];
 };
 

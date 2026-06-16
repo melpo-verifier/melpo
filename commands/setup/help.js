@@ -20,7 +20,7 @@ module.exports = {
       const catagoryEmbed = new EmbedBuilder()
         .setTitle(folder)
         .setDescription(
-          `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)`,
+          `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)`
         )
         .setFooter({ text: "Developed by milo_dev" })
         .setTimestamp()
@@ -54,7 +54,7 @@ module.exports = {
           name: "Subcommands",
           value: subcommands
             ?.map((command) => `/${command.data.name}`)
-            .join("\n"),
+            .join("\n")
         });
       }
 

@@ -30,26 +30,26 @@ module.exports = {
 
 
     const requiredPermissions = [
-      { name: "Manage Guild", flag: "ManageGuild" },
-      { name: "Manage Roles", flag: "ManageRoles" },
-      { name: "Manage Channels", flag: "ManageChannels" },
-      { name: "Kick Members", flag: "KickMembers" },
-      { name: "Ban Members", flag: "BanMembers" },
-      { name: "View Audit Log", flag: "ViewAuditLog" },
-      { name: "View Channel", flag: "ViewChannel" },
-      { name: "Moderate Members", flag: "ModerateMembers" },
-      { name: "Send Messages", flag: "SendMessages" },
+      { name: "Manage Guild",             flag: "ManageGuild"           },
+      { name: "Manage Roles",             flag: "ManageRoles"           },
+      { name: "Manage Channels",          flag: "ManageChannels"        },
+      { name: "Kick Members",             flag: "KickMembers"           },
+      { name: "Ban Members",              flag: "BanMembers"            },
+      { name: "View Audit Log",           flag: "ViewAuditLog"          },
+      { name: "View Channel",             flag: "ViewChannel"           },
+      { name: "Moderate Members",         flag: "ModerateMembers"       },
+      { name: "Send Messages",            flag: "SendMessages"          },
       { name: "Send Messages In Threads", flag: "SendMessagesInThreads" },
-      { name: "Create Public Threads", flag: "CreatePublicThreads" },
-      { name: "Create Private Threads", flag: "CreatePrivateThreads" },
-      { name: "Manage Messages", flag: "ManageMessages" },
-      { name: "Manage Threads", flag: "ManageThreads" },
-      { name: "Embed Links", flag: "EmbedLinks" },
-      { name: "Attach Files", flag: "AttachFiles" },
-      { name: "Read Message History", flag: "ReadMessageHistory" },
-      { name: "Add Reactions", flag: "AddReactions" },
-      { name: "Use External Emojis", flag: "UseExternalEmojis" },
-      { name: "Send Polls", flag: "SendPolls" },
+      { name: "Create Public Threads",    flag: "CreatePublicThreads"   },
+      { name: "Create Private Threads",   flag: "CreatePrivateThreads"  },
+      { name: "Manage Messages",          flag: "ManageMessages"        },
+      { name: "Manage Threads",           flag: "ManageThreads"         },
+      { name: "Embed Links",              flag: "EmbedLinks"            },
+      { name: "Attach Files",             flag: "AttachFiles"           },
+      { name: "Read Message History",     flag: "ReadMessageHistory"    },
+      { name: "Add Reactions",            flag: "AddReactions"          },
+      { name: "Use External Emojis",      flag: "UseExternalEmojis"     },
+      { name: "Send Polls",               flag: "SendPolls"             }
     ];
 
     const unneededPermissions = ["Administrator", "ManageWebhooks"];
@@ -75,8 +75,9 @@ module.exports = {
         const dangerousExcessPerms = allPermissionFlags.filter(
           ([name, bit]) => {
             if (!bit) return false;
+
             const isRequired = requiredPermissions.some(
-              (p) => p.name?.replace(/ /g, "") === name,
+              (p) => p.name?.replace(/ /g, "") === name
             );
             return (
               !isRequired &&
@@ -87,22 +88,24 @@ module.exports = {
         );
 
         if (dangerousExcessPerms.length > 0) {
-          dangerousExcessPerms.forEach(([name]) => {
-            description += `⚠️ ${name?.replace(/([A-Z])/g, " $1").trim()}\n`;
-          });
-        } 
-        else 
-        { description += "*Perfect! No unneeded (dangerous) permissions*\n"; }
+          dangerousExcessPerms.forEach(
+            ([name]) => { description += `⚠️ ${name?.replace(/([A-Z])/g, " $1").trim()}\n`; }
+          );
+        } else { 
+          description += "*Perfect! No unneeded (dangerous) permissions*\n"; 
+        }
       } 
-      catch 
-      { description += "*Unable to check additional permissions*\n"; }
+      catch { 
+        description += "*Unable to check additional permissions*\n"; 
+      }
     }
 
     description += "\n### Channel-Specific Permissions\n";
 
     for (const app of applications) {
-      if (applications.length > 1) 
-      { description += `\n**Application: ${app.name}**\n`; }
+      if (applications.length > 1) { 
+        description += `\n**Application: ${app.name}**\n`; 
+      }
 
       if (app?.verifychannel) {
         const verifyChannel = interaction.guild.channels.cache.get(
@@ -115,9 +118,9 @@ module.exports = {
           description += `${verifyPerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${verifyPerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
           description += `${verifyPerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
-        } 
-        else 
-        { description += `❌ Channel not found or deleted\n`; }
+        } else { 
+          description += `❌ Channel not found or deleted\n`; 
+        }
       }
 
       if (app?.reviewchannel) {
@@ -134,9 +137,9 @@ module.exports = {
           description += `${reviewPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
           description += `${reviewPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
-        } 
-        else 
-        { description += `❌ Channel not found or deleted\n`; }
+        } else { 
+          description += `❌ Channel not found or deleted\n`; 
+        }
       }
 
       if (app?.verifylogs) {
@@ -153,9 +156,9 @@ module.exports = {
           description += `${logsPerms.has(PermissionsBitField.Flags.CreatePrivateThreads) ? "✅" : "❌"} Create Private Threads\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.SendMessagesInThreads) ? "✅" : "❌"} Send Messages In Threads\n`;
           description += `${logsPerms.has(PermissionsBitField.Flags.ManageThreads) ? "✅" : "❌"} Manage Threads\n`;
-        } 
-        else 
-        { description += `❌ Channel not found or deleted\n`; }
+        } else { 
+          description += `❌ Channel not found or deleted\n`; 
+        }
       }
 
       if (app?.verificationwelcomechannel) {
@@ -169,9 +172,9 @@ module.exports = {
           description += `${welcomePerms.has(PermissionsBitField.Flags.SendMessages) ? "✅" : "❌"} Send Messages\n`;
           description += `${welcomePerms.has(PermissionsBitField.Flags.ReadMessageHistory) ? "✅" : "❌"} Read Message History\n`;
           description += `${welcomePerms.has(PermissionsBitField.Flags.EmbedLinks) ? "✅" : "❌"} Embed Links\n`;
-        } 
-        else 
-        { description += `❌ Channel not found or deleted\n`; }
+        } else { 
+          description += `❌ Channel not found or deleted\n`; 
+        }
       }
     }
 
@@ -183,8 +186,9 @@ module.exports = {
     let roleHierarchyIssues = 0;
 
     for (const app of applications) {
-      if (applications.length > 1) 
-      { description += `\n**Application: ${app.name}**\n`; }
+      if (applications.length > 1) { 
+        description += `\n**Application: ${app.name}**\n`; 
+      }
 
       if (app?.verifiedrole && app.verifiedrole.length > 0) {
         const verifiedRoles = Array.isArray(app.verifiedrole)
@@ -234,8 +238,9 @@ module.exports = {
           : [app.managerrole];
         for (const roleId of managerRoles) {
           const managerRole = interaction.guild.roles.cache.get(roleId);
-          if (managerRole) 
-          { description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`; }
+          if (managerRole) { 
+            description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`; 
+          }
         }
       }
     }
@@ -247,19 +252,22 @@ module.exports = {
           PermissionsBitField.Flags[perm.name?.replace(/ /g, "")],
         );
       } 
-      catch 
-      { return true; }
+      catch { 
+        return true; 
+      }
     });
 
-    if (missingPermissions.length === 0) 
-    { description += "✅ **All required permissions are present**\n"; } 
-    else 
-    { description += `❌ **Missing ${missingPermissions.length} required permission(s)**\n`; }
+    if (missingPermissions.length === 0) { 
+      description += "✅ **All required permissions are present**\n"; 
+    } else { 
+      description += `❌ **Missing ${missingPermissions.length} required permission(s)**\n`; 
+    }
 
-    if (roleHierarchyIssues === 0) 
-    { description += "✅ **Bot can manage all configured roles**\n"; } 
-    else 
-    { description += `❌ **Cannot manage ${roleHierarchyIssues} role(s) - Move bot role higher**\n`; }
+    if (roleHierarchyIssues === 0) { 
+      description += "✅ **Bot can manage all configured roles**\n"; 
+    } else { 
+      description += `❌ **Cannot manage ${roleHierarchyIssues} role(s) - Move bot role higher**\n`; 
+    }
 
     const hasIssues = missingPermissions.length > 0 || roleHierarchyIssues > 0;
 
@@ -268,7 +276,7 @@ module.exports = {
       .setTitle("Permission Check Results")
       .setDescription(description)
       .setFooter({
-        text: "✅ = Has Permission/Can Manage | ❌ = Missing Permission/Cannot Manage | ⚠️ = Additional Permission | ℹ️ = Info Only",
+        text: "✅ = Has Permission/Can Manage | ❌ = Missing Permission/Cannot Manage | ⚠️ = Additional Permission | ℹ️ = Info Only"
       })
       .setTimestamp();
 

@@ -27,8 +27,10 @@ module.exports = async ({ interaction, context }) => {
   );
 
   const { tempApp: temporarySetup, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
-  if (error) 
-  { return interaction.editReply({ content: `Error: ${error}`, components: [] }); }
+
+  if (error) { 
+    return interaction.editReply({ content: `Error: ${error}`, components: [] }); 
+  }
 
   if (nextnumber === 0) {
 
@@ -71,13 +73,13 @@ module.exports = async ({ interaction, context }) => {
         {
           name: "User Verification Channel `(required)`",
           value: `<#${verifyChannel}>`,
-          inline: false,
+          inline: false
         },
         {
           name: "Verification Review Channel `(required)`",
           value: `No channel set up yet`,
-          inline: false,
-        },
+          inline: false
+        }
       ]);
 
     await interaction.editReply({ components: [] });
@@ -146,7 +148,7 @@ module.exports = async ({ interaction, context }) => {
           name: "Verified Role `(required)`",
           value: `No role set up yet`,
           inline: false,
-        },
+        }
       ]);
 
     await interaction.editReply({ components: [] });

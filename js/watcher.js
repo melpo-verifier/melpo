@@ -65,12 +65,12 @@ async function clearAndRecacheModule(modulePath, client) {
       {
         await newModule(client);
         console.log(`Executed async function module: ${resolvedPath}`);
-      } 
-      else 
-      { console.log(`Skipped reloading non-command module: ${resolvedPath}`); }
-    } 
-    catch (error) 
-    { console.error(`Failed to reload module: ${resolvedPath}`, error); }
+      } else { 
+        console.log(`Skipped reloading non-command module: ${resolvedPath}`); 
+      }
+    } catch (error) { 
+      console.error(`Failed to reload module: ${resolvedPath}`, error); 
+    }
   }
 }
 

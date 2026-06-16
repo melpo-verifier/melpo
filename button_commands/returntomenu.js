@@ -49,7 +49,9 @@ module.exports = async ({ interaction, applicationId }) => {
   if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
     const { container, files } = relinkAttachments(interaction.message);
     const editPayload = { components: [container, verify] };
+
     if (files) editPayload.files = files;
+    
     await interaction.update(editPayload);
   }
 };

@@ -12,8 +12,8 @@ module.exports = {
           option
             .setName("url")
             .setDescription("Enter a URL to reverse search")
-            .setRequired(true),
-        ),
+            .setRequired(true)
+        )
     )
     .addSubcommand((subcommand) =>
       subcommand
@@ -23,8 +23,8 @@ module.exports = {
           option
             .setName("image-file")
             .setDescription("Upload an image file to reverse search")
-            .setRequired(true),
-        ),
+            .setRequired(true)
+        )
     )
     .setContexts(0),
   async execute({ interaction }) {
@@ -33,13 +33,14 @@ module.exports = {
     try {
       let imageUrl;
 
-      if (interaction.options.getSubcommand() === "url") 
-      { imageUrl = interaction.options.getString("url"); } 
-      else 
-      {
+      if (interaction.options.getSubcommand() === "url") { 
+        imageUrl = interaction.options.getString("url"); 
+      } else  {
         const attachment = interaction.options.getAttachment("image-file");
-        if (!attachment.contentType?.startsWith("image/")) 
-        { return interaction.editReply("Please provide a valid image file!"); }
+        
+        if (!attachment.contentType?.startsWith("image/")) { 
+          return interaction.editReply("Please provide a valid image file!"); 
+        }
 
         imageUrl = attachment.url;
       }

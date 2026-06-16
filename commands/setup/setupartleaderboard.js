@@ -24,7 +24,7 @@ module.exports = {
     }
 
     const guildwhitelist = await Whitelist.findOne({
-      where: { server_id: interaction.guild.id },
+      where: { server_id: interaction.guild.id }
     });
     if (!guildwhitelist || guildwhitelist.artLeaderboard === false) {
       return await interaction.reply(

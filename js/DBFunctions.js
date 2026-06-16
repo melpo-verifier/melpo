@@ -4,8 +4,9 @@ const { PremiumSubscription, Instances } = require("../dbObjects.js");
 const { Op } = require("sequelize");
 
 //QOL : Generate notice of missing entry. - mat
-if (typeof(process.env.ENCRYPTION_KEY) === "undefined") 
-{ throw new Error("No encyption key environment var found."); }
+if (typeof(process.env.ENCRYPTION_KEY) === "undefined") { 
+  throw new Error("No encyption key environment var found."); 
+}
 
 const key = Buffer.from(process.env.ENCRYPTION_KEY, "hex");
 
@@ -30,11 +31,13 @@ function decryptData(payloadString) {
     const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(authTag);
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+
     //if json return object, else return string
-    if (decrypted.toString("utf8").startsWith("{")) 
-    { return JSON.parse(decrypted.toString("utf8")); } 
-    else 
-    { return decrypted.toString("utf8"); }
+    if (decrypted.toString("utf8").startsWith("{")) { 
+      return JSON.parse(decrypted.toString("utf8")); 
+    } else { 
+      return decrypted.toString("utf8"); 
+    }
 
     // return JSON.parse(decrypted.toString("utf8"));
   } catch (e) {
@@ -52,9 +55,9 @@ async function getLatestSubmissionByUser(userId, applicationId) {
   if (submission) {
     const decryptedData = decryptData(submission.data);
     return decryptedData;
-  } 
-  else 
-  { return null; }
+  } else { 
+    return null; 
+  }
 }
 
 async function getSubmission(messageId) {
@@ -63,9 +66,9 @@ async function getSubmission(messageId) {
   if (submission) {
     const decryptedData = decryptData(submission.data);
     return decryptedData;
-  } 
-  else 
-  { return null; }
+  } else { 
+    return null; 
+  }
 }
 
 async function isPremiumServer (guildId) {
@@ -80,12 +83,12 @@ async function isPremiumServer (guildId) {
     },
   })
 
-  if (premium) { return true; }
+  if (premium) return true;
 
   //check if it is a custom bot
   const instance = await Instances.findOne({ where: { guilds: { [Op.contains]: [guildId] } } });
 
-  if (instance) { return true; }
+  if (instance) return true;
 
   return false;
 

@@ -70,20 +70,17 @@ const buildKey = ({
 };
 
 const getPublicUrl = (key) => {
-  if (!key) 
-  { return null; }
+  if (!key) { return null; }
   return `${PUBLIC_BASE}/${key}`;
 };
 
 const extractFileIdFromKey = (key) => {
-  if (!key) 
-  { return null; }
+  if (!key) { return null; }
   return path.basename(key, path.extname(key));
 };
 
 const serializeImage = (image) => {
-  if (!image) 
-  { return null; }
+  if (!image) { return null; }
 
   return {
     storage: image.storage,
@@ -102,8 +99,7 @@ const isTempKey = (key) =>
   Boolean(key && (key.split("/").includes(TEMP_FOLDER) || key.includes("_temp")));
 
 const getFinalKeyFromTemp = (key) => {
-  if (!key || !isTempKey(key)) 
-  { return key; }
+  if (!key || !isTempKey(key)) { return key; }
 
   const segments = key.split("/");
   const tempIndex = segments.indexOf(TEMP_FOLDER);
@@ -124,8 +120,9 @@ async function uploadCustomizationImage({
   contentType,
   extension
 }) {
-  if (!Buffer.isBuffer(buffer)) 
-  { throw new Error("uploadCustomizationImage expects a Buffer"); }
+  if (!Buffer.isBuffer(buffer)) { 
+    throw new Error("uploadCustomizationImage expects a Buffer"); 
+  }
 
   const fileId = generateFileId();
   const key = buildKey({
@@ -165,8 +162,7 @@ async function uploadCustomizationImage({
 }
 
 async function promoteCustomizationImage(image) {
-  if (!isR2ImageResource(image) || !isTempKey(image.key)) 
-  { return image; }
+  if (!isR2ImageResource(image) || !isTempKey(image.key)) { return image; }
 
   const finalKey = getFinalKeyFromTemp(image.key);
   const copyCommand = new CopyObjectCommand({
@@ -194,8 +190,7 @@ async function promoteCustomizationImage(image) {
 }
 
 async function deleteImage(image) {
-  if (!isR2ImageResource(image)) 
-  { return; }
+  if (!isR2ImageResource(image)) return;
 
   const command = new DeleteObjectCommand({
     Bucket: BUCKET,
@@ -257,19 +252,17 @@ async function purgeOldImages({
         : new Set(["temp", "final"]);
 
   for (const object of objects) {
-    if (!object.Key) 
-    { continue; }
-    if (keepKey && object.Key === keepKey) 
-    { continue; }
+    if (!object.Key) continue;
+    if (keepKey && object.Key === keepKey) continue;
 
-    if (!scopeFilter.has(object.scope || (isTempKey(object.Key) ? "temp" : "final"))) 
-    { continue; }
+    if (!scopeFilter.has(object.scope || (isTempKey(object.Key) ? "temp" : "final"))) { 
+      continue; 
+    }
 
     keysToDelete.push(object.Key);
   }
 
-  if (keysToDelete.length === 0) 
-  { return; }
+  if (keysToDelete.length === 0) return;
 
   const chunks = [];
   for (let i = 0; i < keysToDelete.length; i += 1000) 

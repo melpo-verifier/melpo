@@ -1,7 +1,7 @@
 const {
   SlashCommandBuilder,
   PermissionsBitField,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { Instances } = require("../../dbObjects");
 
@@ -11,7 +11,7 @@ module.exports = {
     .setDescription("Sets the bot presense (status)")
     .setContexts(0)
     .addStringOption((option) =>
-      option.setName("name").setDescription("the name"),
+      option.setName("name").setDescription("the name")
     )
     .addStringOption((option) =>
       option.setName("type").setDescription("the type").addChoices(
@@ -19,7 +19,7 @@ module.exports = {
         { name: "Listening", value: "2" },
         { name: "Watching" , value: "3" },
         { name: "none"     , value: "4" }
-      ),
+      )
     )
     .addStringOption((option) =>
       option.setName("status").setDescription("the status").addChoices(
@@ -27,7 +27,7 @@ module.exports = {
         { name: "idle"     , value: "idle"      },
         { name: "dnd"      , value: "dnd"       },
         { name: "invisible", value: "invisible" }
-      ),
+      )
     ),
   async execute({ interaction, client }) {
     if (
@@ -51,8 +51,8 @@ module.exports = {
       });
     }
 
-    const name = interaction.options.getString("name");
-    const type = interaction.options.getString("type");
+    const name   = interaction.options.getString("name");
+    const type   = interaction.options.getString("type");
     const status = interaction.options.getString("status");
 
     if (!name && !type && !status) {
@@ -95,5 +95,5 @@ module.exports = {
       content: `Applied status!`,
       flags: MessageFlags.Ephemeral
     });
-  },
+  }
 };

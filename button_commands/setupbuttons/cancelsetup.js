@@ -82,10 +82,12 @@ module.exports = async ({ interaction, context }) => {
 
 async function deleteNewImage(serverId, appName, section, newImagePath) {
   if (isR2ImageResource(newImagePath)) {
-    try 
-    { await deleteImage(newImagePath); } 
-    catch (error) 
-    { console.error(`Failed to delete S3 image ${newImagePath.key}:`, error); }
+    try { 
+      await deleteImage(newImagePath); 
+    } 
+    catch (error) { 
+      console.error(`Failed to delete S3 image ${newImagePath.key}:`, error); 
+    }
 
     try {
       await purgeOldImages({
@@ -96,8 +98,10 @@ async function deleteNewImage(serverId, appName, section, newImagePath) {
         filter: "temp"
       });
     } 
-    catch (error) 
-    { console.error(`Failed to purge temp images for ${section}:`, error); }
+    catch (error) { 
+      console.error(`Failed to purge temp images for ${section}:`, error); 
+    }
+    
     return;
   }
 }

@@ -18,8 +18,9 @@ function isValidHexColor(value) {
 
 async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessage_id, webhookUpdated) {
   const webhookData = decryptData(String(webhook.encrypted_token));
-  if (!webhookData || !webhookData.id || !webhookData.token) 
-  { throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`); }
+  if (!webhookData || !webhookData.id || !webhookData.token) { 
+    throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`); 
+  }
 
   const client = new WebhookClient({
     id: webhookData.id,
@@ -30,8 +31,10 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
 
   try {
     if (webhookUpdated === "true" || !finalMessageId) {
-      if (finalMessageId) 
-      { await client.deleteMessage(finalMessageId).catch(() => { }); }
+      if (finalMessageId) { 
+        await client.deleteMessage(finalMessageId).catch(() => { }); 
+      }
+
       const message = await client.send({
         username: name,
         avatarURL: avatarURL,
@@ -62,9 +65,9 @@ async function sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessag
   } catch (error) {
     console.error("Error sending via webhook:", error.message);
     throw error;
-  } 
-  finally 
-  { client.destroy(); }
+  } finally { 
+    client.destroy(); 
+  }
 }
 
 async function findVerifyMessage(verifyChannelObj, botId, embedConfig, applicationId) {
@@ -165,8 +168,8 @@ async function updateVerifyMessage(opts) {
         color: mainEmbedConfig.color,
         title: mainEmbedConfig.title,
         description: mainEmbedConfig.description,
-        imageUrl: mainEmbedConfig.image?.url ?? null,
-        // footer: appName,
+        imageUrl: mainEmbedConfig.image?.url ?? null
+        // footer: appName
       },
       messageId: mainApp.verifymessage_id,
       webhookUpdated
@@ -224,9 +227,9 @@ async function sendOrUpdateMessage({
         const verifymessage_id = application.verifymessage_id;
         const resultMessageId = await sendViaWebhook(webhook, embed, row, name, avatarURL, verifymessage_id, webhookUpdated);
         return { action: "webhook_sent", messageId: resultMessageId };
-      } 
-      catch (error) 
-      { console.error("Error sending webhook:", error.message); }
+      } catch (error) { 
+        console.error("Error sending webhook:", error.message); 
+      }
     }
   }
 
@@ -235,9 +238,9 @@ async function sendOrUpdateMessage({
     try {
       const fetchedMessage = await verifyChannelObj.messages.fetch(messageId);
       verificationMessage = (fetchedMessage && fetchedMessage.author?.id === botId) ? fetchedMessage : null;
-    } 
-    catch 
-    { verificationMessage = null; }
+    } catch { 
+      verificationMessage = null; 
+    }
   }
 
   if (!verificationMessage) {

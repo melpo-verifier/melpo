@@ -42,8 +42,11 @@ module.exports = {
         where: { server_id: serverId, user_id: userId }
       });
       blacklistEntry.blacklisted = blacklist;
-      if (reason) 
-      { blacklistEntry.reason = reason; }
+
+      if (reason) { 
+        blacklistEntry.reason = reason; 
+      }
+
       let ownerId = null;
       let guildName = null;
 
@@ -64,8 +67,9 @@ module.exports = {
       }
 
       if (serverId && !userId) {
-        if (ownerId) 
-        { blacklistEntry.user_id = ownerId; }
+        if (ownerId) { 
+          blacklistEntry.user_id = ownerId; 
+        }
       }
 
       await blacklistEntry.save();
@@ -80,8 +84,9 @@ module.exports = {
             await owner.send(`Your server "${guildName}" has been blacklisted from using Melpo Verifier. Reason: ${reason || "No reason provided"}`);
             sendmessage_success = true;
           } 
-          catch (error) 
-          { console.error(`Could not send message to owner of server for blacklisting ${guildName}:`, error); }
+          catch (error) { 
+            console.error(`Could not send message to owner of server for blacklisting ${guildName}:`, error); 
+          }
         
         try {
           await interaction.client.cluster.broadcastEval(

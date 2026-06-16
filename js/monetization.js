@@ -1,5 +1,5 @@
 const { PremiumSubscription } = require("../dbObjects.js");
-require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
+require("../util/env_manager.js").config(); //Attempt to read .env if we need to.
 const { v4: uuidv4 } = require("uuid");
 
 const SUBSCRIPTION_SKUS = { [process.env.PREMIUM_SKU_ID]: "premium_1" };
@@ -46,9 +46,9 @@ async function syncPremiumSubscription(entitlement, isActive, resolvedUserId) {
     subscription.status = "EXPIRED";
     await subscription.save();
     console.log(`[sync] Marked subscription as EXPIRED`);
-  } 
-  else 
-  { console.log(`[sync] isActive=false but no subscription found.`); }
+  } else { 
+    console.log(`[sync] isActive=false but no subscription found.`); 
+  }
 }
 
 function getUserId(entitlement, client) {
@@ -83,9 +83,9 @@ async function handleEntitlementCreate(entitlement, client) {
     const isActive = isValid(entitlement);
     console.log(`[create] isValid=${isActive}`);
     await syncPremiumSubscription(entitlement, isActive, userId);
-  } 
-  catch (error) 
-  { console.error(`[create] Error:`, error); }
+  } catch (error) { 
+    console.error(`[create] Error:`, error); 
+  }
 }
 
 async function handleEntitlementUpdate(entitlement, client) {
@@ -100,9 +100,9 @@ async function handleEntitlementUpdate(entitlement, client) {
     const isActive = isValid(entitlement);
     console.log(`[update] isValid=${isActive}`);
     await syncPremiumSubscription(entitlement, isActive, userId);
-  } 
-  catch (error) 
-  { console.error(`[update] Error:`, error); }
+  } catch (error) { 
+    console.error(`[update] Error:`, error); 
+  }
 }
 
 async function handleEntitlementDelete(entitlement) {
@@ -113,9 +113,9 @@ async function handleEntitlementDelete(entitlement) {
       return;
     }
     await syncPremiumSubscription(entitlement, false, entitlement.userId);
-  } 
-  catch (error) 
-  { console.error(`[delete] Error:`, error); }
+  } catch (error) { 
+    console.error(`[delete] Error:`, error); 
+  }
 }
 
 module.exports = { handleEntitlementCreate, handleEntitlementUpdate, handleEntitlementDelete };

@@ -2,7 +2,7 @@ const {
   SlashCommandBuilder,
   EmbedBuilder,
   PermissionsBitField,
-  MessageFlags,
+  MessageFlags
 } = require("discord.js");
 const { ServerConfig, Application, TempApplication } = require("../../dbObjects.js");
 const { deleteTemporarySetup } = require("../../js/tempconfigfuncs.js");

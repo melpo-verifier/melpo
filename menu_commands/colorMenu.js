@@ -8,8 +8,9 @@ module.exports = async ({ interaction, context }) => {
 
   // Validate tempApplicationId
   const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
-  if (error || !tempApp) 
-  { return interaction.reply({ content: error || "Application not found or does not belong to this server.",  flags: 64 }); }
+  if (error || !tempApp) { 
+    return interaction.reply({ content: error || "Application not found or does not belong to this server.",  flags: 64 }); 
+  }
 
   const value = interaction.values[0];
 

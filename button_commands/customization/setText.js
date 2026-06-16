@@ -22,8 +22,9 @@ module.exports = async ({ interaction, context }) => {
     });
   }
 
-  if (customIdValue === "verificationwelcomemessage") 
-  { messageCollecting(interaction, customIdValue, tempApplicationId); } 
+  if (customIdValue === "verificationwelcomemessage") { 
+    messageCollecting(interaction, customIdValue, tempApplicationId); 
+  } 
   else 
   {
     const modal = new ModalBuilder()
@@ -71,20 +72,23 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
   }
 
   const filter = (msg) => msg.author.id === userId;
-  const buttonfilter = (buttonInteraction) =>
+
+  const buttonfilter = (buttonInteraction) => 
     buttonInteraction.user.id === interaction.user.id &&
     (buttonInteraction.customId.startsWith("cancelsetText") ||
       buttonInteraction.customId.startsWith("notitle")) &&
     (buttonInteraction.message.content.includes(
       "Please note you cannot use {mentionuser} in the title.",
     ) ||
-      buttonInteraction.message.content.includes(
-        "Now, please provide the description for the welcome message.",
-      ));
+    buttonInteraction.message.content.includes(
+      "Now, please provide the description for the welcome message.",
+    ));
+
   const messageCollector = interaction.channel.createMessageCollector({
     filter,
     time: 5 * 60000
   });
+
   const cancelCollector = interaction.channel.createMessageComponentCollector({
     filter: buttonfilter,
     componentType: ComponentType.Button,
@@ -158,8 +162,9 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
           components: [cancelrow]
         });
       } 
-      else 
-      { message = await interaction.message.reply({ content: content }); }
+      else { 
+        message = await interaction.message.reply({ content: content }); 
+      }
     }
 
     botMessages.push(message);
@@ -175,124 +180,136 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
   let title;
   let description;
 
-  cancelCollector.on("collect", async (buttonInteraction) => {
-    console.log(buttonInteraction.customId);
+  cancelCollector.on("collect", 
+    async (buttonInteraction) => {
+      console.log(buttonInteraction.customId);
 
-    if (buttonInteraction.customId === "cancelsetText") {
-      messageCollector.stop("cancelled");
-      buttonInteraction.update({
-        content: "Cancelled the setup of the welcome message.",
-        components: []
-      });
-    } else if (buttonInteraction.customId === "notitle") {
-      buttonInteraction.update({ components: [disabledtitelcancelrow] });
-      title = "deleted";
-      step++;
-      await sendMessage(
-        "messagereply",
-        "Now, please provide the description for the welcome message.",
-        true
-      );
+      if (buttonInteraction.customId === "cancelsetText") {
+        messageCollector.stop("cancelled");
+        buttonInteraction.update({
+          content: "Cancelled the setup of the welcome message.",
+          components: []
+        });
+      } else if (buttonInteraction.customId === "notitle") {
+        buttonInteraction.update({ components: [disabledtitelcancelrow] });
+        title = "deleted";
+        step++;
+        await sendMessage(
+          "messagereply",
+          "Now, please provide the description for the welcome message.",
+          true
+        );
+      }
     }
-  });
+  );
 
-  messageCollector.on("collect", async (collected) => {
-    const currentEmbed = interaction.message.embeds?.find(
-      (embed) => embed.footer?.text?.includes(customIdValue)
-    );
-
-    if (!currentEmbed && !interaction.message.content) {
-      messageCollector.stop("cancelled");
-      return sendMessage(
-        "messagereply",
-        "The setup process was canceled because the page has changed. Please restart the setup if needed."
+  messageCollector.on("collect", 
+    async (collected) => {
+      const currentEmbed = interaction.message.embeds?.find(
+        (embed) => embed.footer?.text?.includes(customIdValue)
       );
-    }
 
-    if (step === 0) {
-      if (collected.content.length > 256) {
+      if (!currentEmbed && !interaction.message.content) {
+        messageCollector.stop("cancelled");
         return sendMessage(
-          "interactionreply",
-          "Custom welcome message has been cancelled: The title exceeds the 256 character limit. Please provide a shorter title."
+          "messagereply",
+          "The setup process was canceled because the page has changed. Please restart the setup if needed."
         );
       }
 
-      title = collected.content;
-
-      await botMessages[botMessages.length - 1].edit({
-        components: [disabledtitelcancelrow]
-      });
-
-      await sendMessage(
-        "messagereply",
-        "Now, please provide the description for the welcome message.",
-        true
-      );
-
-      step++;
-    } else if (step === 1) {
-      if (collected.content.length > 4096) {
-        return sendMessage(
-          "interactionreply",
-          "Custom welcome message has been cancelled: The description exceeds the 4096 character limit. Please provide a shorter description."
-        );
-      }
-      await botMessages[botMessages.length - 1].edit({
-        components: [disabledcancelrow]
-      });
-      description = collected.content;
-      step++;
-      messageCollector.stop("finished");
-    }
-  });
-
-  messageCollector.on("end", async (collected, reason) => {
-    cancelCollector.stop("cancelled");
-    // Clean up the collector from the Map
-    activeCollectors.delete(channelId);
-    if (reason === "finished") {
-      await updateTempApplication(interaction.guild.id, {
-        [customIdValue]: {
-          title: title,
-          description: description,
-          text: "deleted"
+      if (step === 0) {
+        if (collected.content.length > 256) {
+          return sendMessage(
+            "interactionreply",
+            "Custom welcome message has been cancelled: The title exceeds the 256 character limit. Please provide a shorter title."
+          );
         }
-      }, { id: tempApplicationId });
-      const endmessage = await interaction.message.reply({
-        content:
-          "Verification welcome message succesfully set! Now returning to the setup embed..."
-      });
 
-      setTimeout(async () => {
-        endmessage.delete();
-        // Delete collected messages
-        for (const message of collected.values()) 
-        { await message.delete().catch(console.error); }
+        title = collected.content;
 
-        // Delete bot messages
-        for (const message of botMessages) 
-        { await message.delete().catch(console.error); }
+        await botMessages[botMessages.length - 1].edit({
+          components: [disabledtitelcancelrow]
+        });
 
-        //delete botMessages
-        botMessages.length = 0;
+        await sendMessage(
+          "messagereply",
+          "Now, please provide the description for the welcome message.",
+          true
+        );
 
-        const customizationMenu = require("../../menu_commands/selectcustomizationMenu.js");
-        customizationMenu({ interaction, customIdValue, tempApplicationId });
-      }, 2500);
-    } else if (reason === "cancelled") {
-      setTimeout(async () => {
-        // Delete collected messages
-        for (const message of collected.values()) 
-        { await message.delete().catch(console.error); }
+        step++;
+      } else if (step === 1) {
+        if (collected.content.length > 4096) {
+          return sendMessage(
+            "interactionreply",
+            "Custom welcome message has been cancelled: The description exceeds the 4096 character limit. Please provide a shorter description."
+          );
+        }
+        await botMessages[botMessages.length - 1].edit({
+          components: [disabledcancelrow]
+        });
+        description = collected.content;
+        step++;
+        messageCollector.stop("finished");
+      }
+    }
+  );
 
-        // Delete bot messages
-        for (const message of botMessages) 
-        { await message.delete().catch(console.error); }
+  messageCollector.on("end", 
+    async (collected, reason) => {
+      cancelCollector.stop("cancelled");
+      // Clean up the collector from the Map
+      activeCollectors.delete(channelId);
+      if (reason === "finished") {
+        await updateTempApplication(interaction.guild.id, {
+          [customIdValue]: {
+            title: title,
+            description: description,
+            text: "deleted"
+          }
+        }, { id: tempApplicationId });
+        const endmessage = await interaction.message.reply({
+          content:
+            "Verification welcome message succesfully set! Now returning to the setup embed..."
+        });
 
-        botMessages.length = 0;
-      }, 2500);
-    } 
-    else 
-    { botMessages.length = 0; }
-  });
+        setTimeout(
+          async () => {
+            endmessage.delete();
+            // Delete collected messages
+            for (const message of collected.values()) { 
+              await message.delete().catch(console.error); 
+            }
+
+            // Delete bot messages
+            for (const message of botMessages) { 
+              await message.delete().catch(console.error); 
+            }
+
+            //delete botMessages
+            botMessages.length = 0;
+
+            const customizationMenu = require("../../menu_commands/selectcustomizationMenu.js");
+            customizationMenu({ interaction, customIdValue, tempApplicationId });
+          }, 2500);
+      } else if (reason === "cancelled") {
+        setTimeout(async () => {
+          // Delete collected messages
+          for (const message of collected.values()) { 
+            await message.delete().catch(console.error); 
+          }
+
+          // Delete bot messages
+          for (const message of botMessages) { 
+            await message.delete().catch(console.error); 
+          }
+
+          botMessages.length = 0;
+        }, 2500);
+      } 
+      else { 
+        botMessages.length = 0; 
+      }
+    }
+  );
 }

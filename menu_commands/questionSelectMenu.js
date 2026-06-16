@@ -58,8 +58,9 @@ module.exports = async ({ interaction, client, context }) => {
   modal.addComponents(questionRow, mcqRow);
 
   await interaction.showModal(modal);
-  if (isfirsttime === 0) 
-  { questioninfo({ interaction, client, tempApplicationId }); } 
+  if (isfirsttime === 0) { 
+    questioninfo({ interaction, client, tempApplicationId }); 
+  } 
   else {
     const firsttimequestions = require("../js/firsttimequestions.js");
 

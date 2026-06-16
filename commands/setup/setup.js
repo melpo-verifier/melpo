@@ -224,7 +224,7 @@ module.exports = {
           new ButtonBuilder()
             .setCustomId("generalinfo_" + tempApp.id + "_true")
             .setLabel("Start New Setup")
-            .setStyle("Primary"),
+            .setStyle("Primary")
         );
         return interaction.reply({ embeds: [embed], components: [continuebuttons] });
       }
@@ -289,7 +289,7 @@ module.exports = {
         new ButtonBuilder()
           .setCustomId(`canceldelete_${app.id}`)
           .setLabel("Cancel")
-          .setStyle("Secondary"),
+          .setStyle("Secondary")
       );
 
       return interaction.reply({

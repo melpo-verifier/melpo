@@ -63,8 +63,8 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
           label: "Verification welcome message",
           description: "Welcome message in the server when user gets verified",
           value: "verificationwelcomemessage"
-        },
-      ),
+        }
+      )
   );
 
   const categoryButtons = createCategoryButtons(tempApplicationId, 3); // 3 = Customization is disabled
