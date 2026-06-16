@@ -2,7 +2,6 @@ const {
   EmbedBuilder,
   PermissionsBitField,
   MessageFlags
-  MessageFlags
 } = require("discord.js");
 const { Verification, Application } = require("../dbObjects.js");
 const {
@@ -12,7 +11,6 @@ const {
   relinkAttachments,
   processLogMessages,
   cleanupVerificationData,
-  getMessageIds
   getMessageIds
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
@@ -26,7 +24,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
       flags: MessageFlags.Ephemeral
-      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -37,7 +34,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return interaction.followUp({
       content: `Error: ${error}`,
       flags: MessageFlags.Ephemeral
-      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -46,7 +42,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (!permCheck.allowed) {
     return interaction.followUp({
       content: permCheck.message,
-      flags: MessageFlags.Ephemeral
       flags: MessageFlags.Ephemeral
     });
   }
@@ -64,7 +59,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       return interaction.followUp({
         content: "This user is no longer in the server.",
         flags: MessageFlags.Ephemeral
-        flags: MessageFlags.Ephemeral
       });
     }
   } catch (error) {
@@ -72,7 +66,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       // Unknown Member
       return interaction.followUp({
         content: "This user is no longer in the server.",
-        flags: MessageFlags.Ephemeral
         flags: MessageFlags.Ephemeral
       });
     }
@@ -85,7 +78,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return interaction.followUp({
       content: `Could not find member with ID ${userid}, probably because they have left the server.`,
       flags: MessageFlags.Ephemeral
-      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -94,7 +86,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return interaction.followUp({
       content: "I don't have permission to kick members",
       flags: MessageFlags.Ephemeral
-      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -102,7 +93,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (member.id === interaction.guild.ownerId) {
     return interaction.followUp({
       content: "I cannot kick the server owner",
-      flags: MessageFlags.Ephemeral
       flags: MessageFlags.Ephemeral
     });
   }
@@ -113,7 +103,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       content:
         "I cannot kick this user - they have a role higher than or equal to mine, please make sure my highest role is higher than the user's highest role",
       flags: MessageFlags.Ephemeral
-      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -122,12 +111,10 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
   const verification = await Verification.findOne({
     where: { userId: userid }
-    where: { userId: userid }
   });
 
   const allApplications = await Application.findAll({
     where: { server_id: interaction.guild.id },
-    attributes: ["id", "reviewchannel", "verifylogs"]
     attributes: ["id", "reviewchannel", "verifylogs"]
   });
 
@@ -144,7 +131,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
         messageids: appMessageIds,
         user: member,
         status: VerificationStatus.KICKED,
-        useRateLimiting: false
         useRateLimiting: false
       });
     } catch (logError) {
@@ -168,7 +154,6 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
       const editPayload = {
         flags: [MessageFlags.IsComponentsV2],
-        components: [kickedContainer]
         components: [kickedContainer]
       };
 

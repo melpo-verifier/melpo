@@ -14,7 +14,6 @@ module.exports = async ({ interaction, applicationId }) => {
     return interaction.followUp({
       content: `Error: ${error}`,
       flags: MessageFlags.Ephemeral
-      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -23,14 +22,10 @@ module.exports = async ({ interaction, applicationId }) => {
     const member = await interaction.guild.members.fetch(interaction.user.id);
     const hasManagerRole = application.managerrole.some(
       (role) => member.roles.cache.has(role)
-    const hasManagerRole = application.managerrole.some(
-      (role) => member.roles.cache.has(role)
     );
-
     if (!hasManagerRole) {
       return interaction.followUp({
         content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
-        flags: MessageFlags.Ephemeral
         flags: MessageFlags.Ephemeral
       });
     }
@@ -38,7 +33,6 @@ module.exports = async ({ interaction, applicationId }) => {
 
   // Check if there's an existing container components message
   const hasComponents = interaction.message.flags.has(
-    MessageFlags.IsComponentsV2
     MessageFlags.IsComponentsV2
   );
 
@@ -74,7 +68,6 @@ module.exports = async ({ interaction, applicationId }) => {
     const { container, files } = relinkAttachments(interaction.message);
     const editPayload = {
       flags: [MessageFlags.IsComponentsV2],
-      components: [container, verifyRow]
       components: [container, verifyRow]
     };
     if (files) editPayload.files = files;
