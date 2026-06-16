@@ -6,18 +6,6 @@ const { Instances }                 = require("../dbObjects.js");
 const { Op }                        = require("sequelize");
 const cors                          = require("cors");
 const { decryptData }               = require("../js/DBFunctions.js");
-const express                       = require("express");
-const { exec }                      = require("child_process");
-const pm2                           = require("pm2");
-const { Client, GatewayIntentBits } = require("discord.js");
-const { Instances }                 = require("../dbObjects.js");
-const { Op }                        = require("sequelize");
-const cors                          = require("cors");
-const { decryptData }               = require("../js/DBFunctions.js");
-
-const { getApplicationById }        = require("../js/tempconfigfuncs.js");
-const { resolveImage }              = require("../js/imageUtils.js");
-const { updateVerifyMessage }       = require("../js/verifyChannelUtils.js");
 const { getApplicationById }        = require("../js/tempconfigfuncs.js");
 const { resolveImage }              = require("../js/imageUtils.js");
 const { updateVerifyMessage }       = require("../js/verifyChannelUtils.js");
@@ -51,9 +39,6 @@ app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req,
   const embedImageAsset = resolveImage(embedImage);
 
   try {
-    const statuses = await Instances.findAll(
-    { where: { guilds: { [Op.contains]: [guildId] } } }
-    );
     const statuses = await Instances.findAll(
     { where: { guilds: { [Op.contains]: [guildId] } } }
     );
