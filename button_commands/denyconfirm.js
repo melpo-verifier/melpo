@@ -11,6 +11,7 @@ const {
   sendDenyDM,
   applyRoles,
   getMessageIds
+  getMessageIds
 } = require("../js/verificationHandler.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { isPremiumServer } = require("../js/DBFunctions.js");
@@ -24,6 +25,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     return await interaction.followUp({
       content: "This verification is already handled by another user!",
       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral
     });
   }
 
@@ -34,6 +36,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
   if (error) {
     return await interaction.followUp({
       content: `Error: ${error}`,
+      flags: MessageFlags.Ephemeral
       flags: MessageFlags.Ephemeral
     });
   }
@@ -114,6 +117,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
       await interaction.followUp({
         content: "Warning: Could not process log messages due to missing permissions.",
         flags: MessageFlags.Ephemeral
+        flags: MessageFlags.Ephemeral
       }).catch(() => { });
     } 
     else { 
@@ -166,10 +170,12 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
     await interaction.followUp({
       content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
       flags: MessageFlags.Ephemeral
+      flags: MessageFlags.Ephemeral
     });
   } else {
     await interaction.followUp({
       content: `✅ User denied successfully!${rolesToApply.length > 0 ? `\nThe deny role(s) has been applied to the user.` : ""}`,
+      flags: MessageFlags.Ephemeral
       flags: MessageFlags.Ephemeral
     });
   }
