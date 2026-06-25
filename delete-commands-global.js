@@ -1,8 +1,10 @@
 const { REST, Routes } = require("discord.js");
 require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
-if (process.argv.length < 3)
-  return console.error("Please provide a bot name as a command-line argument.");
+if (process.argv.length < 3) {
+	console.error("Please provide a bot name as a command-line argument.");
+	process.exit(-1); //Exit with non zero error code.
+}
 const botName = process.argv[2].toUpperCase();
 
 // Commands that should not be deleted globally
@@ -11,28 +13,21 @@ const blacklistedCommands = ["whitelist.js"];
 const rest = new REST().setToken(process.env[`${botName}_TOKEN`]);
 
 async function deleteCommands() {
-  try {
-    const commands = await rest.get(
-      Routes.applicationCommands(process.env[`${botName}_ID`]),
-    );
+	try {
+		const commands = await rest.get(Routes.applicationCommands(process.env[`${botName}_ID`]));
+		const commandsToDelete = commands.filter((cmd) => blacklistedCommands.includes(`${cmd.name}.js`));
 
-    const commandsToDelete = commands.filter((cmd) =>
-      blacklistedCommands.includes(`${cmd.name}.js`)
-    );
+		console.log(`Found ${commandsToDelete.length} commands to delete`);
 
-    console.log(`Found ${commandsToDelete.length} commands to delete`);
+		for (const command of commandsToDelete) {
+			await rest.delete(Routes.applicationCommand(process.env[`${botName}_ID`], command.id));
+			console.log(`Deleted command ${command.name}`);
+		}
 
-    for (const command of commandsToDelete) {
-      await rest.delete(
-        Routes.applicationCommand(process.env[`${botName}_ID`], command.id)
-      );
-      console.log(`Deleted command ${command.name}`);
-    }
-
-    console.log("Successfully removed specified commands globally");
-  } 
-  catch (error) 
-  { console.error(error); }
+		console.log("Successfully removed specified commands globally");
+	} catch (error) {
+		console.error(error);
+	}
 }
 
-deleteCommands();
+deleteCommands().catch(() => {});
