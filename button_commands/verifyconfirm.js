@@ -28,10 +28,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 		});
 	}
 
-	if (!userid) {
-		throw new Error("Could not fetch user ID from the embed");
-	}
-
+	if (!userid) throw new Error("Could not fetch user ID from the embed");
 	const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
 
 	if (error) {
@@ -65,17 +62,13 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 			if (response?.mcqIndex?.length > 0) {
 				response.mcqIndex.forEach((index) => {
 					const selectedOption = question.mcq?.[index];
-					if (selectedOption?.roles) {
-						selectedOption.roles.forEach((role) => void branchRoles.add(role));
-					}
+					if (selectedOption?.roles) selectedOption.roles.forEach((role) => void branchRoles.add(role));
 				});
 			} else if (question.regexBranches && response.content) {
 				for (const regex of question.regexBranches) {
 					try {
 						const regpattern = new RegExp(regex.pattern, "i");
-						if (regpattern.test(response.content)) {
-							regex.roles.forEach((role) => void branchRoles.add(role));
-						}
+						if (regpattern.test(response.content)) regex.roles.forEach((role) => void branchRoles.add(role));
 					} catch {
 						regexErrors.push(`${response.questionId}: ${regex.pattern}`);
 					}
@@ -183,16 +176,13 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 			if (files) editPayload.files = files;
 			await interaction.editReply(editPayload);
 
-			if (interaction.message.thread) {
-				await interaction.message.thread.setArchived(true);
-			}
+			if (interaction.message.thread) await interaction.message.thread.setArchived(true);
 		}
 	}
 
 	// Cleanup verification data
-	if (messageids && messageids.length > 0) {
+	if (messageids && messageids.length > 0)
 		await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId);
-	}
 
 	// Send verification DM
 	await sendVerifyDM(user, application, interaction, verifiedRoles);

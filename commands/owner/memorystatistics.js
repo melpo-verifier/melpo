@@ -226,9 +226,7 @@ async function getCacheStatisticsEmbed(client) {
 		cacheStats.voiceStates += guild.voiceStates.cache.size;
 
 		guild.channels.cache.forEach((channel) => {
-			if (channel.messages) {
-				cacheStats.messages += channel.messages.cache.size;
-			}
+			if (channel.messages) cacheStats.messages += channel.messages.cache.size;
 		});
 	});
 

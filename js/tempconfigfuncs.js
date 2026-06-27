@@ -182,11 +182,9 @@ async function updateTempApplication(serverID, updates, appIdentifier) {
 				// If the update is an object, merge it with the existing object
 				const existingValue = existingData[key];
 
-				if (typeof existingValue === "object" && existingValue !== null && !Array.isArray(existingValue)) {
+				if (typeof existingValue === "object" && existingValue !== null && !Array.isArray(existingValue))
 					mergedUpdates[key] = { ...existingValue, ...updates[key] };
-				} else {
-					mergedUpdates[key] = updates[key];
-				}
+				else mergedUpdates[key] = updates[key];
 			} else {
 				mergedUpdates[key] = updates[key];
 			} // Otherwise, directly assign the value

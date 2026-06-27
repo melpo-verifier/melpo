@@ -40,9 +40,7 @@ module.exports = async ({ interaction, client }) => {
 	const applicationId = info.applicationId;
 
 	const { application, error } = await getApplicationByIdWithFallback(applicationId, guildId);
-	if (error) {
-		return interaction.editReply({ content: `Error: ${error}` });
-	}
+	if (error) return interaction.editReply({ content: `Error: ${error}` });
 
 	const confirmrow = new ActionRowBuilder().addComponents(
 		new ButtonBuilder().setCustomId("answerquestion").setLabel("Answer").setStyle("Success"),
@@ -135,9 +133,7 @@ module.exports = async ({ interaction, client }) => {
 				attachmentUrls.push(attachment.url);
 
 				//if (attachment.contentType && attachment.contentType.startsWith("image/")) {
-				if (attachment.contentType?.startsWith("image/")) {
-					mediaItems.push({ media: { url: attachment.url } });
-				}
+				if (attachment.contentType?.startsWith("image/")) mediaItems.push({ media: { url: attachment.url } });
 			}
 
 			if (mediaItems.length > 0) {

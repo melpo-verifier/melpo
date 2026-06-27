@@ -8,21 +8,17 @@ module.exports = {
 		.setContexts(0),
 	async execute({ interaction }) {
 		const client = interaction.client;
-
 		const wsLatency = client.ws.ping;
-
 		const totalSeconds = Math.floor(client.uptime / 1000);
 		const days = Math.floor(totalSeconds / 86400);
 		const hours = Math.floor((totalSeconds % 86400) / 3600);
 		const minutes = Math.floor((totalSeconds % 3600) / 60);
 		const seconds = Math.round(totalSeconds % 60);
-
 		const systemUptime = os.uptime();
 		const sysDays = Math.floor(systemUptime / 86400);
 		const sysHours = Math.floor((systemUptime % 86400) / 3600);
 		const sysMinutes = Math.floor((systemUptime % 3600) / 60);
 		const sysSeconds = Math.round(systemUptime % 60);
-
 		const shardId = interaction.guild?.shardId ?? 0;
 		const totalShards = client.cluster?.info?.TOTAL_SHARDS ?? 1;
 

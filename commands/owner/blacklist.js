@@ -34,10 +34,7 @@ module.exports = {
 				where: { server_id: serverId, user_id: userId },
 			});
 			blacklistEntry.blacklisted = blacklist;
-
-			if (reason) {
-				blacklistEntry.reason = reason;
-			}
+			if (reason) blacklistEntry.reason = reason;
 
 			let ownerId = null;
 			let guildName = null;
@@ -59,9 +56,7 @@ module.exports = {
 			}
 
 			if (serverId && !userId) {
-				if (ownerId) {
-					blacklistEntry.user_id = ownerId;
-				}
+				if (ownerId) blacklistEntry.user_id = ownerId;
 			}
 
 			await blacklistEntry.save();

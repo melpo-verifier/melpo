@@ -22,11 +22,8 @@ module.exports = {
 		if (whitelistArtLeaderboard !== null) {
 			const [whitelist] = await Whitelist.findOrCreate({ where: { server_id: serverId } });
 
-			if (whitelistArtLeaderboard === true) {
-				whitelist.artLeaderboard = true;
-			} else {
-				whitelist.artLeaderboard = false;
-			}
+			if (whitelistArtLeaderboard === true) whitelist.artLeaderboard = true;
+			else whitelist.artLeaderboard = false;
 
 			await whitelist.save();
 			return await interaction.reply({

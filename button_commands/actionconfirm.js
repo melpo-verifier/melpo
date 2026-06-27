@@ -153,9 +153,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
 			await interaction.editReply(editPayload);
 
-			if (interaction.message.thread) {
-				await interaction.message.thread.setArchived(true);
-			}
+			if (interaction.message.thread) await interaction.message.thread.setArchived(true);
 		}
 	}
 

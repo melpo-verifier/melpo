@@ -156,9 +156,7 @@ module.exports = {
 		let roleHierarchyIssues = 0;
 
 		for (const app of applications) {
-			if (applications.length > 1) {
-				description += `\n**Application: ${app.name}**\n`;
-			}
+			if (applications.length > 1) description += `\n**Application: ${app.name}**\n`;
 
 			if (app?.verifiedrole && app.verifiedrole.length > 0) {
 				const verifiedRoles = Array.isArray(app.verifiedrole) ? app.verifiedrole : [app.verifiedrole];
@@ -216,20 +214,13 @@ module.exports = {
 			}
 		});
 
-		if (missingPermissions.length === 0) {
-			description += "✅ **All required permissions are present**\n";
-		} else {
-			description += `❌ **Missing ${missingPermissions.length} required permission(s)**\n`;
-		}
+		if (missingPermissions.length === 0) description += "✅ **All required permissions are present**\n";
+		else description += `❌ **Missing ${missingPermissions.length} required permission(s)**\n`;
 
-		if (roleHierarchyIssues === 0) {
-			description += "✅ **Bot can manage all configured roles**\n";
-		} else {
-			description += `❌ **Cannot manage ${roleHierarchyIssues} role(s) - Move bot role higher**\n`;
-		}
+		if (roleHierarchyIssues === 0) description += "✅ **Bot can manage all configured roles**\n";
+		else description += `❌ **Cannot manage ${roleHierarchyIssues} role(s) - Move bot role higher**\n`;
 
 		const hasIssues = missingPermissions.length > 0 || roleHierarchyIssues > 0;
-
 		const embed = new EmbedBuilder()
 			.setColor(hasIssues ? 0xff0000 : 0x00ff00)
 			.setTitle("Permission Check Results")

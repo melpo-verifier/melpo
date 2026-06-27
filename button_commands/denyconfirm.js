@@ -27,9 +27,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 		});
 	}
 
-	if (!userid) {
-		throw new Error("Could not fetch user ID from the embed");
-	}
+	if (!userid) throw new Error("Could not fetch user ID from the embed");
 
 	const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
 
@@ -74,9 +72,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 			where: { user_id: userid, guild_id: interaction.guild.id, app_id: String(applicationId), status: "denied" },
 		});
 
-		if (denyCount + 1 >= application.maxdenials) {
-			rolesToApply.push(application.deniedrole);
-		}
+		if (denyCount + 1 >= application.maxdenials) rolesToApply.push(application.deniedrole);
 	} else if (application.deniedrole?.length > 0) {
 		rolesToApply.push(application.deniedrole);
 	}
@@ -84,9 +80,8 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 	if (rolesToApply.length > 0) {
 		// Validate roles
 		const roleErrors = await validateRoles(interaction, rolesToApply, null);
-		if (roleErrors.length > 0) {
+		if (roleErrors.length > 0)
 			return await interaction.followUp({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
-		}
 
 		await applyRoles(member, rolesToApply, null, interaction);
 	}
@@ -133,9 +128,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 
 			await interaction.editReply(editPayload);
 
-			if (interaction.message.thread) {
-				await interaction.message.thread.setArchived(true);
-			}
+			if (interaction.message.thread) await interaction.message.thread.setArchived(true);
 		}
 	}
 
@@ -148,9 +141,8 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 	});
 
 	// Cleanup verification data
-	if (messageids && messageids.length > 0) {
+	if (messageids && messageids.length > 0)
 		await cleanupVerificationData(verification, interaction.guild.id, userid, applicationId);
-	}
 
 	// Send denial DM
 	const dmResult = await sendDenyDM(interaction.user.username, user, application, interaction.guild.name);

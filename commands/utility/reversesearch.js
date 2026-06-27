@@ -32,9 +32,8 @@ module.exports = {
 			} else {
 				const attachment = interaction.options.getAttachment("image-file");
 
-				if (!attachment.contentType?.startsWith("image/")) {
+				if (!attachment.contentType?.startsWith("image/"))
 					return interaction.editReply("Please provide a valid image file!");
-				}
 
 				imageUrl = attachment.url;
 			}
