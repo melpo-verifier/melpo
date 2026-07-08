@@ -3,27 +3,27 @@ const { ServerConfig } = require("../dbObjects.js");
 const { ServerConfigComponent } = require("../js/serverConfigUI.js");
 
 module.exports = async ({ interaction, context }) => {
-  const action = context?.[0];
+	const action = context?.[0];
 
-  const [serverConfig] = await ServerConfig.findOrCreate({ where: { server_id: interaction.guild.id } });
+	const [serverConfig] = await ServerConfig.findOrCreate({ where: { server_id: interaction.guild.id } });
 
-  if (!serverConfig) {
-    return interaction.reply({
-      content: "Server configuration not found!",
-      flags: MessageFlags.Ephemeral,
-    });
-  }
+	if (!serverConfig) {
+		return interaction.reply({
+			content: "Server configuration not found!",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
 
-  const selectedRoles = interaction.values ?? [];
+	const selectedRoles = interaction.values ?? [];
 
-  switch (action) {
-    case "autoRoles":
-      await serverConfig.update({ autorole: selectedRoles });
-    break;
-  }
+	switch (action) {
+		case "autoRoles":
+			await serverConfig.update({ autorole: selectedRoles });
+			break;
+	}
 
-  await serverConfig.reload();
-  const component = ServerConfigComponent({serverConfig});
+	await serverConfig.reload();
+	const component = ServerConfigComponent({ serverConfig });
 
-  return interaction.update(component);
+	return interaction.update(component);
 };
