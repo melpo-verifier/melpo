@@ -195,7 +195,7 @@ class ErrorHandler {
 
 		let Stack_out = "";
 		Stack_out += "```";
-		Stack_out += error.stack?.slice(0, 1024);
+		Stack_out += error.stack?.slice(0, 1018); //account for ``` adding to character limit 1024-6=1018
 		Stack_out += "```";
 
 		const devEmbed = new EmbedBuilder()
