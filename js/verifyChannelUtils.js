@@ -195,7 +195,7 @@ async function sendOrUpdateMessage({
 }) {
 	const embed = new EmbedBuilder()
 		.setColor(isValidHexColor(embedConfig.color) ? embedConfig.color : DEFAULT_EMBED_COLOR)
-		.setTitle(embedConfig.title)
+		.setTitle(embedConfig.title.slice(0, 256))
 		.setDescription(embedConfig.description)
 		.setImage(embedConfig.imageUrl);
 
@@ -228,7 +228,6 @@ async function sendOrUpdateMessage({
 	if (messageId) {
 		try {
 			const fetchedMessage = await verifyChannelObj.messages.fetch(messageId);
-			//verificationMessage = (fetchedMessage && fetchedMessage.author?.id === botId) ? fetchedMessage : null;
 			verificationMessage = fetchedMessage && fetchedMessage.author?.id === botId ? fetchedMessage : null;
 		} catch {
 			verificationMessage = null;
@@ -260,6 +259,7 @@ async function buildRowForApplication(app, dependentApps) {
 			new StringSelectMenuBuilder()
 				.setCustomId(`verifyselect_${app.id}`)
 				.setPlaceholder("Select an application")
+				.setMinValues(0)
 				.addOptions(options),
 		);
 	}

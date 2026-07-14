@@ -103,7 +103,7 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 	let embed;
 	if (!text) {
 		embed = new EmbedBuilder()
-			.setTitle(title ?? null)
+			.setTitle(title?.slice(0, 256) ?? null)
 			.setDescription(description)
 			.setColor(isValidHexColor(color) ? color : "#3f7ff1");
 	}

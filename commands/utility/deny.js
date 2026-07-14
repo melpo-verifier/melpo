@@ -1,16 +1,6 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
-const { Application, Verification, InviteTracker } = require("../../dbObjects.js");
-const {
-	rateLimitedOperation,
-	checkManagerPermission,
-	isInReviewChannel,
-	VerificationStatus,
-	processLogMessages,
-	cleanupVerificationData,
-	sendDenyDM,
-	createNoApplicationEmbed,
-	getMessageIds,
-} = require("../../js/verificationHandler.js");
+const { Application } = require("../../dbObjects.js");
+const { checkManagerPermission, isInReviewChannel, denyUser } = require("../../js/verificationHandler.js");
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -80,7 +70,11 @@ module.exports = {
 				flags: MessageFlags.Ephemeral,
 			});
 		}
-		if (application.reviewchannel && !isInReviewChannel(interaction, application.reviewchannel)) {
+		if (
+			application.managerrole.length === 0 &&
+			application.reviewchannel &&
+			!isInReviewChannel(interaction, application.reviewchannel)
+		) {
 			return interaction.reply({
 				content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a manager role in \`/setup\` to use this command everywhere.`,
 				flags: MessageFlags.Ephemeral,
@@ -102,21 +96,19 @@ module.exports = {
 			...new Set([...(userMentions ? userMentions.map((mention) => mention.replace(/[<@!>]/g, "")) : []), ...userIds]),
 		];
 
-		if (allUserIds.length === 0)
-			return interaction.reply({ content: "No valid user mentions or IDs found.", flags: MessageFlags.Ephemeral });
-
-		const users = [];
-		for (const id of allUserIds) {
-			try {
-				const user = await interaction.guild.members.fetch(id);
-				if (user) users.push(user);
-			} catch {
-				// User not found, will be handled in results
-			}
+		if (allUserIds.length === 0) {
+			return interaction.reply({
+				content: "No valid user mentions or IDs found.",
+				flags: MessageFlags.Ephemeral,
+			});
 		}
 
+		const users = await interaction.guild.members
+			.fetch({ user: allUserIds })
+			.then((fetched) => Array.from(fetched.values()));
+
 		if (users.length === 0)
-			return interaction.reply({ content: "No valid users found in the guild.", flags: MessageFlags.Ephemeral });
+			return interaction.reply({ content: "No valid users found in this server.", flags: MessageFlags.Ephemeral });
 
 		if (users.some((user) => user.user.bot))
 			return interaction.reply({ content: "You cannot deny a bot.", flags: MessageFlags.Ephemeral });
@@ -125,62 +117,13 @@ module.exports = {
 
 		const results = { success: [], notFound: [] };
 
-		for (const userID of allUserIds) {
+		for (const user of users) {
 			try {
-				const user = await interaction.guild.members.fetch(userID);
-				if (!user) throw new Error("User not found");
-
-				// Get verification data
-				const verification = await Verification.findOne({ where: { userId: userID } });
-				const messageids = getMessageIds(verification, interaction.guild.id, application.id);
-				const invitetracker = await InviteTracker.findOne({
-					where: { unique_id: `${userID}_${interaction.guild.id}` },
-				});
-
-				// Process log messages
-				await processLogMessages({
-					interaction,
-					client,
-					application,
-					messageids,
-					user,
-					status: VerificationStatus.DENIED,
-					useRateLimiting: true,
-				});
-
-				// If no messages and separate log channel, send "no application" embed
-				if (
-					application.verifylogs &&
-					application.reviewchannel !== application.verifylogs &&
-					(!messageids || messageids.length === 0)
-				) {
-					const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
-					if (logChannel) {
-						const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.DENIED);
-						await rateLimitedOperation(async () => {
-							await logChannel.send({ content: `<@${userID}>`, embeds: [embed] });
-						});
-					}
-				} else if (!application.verifylogs && (!messageids || messageids.length === 0)) {
-					// No log channel, no messages - create embed in current channel
-					const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.DENIED);
-					await rateLimitedOperation(async () => {
-						await interaction.channel.send({ embeds: [embed] });
-					});
-				}
-
-				// Cleanup verification data
-				if (messageids && messageids.length > 0) {
-					await cleanupVerificationData(verification, interaction.guild.id, userID, application.id);
-				}
-
-				// Send denial DM
-				await sendDenyDM(interaction.user.username, user.user, application, interaction.guild.name);
-
-				results.success.push(userID);
+				await denyUser(interaction, client, application, user);
+				results.success.push(user.id);
 			} catch (error) {
-				console.error(`Error processing user ${userID}: ${error.message}`);
-				results.notFound.push(userID);
+				console.error(`Error processing user ${user.id}: ${error.message}`);
+				results.notFound.push(user.id);
 			}
 		}
 

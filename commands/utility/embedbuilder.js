@@ -121,7 +121,7 @@ module.exports = {
 
 		if (interaction.options.getSubcommand() === "create") {
 			const embed = new EmbedBuilder()
-				.setTitle(interaction.options.getString("title"))
+				.setTitle(interaction.options.getString("title").slice(0, 256))
 				.setDescription(interaction.options.getString("description"));
 
 			if (interaction.options.getString("color"))
@@ -164,7 +164,7 @@ module.exports = {
 				timestamp: interaction.options.getBoolean("timestamp"),
 			};
 
-			if (updates.title) newEmbed.setTitle(updates.title);
+			if (updates.title) newEmbed.setTitle(updates.title.slice(0, 256));
 			if (updates.description) newEmbed.setDescription(updates.description);
 			if (updates.color?.match(/^#[0-9A-F]{6}$/i)) newEmbed.setColor(updates.color);
 			if (updates.image) newEmbed.setImage(updates.image.url);

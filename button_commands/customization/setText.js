@@ -40,6 +40,7 @@ module.exports = async ({ interaction, context }) => {
 			.setStyle(TextInputStyle.Short)
 			.setPlaceholder("Title of the embed (optional)")
 			.setRequired(false)
+			.setMaxLength(256)
 			.setValue(existingTitle);
 
 		const Description = new TextInputBuilder()
