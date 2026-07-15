@@ -15,7 +15,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
 	const permCheck = await checkManagerPermission(interaction, application);
 	if (!permCheck.allowed) {
-		return await interaction.followUp({
+		return await interaction.reply({
 			content: permCheck.message,
 			flags: MessageFlags.Ephemeral,
 		});

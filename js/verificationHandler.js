@@ -788,7 +788,6 @@ function createNoApplicationEmbed(user, interaction, invitetracker, status) {
 		.setFooter({ text: `${actionText} by ${interaction.user.username}` });
 }
 
-// !!! NEEDS TO BE UPDATED AND ACTUALLY USED
 // Main verification handler
 async function verifyUser(interaction, client, application, user) {
 	let submissionData;
@@ -952,6 +951,7 @@ async function verifyUser(interaction, client, application, user) {
 	}
 }
 
+// Main denial handler
 async function denyUser(interaction, client, application, user, reason = null) {
 	// Get verification data
 	const verification = await Verification.findOne({ where: { userId: user.id } });
