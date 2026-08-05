@@ -332,11 +332,15 @@ async function processText(text, user, interaction, verifiedRoles, appName = nul
 
 	// Count verified members
 	if (text.toLowerCase().includes("{verifiedmembers}")) {
-		let verifiedMembers = 0;
-		verifiedRoles.forEach((roleId) => {
-			const role = interaction.guild.roles.cache.get(roleId);
-			if (role) verifiedMembers += role.members.size;
-		});
+		const verifiedMembers = await interaction.guild.members
+			.fetch()
+			.then((members) => {
+				return members.filter((member) => verifiedRoles.some((role) => member.roles.cache.has(role))).size;
+			})
+			.catch((error) => {
+				console.error(error);
+				return 0;
+			});
 		text = text.replace(/{verifiedmembers}/gi, verifiedMembers);
 	}
 
