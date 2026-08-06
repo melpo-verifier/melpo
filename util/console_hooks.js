@@ -112,7 +112,9 @@ class console_hooks {
 				_tag+=`[${console_hooks.#cfg.prefix}]`;
 			}
 
-			_args[0] = _tag + _args[0];
+			// _args[0] = _tag + _args[0]; //would fail if first argument isn't a string
+			_args.unshift(_tag);
+
 		}
 		//--End tag prefixing logic--
 

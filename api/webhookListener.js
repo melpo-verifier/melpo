@@ -6,36 +6,17 @@ const { Instances } = require("../dbObjects.js");
 const { Op } = require("sequelize");
 const cors = require("cors");
 const { decryptData } = require("../js/DBFunctions.js");
-const { getApplicationById } = require("../js/tempconfigfuncs.js");
-const { resolveImage } = require("../js/imageUtils.js");
-const { updateVerifyMessage } = require("../js/verifyChannelUtils.js");
+const { syncApplicationPanels } = require("../js/updatePanels.js");
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req, res) => {
-	console.log(req.params);
-	const { guildId, appId, webhookUpdated } = req.params;
-
+app.post("/api/updatePanels/:guildId", async (req, res) => {
+	const { guildId } = req.params;
+	const { webhookUpdated } = req.body;
+	console.log(`Received request to update panels for guild ${guildId}`);
 	if (!guildId) return res.status(400).json({ error: "Missing guildId" });
-	if (!appId) return res.status(400).json({ error: "Missing appId" });
-
-	const { application, error } = await getApplicationById(appId, guildId);
-
-	if (!application || error)
-		return res.status(404).json({ error: `Application not found: ${error || "Unknown error"}` });
-
-	const verifyChannelId = application.verifychannel;
-	const verifyMessageId = application.verifymessage_id;
-	const appName = application.name;
-
-	const embedColor = application.verifychannelembed?.color || "#3f7ff1";
-	const embedTitle = application.verifychannelembed?.title?.length > 0 ? application.verifychannelembed.title : null;
-	const embedDescription =
-		application.verifychannelembed?.description?.length > 0 ? application.verifychannelembed.description : null;
-	const embedImage = application.verifychannelembed?.image;
-	const embedImageAsset = resolveImage(embedImage);
 
 	try {
 		const statuses = await Instances.findAll({ where: { guilds: { [Op.contains]: [guildId] } } });
@@ -70,50 +51,16 @@ app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req,
 			console.log(`Found guild ${guildId} on cluster ${targetClusterId}`);
 
 			const [result] = await global.shardManager.broadcastEval(
-				async (
-					client,
-					{
-						guildId,
-						verifyChannelId,
-						embedColor,
-						embedTitle,
-						embedDescription,
-						embedImageAsset,
-						appName,
-						appId,
-						verifyMessageId,
-						melpoId,
-						path,
-						webhookUpdated,
-					},
-				) => {
-					const { updateVerifyMessage } = require(path);
+				async (client, { guildId, melpoId, path, webhookUpdated }) => {
+					const { syncApplicationPanels } = require(path);
 					const guild = client.guilds.cache.get(guildId);
 					if (!guild) return { success: false, error: "Guild not found" };
 
-					const verifyChannelObj = guild.channels.cache.get(verifyChannelId);
-					if (!verifyChannelObj) return { success: false, error: "Verify channel not found" };
-
-					console.log(`Found verify channel ${verifyChannelObj.name} (${verifyChannelObj.id}) in guild ${guild.name}`);
-
 					try {
-						const result = await updateVerifyMessage({
-							verifyChannelObj,
-							botId: melpoId,
-							embedConfig: {
-								color: embedColor,
-								title: embedTitle,
-								description: embedDescription,
-								imageUrl: embedImageAsset.embedUrl,
-								footer: appName,
-							},
-							messageId: verifyMessageId,
-							appId: appId,
-							webhookUpdated: webhookUpdated,
-						});
+						const result = await syncApplicationPanels(guild, melpoId, webhookUpdated);
 
 						console.log(result);
-						return { success: true, action: result.action, messageId: result.messageId };
+						return { success: true };
 					} catch (error) {
 						console.log("Error in updateVerifyMessage:", error);
 						return { success: false, error: error.message };
@@ -122,16 +69,8 @@ app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req,
 				{
 					context: {
 						guildId,
-						verifyChannelId,
-						embedColor,
-						embedTitle,
-						embedDescription,
-						embedImageAsset,
-						appName,
-						appId,
-						verifyMessageId,
 						melpoId: process.env.MELPO_ID,
-						path: require("node:path").join(process.cwd(), "/js/verifyChannelUtils.js"),
+						path: require("node:path").join(process.cwd(), "/js/updatePanels.js"),
 						webhookUpdated: webhookUpdated,
 					},
 					cluster: targetClusterId,
@@ -141,12 +80,6 @@ app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req,
 			if (!result.success) return res.status(404).json({ error: result.error });
 
 			console.log(result);
-			if (result.messageId && result.messageId !== application.verifymessage_id) {
-				console.log(result.messageId);
-				application.verifymessage_id = result.messageId;
-				await application.save().catch((e) => console.error("Error saving verify message ID", e));
-			}
-
 			console.log(`Verification message ${result.action} successfully`);
 		} else {
 			const customBotId = clientIds.find((id) => id !== process.env.MELPO_ID);
@@ -172,31 +105,7 @@ app.post("/api/updateVerifyChannel/:guildId/:appId/:webhookUpdated", async (req,
 								return resolve(res.status(404).json({ error: "Guild not found" }));
 							}
 
-							const verifyChannelObj = guild.channels.cache.get(verifyChannelId);
-							if (!verifyChannelObj) {
-								client.destroy();
-								return resolve(res.status(404).json({ error: "Verify channel not found" }));
-							}
-
-							const result = await updateVerifyMessage({
-								verifyChannelObj,
-								botId: client.user.id,
-								embedConfig: {
-									color: embedColor,
-									title: embedTitle,
-									description: embedDescription,
-									imageUrl: embedImageAsset.embedUrl,
-									footer: appName,
-								},
-								messageId: verifyMessageId,
-								appId: appId,
-								webhookUpdated: webhookUpdated,
-							});
-
-							if (result.messageId && result.messageId !== application.verifymessage_id) {
-								application.verifymessage_id = result.messageId;
-								await application.save().catch((e) => console.error("Error saving verify message ID", e));
-							}
+							await syncApplicationPanels(guild, client.user.id, webhookUpdated);
 
 							client.destroy();
 							console.log("Custom bot logged off");
