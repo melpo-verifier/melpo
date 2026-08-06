@@ -8,7 +8,7 @@ const {
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
-const { isValidHexColor } = require("../js/verifyChannelUtils.js");
+const { isValidHexColor } = require("../js/updatePanels.js");
 
 module.exports = async ({ interaction, customIdValue, tempApplicationId, context }) => {
 	let chosenvalue;
