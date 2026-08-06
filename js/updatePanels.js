@@ -8,6 +8,7 @@ const {
 } = require("discord.js");
 const { GuildWebhook, Application } = require("../dbObjects.js");
 const { decryptData } = require("./DBFunctions.js");
+const { resolveImage } = require("./imageUtils.js");
 
 const DEFAULT_EMBED_COLOR = "#3f7ff1";
 
@@ -217,11 +218,14 @@ async function syncSingleApplication(guild, botId, application, dependentApps, a
 	}
 
 	const rawEmbedConfig = application.verifychannelembed || {};
+
+	const embedImageAsset = resolveImage(rawEmbedConfig.image);
+
 	const embedConfig = {
 		color: rawEmbedConfig.color,
 		title: rawEmbedConfig.title,
 		description: rawEmbedConfig.description,
-		imageUrl: rawEmbedConfig.image?.url ?? null,
+		imageUrl: embedImageAsset.embedURL,
 	};
 
 	const result = await sendOrUpdateMessage({
