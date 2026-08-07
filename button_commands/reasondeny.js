@@ -1,5 +1,6 @@
 const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
+const { checkManagerPermission } = require("../js/verificationHandler.js");
 
 module.exports = async ({ interaction, client, userid, applicationId }) => {
 	if (!userid) throw new Error("Could not fetch user ID from the embed");
@@ -12,16 +13,12 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 		});
 	}
 
-	if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
-		const member = await interaction.guild.members.fetch(interaction.user.id);
-		const hasManagerRole = application.managerrole.some((role) => member.roles.cache.has(role));
-
-		if (!hasManagerRole) {
-			return interaction.reply({
-				content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
-				flags: MessageFlags.Ephemeral,
-			});
-		}
+	const permCheck = await checkManagerPermission(interaction, application);
+	if (!permCheck.allowed) {
+		return await interaction.reply({
+			content: permCheck.message,
+			flags: MessageFlags.Ephemeral,
+		});
 	}
 
 	const user = await client.users.fetch(userid);

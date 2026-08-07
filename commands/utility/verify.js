@@ -1,21 +1,6 @@
 const { SlashCommandBuilder, PermissionsBitField, MessageFlags } = require("discord.js");
-const { Application, Verification, InviteTracker } = require("../../dbObjects.js");
-const {
-	rateLimitedOperation,
-	checkManagerPermission,
-	isInReviewChannel,
-	validateRoles,
-	VerificationStatus,
-	processLogMessages,
-	cleanupVerificationData,
-	sendWelcomeMessage,
-	sendVerifyDM,
-	applyRoles,
-	createNoApplicationEmbed,
-	getMessageIds,
-} = require("../../js/verificationHandler.js");
-const { getLatestSubmissionByUser } = require("../../js/DBFunctions.js");
-const { sendWebhookMessage } = require("../../js/messageHelper.js");
+const { Application } = require("../../dbObjects.js");
+const { checkManagerPermission, isInReviewChannel, verifyUser } = require("../../js/verificationHandler.js");
 
 module.exports = {
 	data: new SlashCommandBuilder()
@@ -82,19 +67,28 @@ module.exports = {
 
 		// Check manager permissions
 		const permCheck = await checkManagerPermission(interaction, application);
-		console.log(permCheck);
-		if (!permCheck.allowed) return interaction.reply({ content: permCheck.message, flags: MessageFlags.Ephemeral });
-
-		if (application.reviewchannel && !isInReviewChannel(interaction, application.reviewchannel)) {
+		if (!permCheck.allowed) {
+			return interaction.reply({
+				content: permCheck.message,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+		if (
+			application.managerrole.length === 0 &&
+			application.reviewchannel &&
+			!isInReviewChannel(interaction, application.reviewchannel)
+		) {
 			return interaction.reply({
 				content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a manager role in \`/setup\` to use this command everywhere.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
-
-		// Validate roles
-		const roleErrors = await validateRoles(interaction, application.verifiedrole, application.unverifiedrole);
-		if (roleErrors.length > 0) return interaction.reply({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
+		if (!application?.verifiedrole || application.verifiedrole.length === 0) {
+			return interaction.reply({
+				content: "Please set a verified role in the server configuration by using the `/setup` command",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
 		// Check bot permissions
 		if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
@@ -120,13 +114,12 @@ module.exports = {
 			});
 		}
 
-		const users = allUserIds.map((id) => interaction.guild.members.cache.get(id)).filter((user) => user);
-		if (users.length === 0) {
-			return interaction.reply({
-				content: "No valid users found in the guild.",
-				flags: MessageFlags.Ephemeral,
-			});
-		}
+		const users = await interaction.guild.members
+			.fetch({ user: allUserIds })
+			.then((fetched) => Array.from(fetched.values()));
+
+		if (users.length === 0)
+			return interaction.reply({ content: "No valid users found in this server.", flags: MessageFlags.Ephemeral });
 
 		if (users.some((user) => user.user.bot))
 			return interaction.reply({ content: "You cannot verify a bot.", flags: MessageFlags.Ephemeral });
@@ -134,126 +127,14 @@ module.exports = {
 		await interaction.reply(`Verifying ${users.length} user(s)...`);
 
 		const results = { success: [], notFound: [] };
-		const verifiedRoles = application.verifiedrole;
-		const unverifiedRoles = application.unverifiedrole;
-		const welcomeMessage = application.verificationwelcomemessage;
-		const welcomeChannel = application.verificationwelcomechannel;
 
-		for (const userID of allUserIds) {
+		for (const user of users) {
 			try {
-				const user = await interaction.guild.members.fetch(userID);
-				if (!user) throw new Error("User not found");
-
-				//get branchroles
-				const submissionData = await getLatestSubmissionByUser(userID, application.id);
-				console.log("Submission data:", submissionData);
-				const branchRoles = new Set();
-				const regexErrors = [];
-
-				if (submissionData && Array.isArray(submissionData.responses)) {
-					//const questionsMap = new Map(application.questions.filter((q) => q && q.id).map((q) => [q.id, q]));
-					const questionsMap = new Map(application.questions.filter((q) => q?.id).map((q) => [q.id, q]));
-
-					for (const response of submissionData.responses) {
-						const question = questionsMap.get(response.questionId);
-						if (!question) continue;
-
-						if (response?.mcqIndex?.length > 0) {
-							response.mcqIndex.forEach((index) => {
-								const selectedOption = question.mcq?.[index];
-								if (selectedOption?.roles) selectedOption.roles.forEach((role) => void branchRoles.add(role));
-							});
-						} else if (question.regexBranches && response.content) {
-							for (const regex of question.regexBranches) {
-								try {
-									const regpattern = new RegExp(regex.pattern, "i");
-									if (regpattern.test(response.content)) regex.roles.forEach((role) => void branchRoles.add(role));
-								} catch {
-									regexErrors.push(`${response.questionId}: ${regex.pattern}`);
-								}
-							}
-						}
-					}
-
-					if (regexErrors.length > 0) {
-						await interaction.followUp({
-							content: `The following regex patterns are invalid and their roles were not applied:\n${regexErrors.join("\n")}`,
-							flags: MessageFlags.Ephemeral,
-						});
-					}
-				}
-
-				console.log("Branch roles to apply:", Array.from(branchRoles));
-
-				// Apply roles
-				const rolesToApply = [...new Set([...verifiedRoles, ...branchRoles])];
-
-				await applyRoles(user, rolesToApply, unverifiedRoles, interaction);
-
-				results.success.push(userID);
-
-				// Get verification data
-				const verification = await Verification.findOne({ where: { userId: userID } });
-				const messageids = getMessageIds(verification, interaction.guild.id, application.id);
-				const invitetracker = await InviteTracker.findOne({
-					where: { unique_id: `${userID}_${interaction.guild.id}` },
-				});
-
-				// Process log messages
-				await processLogMessages({
-					interaction,
-					client,
-					application,
-					messageids,
-					user,
-					status: VerificationStatus.VERIFIED,
-					useRateLimiting: true,
-				});
-
-				const payload = {
-					content: `<@${userID}> `,
-					embeds: [createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED)],
-				};
-
-				// If no messages and separate log channel, send "no application" embed
-				if (
-					application.verifylogs &&
-					application.reviewchannel !== application.verifylogs &&
-					(!messageids || messageids.length === 0)
-				) {
-					const logChannel = interaction.guild.channels.cache.get(application.verifylogs);
-					if (logChannel)
-						await rateLimitedOperation(async () => await sendWebhookMessage(logChannel, application, payload));
-				} else if (!application.verifylogs && (!messageids || messageids.length === 0)) {
-					await rateLimitedOperation(async () => await sendWebhookMessage(interaction.channel, application, payload));
-				}
-
-				// Cleanup verification data
-				if (messageids && messageids.length > 0)
-					await cleanupVerificationData(verification, interaction.guild.id, userID, application.id);
-
-				// Send welcome message
-				if (welcomeChannel && welcomeMessage) {
-					try {
-						await sendWelcomeMessage(
-							interaction,
-							user,
-							welcomeChannel,
-							welcomeMessage,
-							null,
-							verifiedRoles,
-							application,
-						);
-					} catch (error) {
-						console.error("Error sending welcome message:", error);
-					}
-				}
-
-				// Send verification DM
-				await sendVerifyDM(user, application, interaction, verifiedRoles);
+				await verifyUser(interaction, client, application, user);
+				results.success.push(user.id);
 			} catch (error) {
 				console.error(`Could not verify user: ${error}`);
-				results.notFound.push(userID);
+				results.notFound.push(user.id);
 			}
 		}
 

@@ -253,7 +253,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			const startImageAsset = resolveImage(startEmbedimage);
 			const startDMEmbed = new EmbedBuilder()
 				//.setTitle(startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null)
-				.setTitle(startEmbedTitle?.trim() ? startEmbedTitle : null)
+				.setTitle(startEmbedTitle?.trim() ? startEmbedTitle.slice(0, 256) : null)
 				.setDescription(startEmbedDescription ?? null)
 				.setColor(application.startmessage?.color || "#3f7ff1")
 				.setFooter({
@@ -698,7 +698,7 @@ async function processVerificationResult(
 
 			const endEmbed = new EmbedBuilder()
 				//.setTitle(finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null)
-				.setTitle(finishEmbedTitle?.trim() ? finishEmbedTitle : null)
+				.setTitle(finishEmbedTitle?.trim() ? finishEmbedTitle.slice(0, 256) : null)
 				.setDescription(finishEmbedDescription)
 				.setColor(finishmessage?.color || "#008000")
 				.setFooter({ text: `Application: ${appName}` })
@@ -1015,13 +1015,68 @@ async function Verificationfunc(
 				);
 
 				const collector = dmChannel.createMessageCollector({ filter: (m) => !m.author.bot, time: 3600000 });
-				const cancelcollector = dmChannel.createMessageComponentCollector({
+				const buttoncollector = dmChannel.createMessageComponentCollector({
 					filter: (i) => i.user.id === user.id,
 					time: 3600000,
 				});
 
+				async function submitAnswerAndAdvance(currentQuestion, inputData, nextQuestionId) {
+					responses.push({
+						questionId: currentQuestion.id,
+						questionContent: currentQuestion.content,
+						content: inputData.content,
+						...(inputData.mcqIndex && { mcqIndex: inputData.mcqIndex }),
+						...(inputData.attachments && { attachments: inputData.attachments }),
+					});
+
+					collector.resetTimer();
+					buttoncollector.resetTimer();
+
+					// Check if it reached the end
+					if (
+						nextQuestionId === null ||
+						nextQuestionId === "end" ||
+						nextQuestionId === "kick" ||
+						nextQuestionId === "deny"
+					) {
+						await clearProgress();
+						const stopReason = nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId;
+						buttoncollector.stop(stopReason);
+						collector.stop(stopReason);
+
+						return;
+					}
+
+					// Get the next question
+					const nextQuestion = questionMap.get(nextQuestionId);
+					if (!nextQuestion) {
+						console.error(`Next question with ID ${nextQuestionId} not found`);
+						buttoncollector.stop("completed");
+						collector.stop("completed");
+						return;
+					}
+
+					currentQuestionId = nextQuestionId;
+					currentQuestionIndex = questionIndexMap.get(nextQuestionId) ?? currentQuestionIndex + 1;
+
+					const { DMEmbed, actionRow } = createQuestionEmbed(nextQuestion, responses.length);
+					activeQuestionMessage = await dmChannel.send({
+						embeds: [DMEmbed],
+						components: [actionRow, cancelbutton].filter(Boolean),
+					});
+
+					await saveProgress(
+						responses,
+						currentQuestionId,
+						currentQuestionIndex,
+						activeQuestionMessage.id,
+						nextQuestion,
+						false,
+					);
+				}
+
 				// Handle button interactions
-				cancelcollector.on("collect", async (i) => {
+				buttoncollector.on("collect", async (i) => {
 					processingQueue = processingQueue
 						.then(async () => {
 							try {
@@ -1030,7 +1085,7 @@ async function Verificationfunc(
 								// handle cancel button
 								if (i.customId.startsWith("cancelverification-")) {
 									collector.stop("canceled");
-									cancelcollector.stop("canceled");
+									buttoncollector.stop("canceled");
 									const cancelEmbed = new EmbedBuilder()
 										.setTitle("Application Canceled")
 										.setDescription(
@@ -1099,24 +1154,19 @@ async function Verificationfunc(
 										if (selectedOptions.length > 0) selectedOptionIndex = selectedOptions[0].index;
 									}
 
+									const questionLength = currentQuestion.content.length;
+									let answercontent = fieldValue;
+
+									// Truncate if too long
+									if (answercontent.length > 1024 - questionLength) {
+										answercontent = String(answercontent.substring(0, 1020 - questionLength)).concat("...");
+									}
+
 									const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
 										.setColor("#008000")
-										.addFields({ name: `Answer`, value: fieldValue });
+										.addFields({ name: `Answer`, value: answercontent });
 
 									await activeQuestionMessage.edit({ embeds: [answerEmbed], components: [] });
-
-									const responseAnswer = {
-										questionId: currentQuestion.id,
-										questionContent: currentQuestion.content,
-										mcqIndex:
-											selectedOptions.length > 0
-												? selectedOptions.map((option) => option.index)
-												: [selectedOptionIndex],
-										content: fieldValue,
-									};
-									responses.push(responseAnswer);
-									collector.resetTimer();
-									cancelcollector.resetTimer();
 
 									// Determine next question based on branching
 									const nextQuestionId = getNextQuestionId(
@@ -1128,52 +1178,10 @@ async function Verificationfunc(
 										i.isStringSelectMenu() ? selectedOptions.length : 1,
 									);
 
-									console.log(
-										`User selected option index ${selectedOptionIndex} for question ${currentQuestionId}. Determined next question ID: ${nextQuestionId}`,
-									);
-
-									// Check if it reached the end
-									if (
-										nextQuestionId === null ||
-										nextQuestionId === "end" ||
-										nextQuestionId === "kick" ||
-										nextQuestionId === "deny"
-									) {
-										await clearProgress();
-										cancelcollector.stop(
-											nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId,
-										);
-										collector.stop(nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId);
-
-										return;
-									}
-
-									// Get the next question
-									const nextQuestion = questionMap.get(nextQuestionId);
-									if (!nextQuestion) {
-										console.error(`Next question with ID ${nextQuestionId} not found`);
-										cancelcollector.stop("completed");
-										collector.stop("completed");
-										return;
-									}
-
-									currentQuestionId = nextQuestionId;
-									//currentQuestionIndex = questionIndexMap.get(nextQuestionId) ?? (currentQuestionIndex + 1);
-									currentQuestionIndex = questionIndexMap.get(nextQuestionId) ?? currentQuestionIndex + 1;
-									const { DMEmbed, actionRow } = createQuestionEmbed(nextQuestion, responses.length);
-
-									activeQuestionMessage = await dmChannel.send({
-										embeds: [DMEmbed],
-										components: [actionRow, cancelbutton].filter(Boolean),
-									});
-
-									await saveProgress(
-										responses,
-										currentQuestionId,
-										currentQuestionIndex,
-										activeQuestionMessage.id,
-										nextQuestion,
-										false,
+									await submitAnswerAndAdvance(
+										currentQuestion,
+										{ content: fieldValue, mcqIndex: selectedOptionIndex },
+										nextQuestionId,
 									);
 								}
 							} catch (error) {
@@ -1186,14 +1194,14 @@ async function Verificationfunc(
 								}
 
 								collector.stop("error");
-								cancelcollector.stop("error");
+								buttoncollector.stop("error");
 								reject(error);
 							}
 						})
 						.catch((error) => {
 							console.error(`Unhandled processing error for user ${userid}:`, error);
 							collector.stop("error");
-							cancelcollector.stop("error");
+							buttoncollector.stop("error");
 							reject(error);
 						});
 				});
@@ -1231,17 +1239,6 @@ async function Verificationfunc(
 
 								await activeQuestionMessage.edit({ embeds: [answerEmbed], components: [] });
 
-								totalcontent = {
-									questionId: currentQuestion.id,
-									questionContent: currentQuestion.content,
-									content: totalcontent,
-									attachments: collected.attachments?.map((attachment) => attachment.url),
-								};
-
-								responses.push(totalcontent);
-								collector.resetTimer();
-								cancelcollector.resetTimer();
-
 								// Determine next question based on regex branching or default
 								const nextQuestionId = getNextQuestionId(
 									currentQuestion,
@@ -1251,47 +1248,10 @@ async function Verificationfunc(
 									answercontent,
 								);
 
-								// Check if it reached the end
-								if (
-									nextQuestionId === null ||
-									nextQuestionId === "end" ||
-									nextQuestionId === "kick" ||
-									nextQuestionId === "deny"
-								) {
-									await clearProgress();
-									collector.stop(nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId);
-									cancelcollector.stop(
-										nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId,
-									);
-									return;
-								}
-
-								// Get the next question
-								const nextQuestion = questionMap.get(nextQuestionId);
-								if (!nextQuestion) {
-									console.error(`Next question with ID ${nextQuestionId} not found`);
-									collector.stop("completed");
-									cancelcollector.stop("completed");
-									return;
-								}
-
-								currentQuestionId = nextQuestionId;
-								//currentQuestionIndex = questionIndexMap.get(nextQuestionId) ?? (currentQuestionIndex + 1);
-								currentQuestionIndex = questionIndexMap.get(nextQuestionId) ?? currentQuestionIndex + 1;
-
-								const { DMEmbed, actionRow } = createQuestionEmbed(nextQuestion, responses.length);
-								activeQuestionMessage = await dmChannel.send({
-									embeds: [DMEmbed],
-									components: [actionRow, cancelbutton].filter(Boolean),
-								});
-
-								await saveProgress(
-									responses,
-									currentQuestionId,
-									currentQuestionIndex,
-									activeQuestionMessage.id,
-									nextQuestion,
-									false,
+								await submitAnswerAndAdvance(
+									currentQuestion,
+									{ content: totalcontent, attachments: collected.attachments?.map((attachment) => attachment.url) },
+									nextQuestionId,
 								);
 							} catch (error) {
 								console.error(`Error handling text message for user ${userid}:`, error);
@@ -1299,14 +1259,14 @@ async function Verificationfunc(
 									.send("An error occurred processing your answer. Please try again.")
 									.catch(() => {});
 								collector.stop("error");
-								cancelcollector.stop("error");
+								buttoncollector.stop("error");
 								reject(error);
 							}
 						})
 						.catch((error) => {
 							console.error(`Unhandled text processing error for user ${userid}:`, error);
 							collector.stop("error");
-							cancelcollector.stop("error");
+							buttoncollector.stop("error");
 							reject(error);
 						});
 				});
@@ -1314,7 +1274,7 @@ async function Verificationfunc(
 				//Biome fix : Marked collected as unused via _
 				collector.on("end", async (_collected, reason) => {
 					try {
-						cancelcollector.stop();
+						buttoncollector.stop();
 						console.log(`Verification ended for user ${userid} with reason: ${reason}`);
 
 						if (reason === "completed" || reason === "kick" || reason === "deny") {
