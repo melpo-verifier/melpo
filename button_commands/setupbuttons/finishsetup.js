@@ -1,9 +1,8 @@
 const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const { deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
-const { resolveImage } = require("../../js/imageUtils.js");
 const { promoteCustomizationImage, purgeOldImages, isR2ImageResource } = require("../../js/customizationImages.js");
-const { updateVerifyMessage, isValidHexColor } = require("../../js/verifyChannelUtils.js");
+const { syncApplicationPanels } = require("../../js/updatePanels.js");
 
 module.exports = async ({ interaction, client, context }) => {
 	const tempApplicationId = context[0] === "firsttime" ? parseInt(context[1], 10) : parseInt(context[0], 10);
@@ -152,30 +151,10 @@ module.exports = async ({ interaction, client, context }) => {
 		}
 	}
 
-	const embedColor = isValidHexColor(finalApp?.verifychannelembed?.color)
-		? finalApp.verifychannelembed.color
-		: (tempApp?.verifychannelembed?.color ?? "#3f7ff1");
-	const embedTitle = finalApp?.verifychannelembed?.title ?? tempApp?.verifychannelembed?.title ?? null;
-	const embedDescription =
-		finalApp?.verifychannelembed?.description ??
-		tempApp?.verifychannelembed?.description ??
-		"Please verify yourself by clicking the button below.";
-	const embedImage = finalApp?.verifychannelembed?.image ?? tempApp?.verifychannelembed?.image;
-	const embedImageAsset = resolveImage(embedImage);
+	const guild = client.guilds.cache.get(interaction.guild.id);
 
-	const result = await updateVerifyMessage({
-		verifyChannelObj,
-		botId: client.user.id,
-		embedConfig: {
-			color: embedColor,
-			title: embedTitle,
-			description: embedDescription,
-			imageUrl: embedImageAsset.embedUrl,
-			footer: tempApp.name,
-		},
-		messageId: finalApp.verifymessage_id,
-		appId: finalApp.id,
-	});
+	//update verify panel for all applications.
+	const result = await syncApplicationPanels(guild, client.user.id, []);
 
 	if (result?.messageId && result.messageId !== finalApp.verifymessage_id) {
 		finalApp.verifymessage_id = result.messageId;
