@@ -253,7 +253,6 @@ async function syncSingleApplication(guild, botId, application, dependentApps, a
 // - Every other application is a "dependent" and shows up as an option on
 //   its root's select menu instead of getting its own message.
 async function syncApplicationPanels(guild, botId, webhookUpdated) {
-	console.log("webhookUpdated:", webhookUpdated);
 	const applications = await Application.findAll({ where: { server_id: guild.id } });
 	const appById = new Map(applications.map((a) => [a.id, a]));
 

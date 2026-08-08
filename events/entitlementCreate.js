@@ -1,12 +1,13 @@
 const { Events } = require("discord.js");
 const { handleEntitlementCreate } = require("../js/monetization.js");
 
-const eventName = Events.EntitlementCreate || "entitlementCreate";
-
 module.exports = {
-	name: eventName,
+	name: Events.EntitlementCreate,
 	async execute(entitlement, client) {
-		console.log(`[${eventName}] Event received for userId=${entitlement?.userId}, skuId=${entitlement?.skuId}`);
+		console.log(
+			`[EntitlementCreate] Event received for userId=${entitlement?.userId}, skuId=${entitlement?.skuId}, other data:`,
+		);
+		console.log(entitlement);
 		await handleEntitlementCreate(entitlement, client);
 	},
 };

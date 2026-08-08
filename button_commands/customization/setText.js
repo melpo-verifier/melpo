@@ -153,8 +153,6 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
 	let description;
 
 	cancelCollector.on("collect", async (buttonInteraction) => {
-		console.log(buttonInteraction.customId);
-
 		if (buttonInteraction.customId === "cancelsetText") {
 			messageCollector.stop("cancelled");
 			buttonInteraction.update({

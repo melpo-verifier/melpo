@@ -38,9 +38,6 @@ setInterval(() => {
 
 	expiredSessions.forEach((key) => void activeVerifications.delete(key));
 	expiredRateLimits.forEach((key) => void rateLimitMap.delete(key));
-
-	if (expiredSessions.length > 0) console.log(`Cleaned up ${expiredSessions.length} expired verification sessions`);
-	if (expiredRateLimits.length > 0) console.log(`Cleaned up ${expiredRateLimits.length} expired rate limits`);
 }, 600000);
 
 async function handleApplicationStart({ interaction, client, applicationId }) {
@@ -493,10 +490,8 @@ async function constructApplicationEmbed(user, questions, answers, serverId, cli
 					// Only add if there's meaningful space left
 					formattedField = String(formattedField.slice(0, remainingCharacters - 3)).concat("...");
 					wasTruncated = true;
-					console.log(`Truncated field ${index + 1} to fit within total limits.`);
 				} else {
 					wasTruncated = true;
-					console.log(`Field ${index + 1} exceeds total limit and will not be added.`);
 					return;
 				}
 			}
@@ -1229,7 +1224,6 @@ async function Verificationfunc(
 								// Truncate if too long
 								if (answercontent.length > 1024 - questionLength) {
 									answercontent = String(answercontent.substring(0, 1020 - questionLength)).concat("...");
-									console.log("Truncated verification answer");
 									await collected.author.send("Note: Your answer was shortened to fit Discord's limits.");
 								}
 
@@ -1275,7 +1269,6 @@ async function Verificationfunc(
 				collector.on("end", async (_collected, reason) => {
 					try {
 						buttoncollector.stop();
-						console.log(`Verification ended for user ${userid} with reason: ${reason}`);
 
 						if (reason === "completed" || reason === "kick" || reason === "deny") {
 							resolve([reason, responses]);
