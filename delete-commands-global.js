@@ -8,7 +8,7 @@ if (process.argv.length < 3) {
 const botName = process.argv[2].toUpperCase();
 
 // Commands that should not be deleted globally
-const blacklistedCommands = [];
+const blacklistedCommands = ["addpremium.js"];
 
 const rest = new REST().setToken(process.env[`${botName}_TOKEN`]);
 
