@@ -21,7 +21,6 @@ const ErrorHandler = require("./js/ErrorHandling.js"); // Component : Error hand
 const RateLimitError = require("./js/RateLimitHandling.js"); // Component : Rate limit error wrapper.
 const CommandLoader = require("./js/CommandLoader.js"); // Component : Command loader.
 // const MemoryManager = require("./js/MemoryManager.js"); //
-const artleaderboardweek = require("./js/artleaderboardweek.js"); // Component : Art leaderboard.
 const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Library : Discord sharding parts.
 
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
@@ -339,8 +338,6 @@ async function createBot(token) {
 			console.error("Failed to update verification:", error);
 		}
 	});
-
-	artleaderboardweek(client);
 
 	process.on("exit", (code) => {
 		console.log(`this shard is shutting down with exit code: ${code}`);
