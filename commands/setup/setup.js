@@ -102,7 +102,6 @@ module.exports = {
 				.toArray()
 				.map((name) => `\`${name}\``)
 				.join(", ");
-			console.log(missingPermissions);
 
 			return interaction.reply({
 				content: `I'm missing the following permissions to work properly in this channel: ${missingPermissions}. Please ensure I have these permissions and try again.`,

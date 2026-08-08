@@ -15,7 +15,6 @@ app.use(cors());
 app.post("/api/updatePanels/:guildId", async (req, res) => {
 	const { guildId } = req.params;
 	const { webhookUpdated } = req.body;
-	console.log(`Received request to update panels for guild ${guildId}`);
 	if (!guildId) return res.status(400).json({ error: "Missing guildId" });
 
 	try {
@@ -30,7 +29,6 @@ app.post("/api/updatePanels/:guildId", async (req, res) => {
 
 		let clientId;
 		if (clientIds.length === 1 && clientIds[0] === process.env.MELPO_ID) {
-			console.log("Using default bot (Melpo) for server");
 			clientId = process.env.MELPO_ID;
 
 			let targetClusterId = null;
@@ -48,8 +46,6 @@ app.post("/api/updatePanels/:guildId", async (req, res) => {
 			if (targetClusterId === undefined || targetClusterId === null)
 				return res.status(404).json({ error: "Guild not found on any cluster" });
 
-			console.log(`Found guild ${guildId} on cluster ${targetClusterId}`);
-
 			const [result] = await global.shardManager.broadcastEval(
 				async (client, { guildId, melpoId, path, webhookUpdated }) => {
 					const { syncApplicationPanels } = require(path);
@@ -57,9 +53,7 @@ app.post("/api/updatePanels/:guildId", async (req, res) => {
 					if (!guild) return { success: false, error: "Guild not found" };
 
 					try {
-						const result = await syncApplicationPanels(guild, melpoId, webhookUpdated);
-
-						console.log(result);
+						await syncApplicationPanels(guild, melpoId, webhookUpdated);
 						return { success: true };
 					} catch (error) {
 						console.log("Error in updateVerifyMessage:", error);
@@ -78,9 +72,6 @@ app.post("/api/updatePanels/:guildId", async (req, res) => {
 			);
 
 			if (!result.success) return res.status(404).json({ error: result.error });
-
-			console.log(result);
-			console.log(`Verification message ${result.action} successfully`);
 		} else {
 			const customBotId = clientIds.find((id) => id !== process.env.MELPO_ID);
 

@@ -86,7 +86,6 @@ module.exports = async ({ interaction, client, context }) => {
 
 	for (const category of imageCategories) {
 		if (tempApp[category]?.image === "deleted") {
-			console.log(`Skipping validation for ${category}: image marked for deletion`);
 			continue;
 		}
 

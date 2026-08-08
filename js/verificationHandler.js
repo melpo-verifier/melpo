@@ -731,7 +731,6 @@ async function processLogMessages({
 				}
 			} catch (error) {
 				if (error.code === 10008) {
-					console.log(`Message ${messageId} not found - skipping`);
 					continue;
 				}
 				console.error(`Failed to process message with ID ${messageId}: ${error}`);

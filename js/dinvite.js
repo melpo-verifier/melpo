@@ -19,7 +19,6 @@ module.exports = class InviteManager {
 
 		function hasInvitePermission(guild) {
 			const hasPermission = guild.members.me?.permissions.has("ManageGuild");
-			if (!hasPermission) console.log(`Missing ManageGuild permission in guild: ${guild.name} (${guild.id})`);
 			return hasPermission;
 		}
 
@@ -34,8 +33,6 @@ module.exports = class InviteManager {
 
 			for (let i = 0; i < guilds.length; i += batchSize) {
 				const batch = guilds.slice(i, i + batchSize);
-				console.log(`Processing batch ${i / batchSize + 1}/${Math.ceil(guilds.length / batchSize)}`);
-
 				await Promise.all(
 					batch.map(async (guild) => {
 						try {
@@ -198,7 +195,6 @@ module.exports = class InviteManager {
 			// Delete the tracker data from the InviteTracker table if the user leaves again
 			try {
 				await InviteTracker.destroy({ where: { unique_id: `${member.user.id}_${member.guild.id}` } });
-				console.log(`Tracker data for user ${member.id} deleted from the InviteTracker table.`);
 			} catch (error) {
 				console.error(`Failed to delete tracker data for user ${member.id} from the InviteTracker table: ${error}`);
 			}

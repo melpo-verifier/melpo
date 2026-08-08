@@ -204,7 +204,6 @@ async function createBot(token) {
 			if (!guilds.includes(guild.id)) {
 				guilds.push(guild.id);
 				await Instances.update({ guilds }, { where: { client_id: client.user.id } });
-				console.log(`Added guild ${guild.id} to the database.`);
 			}
 		} catch (error) {
 			console.error("Failed to update guild list on guildCreate:", error);
@@ -221,7 +220,6 @@ async function createBot(token) {
 			const guilds = status?.guilds || [];
 			const updatedGuilds = guilds.filter((id) => id !== guild.id);
 			await Instances.update({ guilds: updatedGuilds }, { where: { client_id: client.user.id } });
-			console.log(`Removed guild ${guild.id} from the database.`);
 		} catch (error) {
 			console.error("Failed to update guild list on guildDelete:", error);
 		}
@@ -270,9 +268,7 @@ async function createBot(token) {
 
 			await Promise.allSettled(rolePromises);
 		} catch (error) {
-			if (error.code === 10007) {
-				console.log(`Member ${member.id} left before roles could be assigned`);
-			} else {
+			if (error.code !== 10007) {
 				ErrorHandler.handle(client, error);
 			}
 		} finally {
@@ -317,7 +313,6 @@ async function createBot(token) {
 				wasKicked = kickLog?.target?.id === member.id && kickLog.createdTimestamp > Date.now() - 3000;
 
 				if (wasKicked) {
-					console.log(`${member.user?.tag || member.id} was kicked, skipping message edits`);
 					return;
 				}
 			} catch {
