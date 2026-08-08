@@ -225,7 +225,7 @@ async function syncSingleApplication(guild, botId, application, dependentApps, a
 		color: rawEmbedConfig.color,
 		title: rawEmbedConfig.title,
 		description: rawEmbedConfig.description,
-		imageUrl: embedImageAsset.embedURL,
+		imageUrl: embedImageAsset.embedUrl,
 	};
 
 	const result = await sendOrUpdateMessage({
