@@ -6,7 +6,7 @@ require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 const { decryptData } = require("./js/DBFunctions.js");
 
 // Commands that should not be deployed globally
-const blacklistedCommands = ["whitelist.js"];
+const blacklistedCommands = [];
 const args = process.argv.slice(2);
 const shouldClear = args.includes("--clear");
 let botNameArg = null;

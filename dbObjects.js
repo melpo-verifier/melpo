@@ -16,9 +16,6 @@ const OptOut = require("./models/opt-out.js")(sequelize, Sequelize.DataTypes);
 const TempConfig = require("./models/TempConfig.js")(sequelize, Sequelize.DataTypes);
 const Statistics = require("./models/statistics.js")(sequelize, Sequelize.DataTypes);
 const Instances = require("./models/Instances.js")(sequelize, Sequelize.DataTypes);
-const ArtBoardConfig = require("./models/ArtBoardConfig.js")(sequelize, Sequelize.DataTypes);
-const ArtLeaderboard = require("./models/ArtLeaderboard.js")(sequelize, Sequelize.DataTypes);
-const Whitelist = require("./models/whitelist.js")(sequelize, Sequelize.DataTypes);
 const Application = require("./models/Application.js")(sequelize, Sequelize.DataTypes);
 const TempApplication = require("./models/TempApplication.js")(sequelize, Sequelize.DataTypes);
 const AdTexts = require("./models/adtexts.js")(sequelize, Sequelize.DataTypes);
@@ -41,9 +38,6 @@ module.exports = {
 	TempConfig,
 	Statistics,
 	Instances,
-	ArtBoardConfig,
-	ArtLeaderboard,
-	Whitelist,
 	Application,
 	TempApplication,
 	AdTexts,
