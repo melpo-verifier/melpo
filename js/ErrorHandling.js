@@ -221,14 +221,18 @@ class ErrorHandler {
 					await devUser.send(_out);
 				},
 				act_CH: async (_out) => {
-					const devChan = await client.channels.fetch(process.env.BUG_REPORT_CHAN);
-					//Forum/Thread unarchive if needs be(Only needed for non webhooks, as archived threads complain if a post is attempted).
-					if (devChan.isThread()) {
-						if (devChan.archived) await devChan.setArchived(false);
-					}
-
-					//Everything checked, send as normal.
-					await devChan.send(_out);
+					await client.cluster.broadcastEval(
+						async (client, { outMessage }) => {
+							const devChan = client.channels.cache.get(process.env.BUG_REPORT_CHAN);
+							if (devChan) {
+								if (devChan.isThread()) {
+									if (devChan.archived) await devChan.setArchived(false);
+								}
+								await devChan.send(outMessage);
+							}
+						},
+						{ context: { outMessage: _out } },
+					);
 				},
 			};
 
