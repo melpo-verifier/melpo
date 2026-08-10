@@ -217,29 +217,22 @@ class ErrorHandler {
 			//Diagnostic handler block.
 			const debug_actions = {
 				act_DM: async (_out) => {
-					const Fail_function = function (error) {
-						console.error("Failed to fetch DM for direct message report(Tried %s).", process.env.BUG_REPORT_USER);
-					};
-
-					const devUser = await client.users.fetch(process.env.BUG_REPORT_USER).catch(Fail_function);
-					if (devUser !== null) await devUser?.send(_out);
+					const devUser = await client.users.fetch(process.env.BUG_REPORT_USER);
+					await devUser.send(_out);
 				},
 				act_CH: async (_out) => {
-					const Fail_function = function (error) {
-						console.error("Failed to fetch debug channel for report(Tried %s).", process.env.BUG_REPORT_CHAN);
-					};
-
-					const devChan = await client.channels.fetch(process.env.BUG_REPORT_CHAN).catch(Fail_function);
-					if (devChan !== null) {
-						//Forum/Thread unarchive if needs be(Only needed for non webhooks, as archived threads complain if a post is attempted).
-						//Note : Using optional chain here to ensure if channel is null this will properly eval to false.
-						if (devChan?.isThread()) {
-							if (devChan.archived) await devChan.setArchived(false);
-						}
-
-						//Everything checked, send as normal.
-						await devChan?.send(_out);
-					}
+					await client.cluster.broadcastEval(
+						async (client, { outMessage }) => {
+							const devChan = client.channels.cache.get(process.env.BUG_REPORT_CHAN);
+							if (devChan) {
+								if (devChan.isThread()) {
+									if (devChan.archived) await devChan.setArchived(false);
+								}
+								await devChan.send(outMessage);
+							}
+						},
+						{ context: { outMessage: _out } },
+					);
 				},
 			};
 
