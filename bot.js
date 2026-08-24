@@ -22,6 +22,7 @@ const RateLimitError = require("./js/RateLimitHandling.js"); // Component : Rate
 const CommandLoader = require("./js/CommandLoader.js"); // Component : Command loader.
 // const MemoryManager = require("./js/MemoryManager.js"); //
 const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Library : Discord sharding parts.
+const Sentry = require("@sentry/node");
 
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	console.log("sharded arrived!");
@@ -86,9 +87,61 @@ async function createBot(token) {
 
 	const client = new Client(clientOptions);
 
+	let clusterName = process.env.name ? process.env.name.split("_").pop() : "Custom";
+
 	if (isSharded) {
 		client.cluster = new ClusterClient(client);
+		clusterName = `Cluster ${client.cluster.id}`;
 		console_hooks.SetPrefix(`Cluster ${String(client.cluster.id)}`); //Tag cluster in console hooker - Mat
+	}
+
+	if (process.env.GLITCHTIP_DSN) {
+		Sentry.init({
+			dsn: process.env.GLITCHTIP_DSN,
+			enableLogs: true,
+			tracesSampleRate: 1.0,
+			autoSessionTracking: false,
+			sendDefaultPii: false,
+			integrations: [
+				Sentry.consoleLoggingIntegration({
+					levels: ["log", "info", "warn", "error"],
+				}),
+			],
+			// Modify event before sending as issue event to glitchtip
+			beforeSend(event) {
+				if (event.server_name) delete event.server_name;
+				if (event.environment) delete event.environment;
+
+				//remove unnecessary contexts
+				if (event.contexts) {
+					delete event.contexts.device;
+					delete event.contexts.app;
+					delete event.contexts.culture;
+					delete event.contexts.cloud_resource;
+					delete event.contexts.os;
+				}
+
+				return event;
+			},
+			// Modify breadcrumb before sending along with issue event to glitchtip
+			beforeBreadcrumb(breadcrumb) {
+				if (breadcrumb.category === "console") {
+					if (breadcrumb?.data?.arguments) {
+						delete breadcrumb.data.arguments;
+					}
+					if (breadcrumb?.data?.logger) {
+						delete breadcrumb.data.logger;
+					}
+				}
+				return breadcrumb;
+			},
+			// Modify log before sending to glitchtip logs
+			beforeSendLog(log) {
+				log.service = clusterName;
+				log.attributes = { ...log.attributes, service: clusterName };
+				return log;
+			},
+		});
 	}
 
 	new InviteManager(client);
