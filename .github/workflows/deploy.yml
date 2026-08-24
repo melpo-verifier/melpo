@@ -22,6 +22,13 @@ jobs:
               cd /home/melpo/melpo-beta
               git pull origin dev
               npm ci --omit=dev
+
+              echo "Deploying commands for Beta..."
+              node deploy-commands-global.js Melpo
+
+              echo "Deploying staff commands for dev server..."
+              node deploy-commands-support.js
+
               pm2 restart melpo-beta --update-env
 
             elif [ "${{ github.ref_name }}" = "main" ]; then
@@ -29,5 +36,11 @@ jobs:
               cd /home/melpo/melpo
               git pull origin main
               npm ci --omit=dev
+              echo "Deploying commands for Production..."
+              node deploy-commands-global.js Melpo
+
+              echo "Deploying staff commands for Support server..."
+              node deploy-commands-support.js
+
               pm2 restart melpo /bot_.*/ --update-env
             fi
