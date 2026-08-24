@@ -158,17 +158,34 @@ module.exports = async ({ interaction, context }) => {
 		const roles = temporarySetup.verifiedrole || [];
 		const invalidRoles = [];
 		const noPermissionRoles = [];
+
+		const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
+
+		if (!botMember?.permissions.has("ManageRoles")) {
+			return interaction.followUp({
+				content: `I don't have the required permissions to assign roles. Please make sure I have the \`Manage Roles\` permission in this server.`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		const hasUncachedRoles = roles.some((roleId) => !interaction.guild.roles.cache.has(roleId));
+		if (hasUncachedRoles) {
+			await interaction.guild.roles.fetch().catch(() => null);
+		}
+
+		const botHighest = botMember.roles.highest;
+
 		for (const roleId of roles) {
-			const role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+			const role = interaction.guild.roles.cache.get(roleId);
+
 			if (!role) {
 				invalidRoles.push(roleId);
 				continue;
 			}
 
-			const botMember = await interaction.guild.members.fetchMe();
-			if (role && botMember.roles.highest.comparePositionTo(role) <= 0) {
+			// Hierarchy check
+			if (botHighest.comparePositionTo(role) <= 0) {
 				noPermissionRoles.push(roleId);
-				//continue;
 			}
 		}
 
