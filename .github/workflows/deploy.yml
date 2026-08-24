@@ -1,0 +1,46 @@
+name: Deploy Discord Bot
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            if [ "${{ github.ref_name }}" = "dev" ]; then
+              echo "Deploying Beta..."
+              cd /home/melpo/melpo-beta
+              git pull origin dev
+              npm ci --omit=dev
+
+              echo "Deploying commands for Beta..."
+              node deploy-commands-global.js Melpo
+
+              echo "Deploying staff commands for dev server..."
+              node deploy-commands-support.js
+
+              pm2 restart melpo-beta --update-env
+
+            elif [ "${{ github.ref_name }}" = "main" ]; then
+              echo "Deploying Production..."
+              cd /home/melpo/melpo
+              git pull origin main
+              npm ci --omit=dev
+              echo "Deploying commands for Production..."
+              node deploy-commands-global.js Melpo
+
+              echo "Deploying staff commands for Support server..."
+              node deploy-commands-support.js
+
+              pm2 restart melpo /bot_.*/ --update-env
+            fi
