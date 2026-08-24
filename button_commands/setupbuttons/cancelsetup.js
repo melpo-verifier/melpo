@@ -1,100 +1,97 @@
 const { EmbedBuilder } = require("discord.js");
-const {
-  createTemporarySetup,
-  deleteTemporarySetup,
-} = require("../../js/tempconfigfuncs.js");
-const fs = require("fs");
-const path = require("path");
+const { deleteTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
+const { deleteImage, purgeOldImages, isR2ImageResource } = require("../../js/customizationImages.js");
 
-module.exports = async ({ interaction }) => {
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+module.exports = async ({ interaction, context }) => {
+	await interaction.deferUpdate();
+	const tempApplicationId = parseInt(context[0], 10);
+	const { tempApp: temporarySetup } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
 
-  const tempverifychannelembed = temporarySetup?.verifychannelembed;
-  const tempstartmessage = temporarySetup?.startmessage;
-  const tempfinishmessage = temporarySetup?.finishmessage;
-  const tempverifymessage = temporarySetup?.verifymessage;
-  const tempverificationwelcomemessage =
-    temporarySetup?.verificationwelcomemessage;
+	if (temporarySetup) {
+		const appName = temporarySetup.name;
+		const tempverifychannelembed = temporarySetup?.verifychannelembed;
+		const tempstartmessage = temporarySetup?.startmessage;
+		const tempfinishmessage = temporarySetup?.finishmessage;
+		const tempverifymessage = temporarySetup?.verifymessage;
+		const tempverificationwelcomemessage = temporarySetup?.verificationwelcomemessage;
 
-  if (tempverifychannelembed?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempverifychannelembed.image,
-      "images/verifychannelembed",
-    );
-  if (tempstartmessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempstartmessage.image,
-      "images/startmessage",
-    );
-  if (tempfinishmessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempfinishmessage.image,
-      "images/finishmessage",
-    );
-  if (tempverifymessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempverifymessage.image,
-      "images/verifymessage",
-    );
-  if (tempverificationwelcomemessage?.image)
-    deleteNewImage(
-      interaction.guild.id,
-      tempverificationwelcomemessage.image,
-      "images/verificationwelcomemessage",
-    );
+		if (tempverifychannelembed?.image)
+			await deleteNewImage(
+				interaction.guild.id,
+				appName,
+				"verifychannelembed",
+				tempverifychannelembed.image,
+				"images/verifychannelembed",
+			);
+		if (tempstartmessage?.image)
+			await deleteNewImage(
+				interaction.guild.id,
+				appName,
+				"startmessage",
+				tempstartmessage.image,
+				"images/startmessage",
+			);
+		if (tempfinishmessage?.image)
+			await deleteNewImage(
+				interaction.guild.id,
+				appName,
+				"finishmessage",
+				tempfinishmessage.image,
+				"images/finishmessage",
+			);
+		if (tempverifymessage?.image)
+			await deleteNewImage(
+				interaction.guild.id,
+				appName,
+				"verifymessage",
+				tempverifymessage.image,
+				"images/verifymessage",
+			);
+		if (tempverificationwelcomemessage?.image)
+			await deleteNewImage(
+				interaction.guild.id,
+				appName,
+				"verificationwelcomemessage",
+				tempverificationwelcomemessage.image,
+			);
 
-  await deleteTemporarySetup(interaction.guild.id);
+		await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
+	}
 
-  const cancelembed = new EmbedBuilder()
-    .setColor("ff0000")
-    .setTitle("Setup cancelled")
-    .setDescription(
-      "The setup has been cancelled. No changes have been made to the server configuration. If you want to start the setup again, use the `/setup` command.",
-    );
+	const cancelembed = new EmbedBuilder()
+		.setColor("ff0000")
+		.setTitle("Setup cancelled")
+		.setDescription(
+			"The setup has been cancelled. No changes have been made to the server configuration. If you want to start the setup again, use the `/setup` command.",
+		);
 
-  await interaction.update({
-    embeds: [cancelembed],
-    components: [],
-    files: [],
-    content: "",
-  });
+	await interaction.editReply({
+		embeds: [cancelembed],
+		components: [],
+		files: [],
+		content: "",
+	});
 };
 
-function deleteNewImage(serverId, newImagePath, imageDir) {
-  fs.readdir(imageDir, (err, files) => {
-    if (err) {
-      console.error("Failed to list directory contents", err);
-      return;
-    }
+async function deleteNewImage(serverId, appName, section, newImagePath) {
+	if (isR2ImageResource(newImagePath)) {
+		try {
+			await deleteImage(newImagePath);
+		} catch (error) {
+			console.error(`Failed to delete S3 image ${newImagePath.key}:`, error);
+		}
 
-    files.forEach((file) => {
-      const fileSuffix = path.extname(file);
-      const fileNameWithoutSuffix = path.basename(file, fileSuffix);
-      const relativeFilePath = path.join(imageDir, file);
-      const absoluteFilePath = path.join(
-        __dirname,
-        "..",
-        "..",
-        relativeFilePath,
-      );
-
-      // Delete files that include _temp in their name
-      if (fileNameWithoutSuffix.includes("_temp")) {
-        fs.unlink(absoluteFilePath, (err) => {
-          if (err) {
-            console.error(
-              `Failed to delete temp file ${absoluteFilePath}`,
-              err,
-            );
-          } else {
-            console.log(`Deleted temp file: ${absoluteFilePath}`);
-          }
-        });
-      }
-    });
-  });
+		try {
+			await purgeOldImages({
+				serverId,
+				appName,
+				section,
+				keepKey: null,
+				filter: "temp",
+			});
+		} catch (error) {
+			console.error(`Failed to purge temp images for ${section}:`, error);
+		}
+		return;
+	}
 }

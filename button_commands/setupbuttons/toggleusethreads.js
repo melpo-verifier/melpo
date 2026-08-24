@@ -1,30 +1,22 @@
-const {
-  createTemporarySetup,
-  updateTemporarySetup,
-} = require("../../js/tempconfigfuncs.js");
+const { updateTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const miscinfo = require("./miscinfo.js");
 
 module.exports = async ({ interaction, context }) => {
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
-  console.log(context[0]);
-  const threadenabled = context[0] === "true";
-  console.log(
-    `Toggling useThreads for guild ${interaction.guild.id}. Current value: ${threadenabled}`,
-  );
+	const threadenabled = context[0] === "true";
+	const tempApplicationId = parseInt(context[1], 10);
 
-  if (!temporarySetup) {
-    throw new Error("Failed to fetch or create temporary setup.");
-  }
+	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+	if (error) {
+		return interaction.reply({
+			content: `Error: ${error}`,
+			flags: require("discord.js").MessageFlags.Ephemeral,
+		});
+	}
 
-  const newUseThreads = !threadenabled;
+	if (!tempApp) throw new Error("Failed to fetch temporary setup.");
 
-  console.log(
-    `New useThreads value for guild ${interaction.guild.id}: ${newUseThreads}`,
-  );
+	const newUseThreads = !threadenabled;
 
-  await updateTemporarySetup(interaction.guild.id, {
-    usethreads: newUseThreads,
-  });
-
-  await miscinfo({ interaction });
+	await updateTempApplication(interaction.guild.id, { usethreads: newUseThreads }, { id: tempApplicationId });
+	await miscinfo({ interaction, tempApplicationId });
 };

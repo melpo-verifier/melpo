@@ -1,73 +1,65 @@
-const {
-  ActionRowBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-} = require("discord.js");
-const { ServerConfig } = require("../dbObjects.js");
+const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require("discord.js");
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
-const { createTemporarySetup } = require("../js/tempconfigfuncs.js");
+const { getTempApplicationById, getApplicationById } = require("../js/tempconfigfuncs.js");
+const { normalizeQuestions } = require("../js/questionSetupUtils.js");
 
 module.exports = async ({ interaction, client, context }) => {
-  const isfirsttime = parseInt(context);
-  const qnumber = parseInt(interaction.values[0]) - 1;
+	const isfirsttime = parseInt(context[0], 10);
+	const qnumber = parseInt(interaction.values[0], 10) - 1;
+	const tempApplicationId = parseInt(context?.[1] ?? context?.[0], 10);
 
-  const serverConfig = await ServerConfig.findOne({
-    where: { server_id: interaction.guild.id },
-  });
+	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+	if (error || !tempApp) {
+		return interaction.reply({
+			content: error || "Application not found.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+	// If editing an existing application, get the original application for default questions
+	let applicationSetup = null;
+	if (tempApp.applicationId) {
+		const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
+		applicationSetup = application;
+	}
 
-  var questions = temporarySetup.questions || serverConfig.questions;
+	const questions = normalizeQuestions(tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions);
 
-  // Check if questions is an array of strings and parse
-  if (
-    Array.isArray(questions) &&
-    questions.every((q) => typeof q === "string")
-  ) {
-    try {
-      questions = questions?.map((q) => JSON.parse(q));
-    } catch (error) {
-      questions = [];
-      throw error;
-    }
-  }
+	const question = questions[qnumber];
 
-  const question = questions[qnumber];
+	const modal = new ModalBuilder()
+		.setCustomId(`editQuestionModal_${qnumber}_${isfirsttime}_${tempApplicationId}`)
+		.setTitle("Edit or delete question");
 
-  const modal = new ModalBuilder()
+	const Question = new TextInputBuilder()
+		.setCustomId("question")
+		.setLabel("Question (leave empty to delete)")
+		.setStyle(TextInputStyle.Paragraph)
+		.setPlaceholder("Enter your question here")
+		.setValue(question.content)
+		.setMaxLength(1024)
+		.setRequired(false);
 
-    .setCustomId(`editQuestionModal_${qnumber}_${isfirsttime}`)
-    .setTitle("Edit or delete question");
+	const desc = question.mcq?.length > 0 ? question.mcq.map((option) => option.label ?? option).join("\n") : "";
+	const MCQ = new TextInputBuilder()
+		.setCustomId("mcq")
+		.setLabel("Optional Multiple Choice: 1 option/line")
+		.setStyle(TextInputStyle.Paragraph)
+		.setPlaceholder("List of options. Every option should be on a new line")
+		.setValue(desc.slice(0, 2048))
+		.setMaxLength(2048)
+		.setRequired(false);
 
-  const Question = new TextInputBuilder()
-    .setCustomId("question")
-    .setLabel("Question (leave empty to delete)")
-    .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder("Enter your question here")
-    .setValue(question.content)
-    .setMaxLength(512)
-    .setRequired(false);
+	const questionRow = new ActionRowBuilder().addComponents(Question);
+	const mcqRow = new ActionRowBuilder().addComponents(MCQ);
+	modal.addComponents(questionRow, mcqRow);
 
-  const MCQ = new TextInputBuilder()
-    .setCustomId("mcq")
-    .setLabel("Multiple Choice Question, 1 option/line max 9")
-    .setStyle(TextInputStyle.Paragraph)
-    .setPlaceholder("List of options. Every option should be on a new line")
-    .setValue(question.mcq.join("\n") || "")
-    .setMaxLength(512)
-    .setRequired(false);
+	await interaction.showModal(modal);
+	if (isfirsttime === 0) {
+		questioninfo({ interaction, client, tempApplicationId });
+	} else {
+		const firsttimequestions = require("../js/firsttimequestions.js");
 
-  const questionRow = new ActionRowBuilder().addComponents(Question);
-  const mcqRow = new ActionRowBuilder().addComponents(MCQ);
-  modal.addComponents(questionRow, mcqRow);
-
-  await interaction.showModal(modal);
-  if (isfirsttime === 0) {
-    questioninfo({ interaction, client });
-  } else {
-    const firsttimequestions = require("../js/firsttimequestions.js");
-
-    firsttimequestions({ interaction, client });
-  }
+		firsttimequestions({ interaction, client, tempApplicationId });
+	}
 };

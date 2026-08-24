@@ -1,102 +1,247 @@
 const {
-  SlashCommandBuilder,
-  ButtonBuilder,
-  ActionRowBuilder,
-  EmbedBuilder,
-  PermissionsBitField,
-  ChannelSelectMenuBuilder,
-  MessageFlags,
+	SlashCommandBuilder,
+	ButtonBuilder,
+	ActionRowBuilder,
+	EmbedBuilder,
+	PermissionsBitField,
+	ChannelSelectMenuBuilder,
+	MessageFlags,
 } = require("discord.js");
-const { ServerConfig } = require("../../dbObjects.js");
-const { createTemporarySetup } = require("../../js/tempconfigfuncs.js");
+const { ServerConfig, Application } = require("../../dbObjects.js");
+const { createTempApplication } = require("../../js/tempconfigfuncs.js");
+const { ServerConfigComponent } = require("../../js/serverConfigUI.js");
 
 const generalinfo = require("../../button_commands/setupbuttons/generalinfo.js");
+
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName("setup")
-    .setDescription("Set up the bot for your server")
-    .setContexts(0),
-  async execute({ interaction, client }) {
-    if (
-      !interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuild)
-    ) {
-      return interaction.reply({
-        content: "You need the `Manage Server` permission to run setup.",
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+	data: new SlashCommandBuilder()
+		.setName("setup")
+		.setDescription("Set up applications for your server")
+		.setContexts(0)
+		.addSubcommand((subcommand) =>
+			subcommand
+				.setName("create")
+				.setDescription("Create a new application")
+				.addStringOption((option) =>
+					option.setName("name").setDescription("Name of the new application").setRequired(true),
+				),
+		)
+		.addSubcommand((subcommand) =>
+			subcommand
+				.setName("edit")
+				.setDescription("Edit an existing application")
+				.addStringOption((option) =>
+					option
+						.setName("name")
+						.setDescription("Name of the application to edit")
+						.setRequired(true)
+						.setAutocomplete(true),
+				),
+		)
+		.addSubcommand((subcommand) =>
+			subcommand
+				.setName("delete")
+				.setDescription("Delete an existing application")
+				.addStringOption((option) =>
+					option
+						.setName("name")
+						.setDescription("Name of the application to delete")
+						.setRequired(true)
+						.setAutocomplete(true),
+				),
+		)
+		.addSubcommand((subcommand) => subcommand.setName("list").setDescription("List all applications for this server"))
+		.addSubcommand((subcommand) => subcommand.setName("server").setDescription("Edit server-wide configuration")),
 
-    const serverConfig = await ServerConfig.findOne({
-      where: { server_id: interaction.guild.id },
-    });
+	async autocomplete(interaction) {
+		const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
 
-    const { created } = await createTemporarySetup(interaction.guild.id);
+		const focusedValue = interaction.options.getFocused().toLowerCase();
+		const filtered = applications
+			.map((app) => app.name)
+			.filter((name) => name.toLowerCase().includes(focusedValue))
+			.slice(0, 25);
 
-    if (serverConfig && created === false) {
-      const ongoingsetup = new EmbedBuilder()
-        .setColor("#3f7ff1")
-        .setTitle("Melpo Verifier setup")
-        .setDescription(
-          `There's a previous setup that has not been applied. Would you like to continue with the previous setup or start a new one?\n**(starting a new setup does NOT overwrite already applied configurations)**`,
-        );
+		await interaction.respond(filtered.map((name) => ({ name, value: name })));
+	},
 
-      const continuebuttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("generalinfo_false")
-          .setLabel("Continue previous setup")
-          .setStyle("Success"),
-        new ButtonBuilder()
-          .setCustomId("generalinfo_true")
-          .setLabel("Start New Setup")
-          .setStyle("Primary"),
-      );
+	async execute({ interaction, client }) {
+		if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
+			return interaction.reply({
+				content: "You need the `Manage Server` permission to run setup.",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 
-      await interaction.reply({
-        embeds: [ongoingsetup],
-        components: [continuebuttons],
-      });
-    } else if (serverConfig && created === true) {
-      generalinfo({ interaction, client });
-    } else {
-      const nextbuttons = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`next_0`)
-          .setLabel("Next")
-          .setStyle("Primary")
-          .setDisabled(true),
-        new ButtonBuilder()
-          .setCustomId("cancelsetup")
-          .setLabel("Cancel")
-          .setStyle("Danger"),
-      );
+		const subcommand = interaction.options.getSubcommand();
+		const name = interaction.options.getString("name");
+		let serverConfig = await ServerConfig.findOne({ where: { server_id: interaction.guild.id } });
 
-      const generalembed = new EmbedBuilder()
-        .setColor("#3f7ff1")
-        .setTitle("Melpo Verifier first time setup")
-        .setDescription(
-          `[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nWelcome to the setup of Melpo Verifier! I will guide you through the setup process. I need 4 things to be set up in order to start securing your server. We'll start with the User Verification Start Channel.\n\nPlease select the channel where users will start the verification process and then click the "Next" button below to continue...`,
-        )
-        .addFields({
-          name: "User Verification Channel `(required)`",
-          value: `No channel set up yet`,
-          inline: false,
-        });
+		if (!serverConfig) {
+			serverConfig = await ServerConfig.create({
+				server_id: interaction.guild.id,
+				autorole: [],
+			});
+		}
 
-      const channelmenu = new ChannelSelectMenuBuilder()
-        .setCustomId("firstTimeMenu_0")
-        .addChannelTypes("GuildText")
-        .setPlaceholder("Select the channel users will start verification in")
-        .setMinValues(1)
-        .setMaxValues(1);
+		//check permissions
+		const botMember = await interaction.guild.members.fetchMe();
+		const channelPermissions = interaction.channel.permissionsFor(botMember);
 
-      const verificationchannelmenu = new ActionRowBuilder().setComponents(
-        channelmenu,
-      );
+		const requiredPermissions = [
+			PermissionsBitField.Flags.ViewChannel,
+			PermissionsBitField.Flags.SendMessages,
+			PermissionsBitField.Flags.EmbedLinks,
+			PermissionsBitField.Flags.AttachFiles,
+			PermissionsBitField.Flags.ManageMessages,
+		];
 
-      await interaction.reply({
-        embeds: [generalembed],
-        components: [verificationchannelmenu, nextbuttons],
-      });
-    }
-  },
+		if (!channelPermissions.has(requiredPermissions)) {
+			const missingBitfield = requiredPermissions.filter((perm) => !channelPermissions.has(perm));
+			const missingPermissions = new PermissionsBitField(missingBitfield)
+				.toArray()
+				.map((name) => `\`${name}\``)
+				.join(", ");
+
+			return interaction.reply({
+				content: `I'm missing the following permissions to work properly in this channel: ${missingPermissions}. Please ensure I have these permissions and try again.`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		const applications = await Application.findAll({ where: { server_id: interaction.guild.id } });
+		const maxApps = serverConfig.maxApplications || 10;
+
+		if (subcommand === "create") {
+			if (applications.length >= maxApps) {
+				return interaction.reply({
+					content: `You can only have up to ${maxApps} applications.`,
+					flags: MessageFlags.Ephemeral,
+				});
+			}
+
+			const existing = applications.find((a) => a.name.toLowerCase() === name.toLowerCase());
+			if (existing) {
+				return interaction.reply({
+					content: "An application with this name already exists.",
+					flags: MessageFlags.Ephemeral,
+				});
+			}
+
+			const { tempApp, created } = await createTempApplication(interaction.guild.id, { name });
+			if (!created) {
+				const embed = new EmbedBuilder()
+					.setTitle("Ongoing Application Setup")
+					.setDescription(`Setup for "${name}" is already in progress. Continue or start a new one?`)
+					.setColor("#3f7ff1");
+				const continuebuttons = new ActionRowBuilder().addComponents(
+					new ButtonBuilder()
+						.setCustomId(`generalinfo_${tempApp.id}_false`)
+						.setLabel("Continue previous setup")
+						.setStyle("Success"),
+					new ButtonBuilder()
+						.setCustomId(`generalinfo_${tempApp.id}_true`)
+						.setLabel("Start New Setup")
+						.setStyle("Primary"),
+				);
+				return interaction.reply({ embeds: [embed], components: [continuebuttons] });
+			}
+
+			const nextbuttons = new ActionRowBuilder().addComponents(
+				new ButtonBuilder().setCustomId(`next_0_${tempApp.id}`).setLabel("Next").setStyle("Primary").setDisabled(true),
+				new ButtonBuilder().setCustomId(`cancelsetup_${tempApp.id}`).setLabel("Cancel").setStyle("Danger"),
+			);
+
+			//NOTE : Hardcoded invite link, potentially move to DB or table? -mat
+			const generalembed = new EmbedBuilder()
+				.setColor("#3f7ff1")
+				.setTitle(`Application Setup: ${name}`)
+				.setDescription(
+					`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nWelcome to the setup of ${name}! I will guide you through the setup process. I need 4 things to be set up in order to start securing your server. We'll start with the User Verification Start Channel.\n\nPlease select the channel where users will start the verification process and then click the "Next" button below to continue...`,
+				)
+				.addFields({
+					name: "User Verification Channel `(required)`",
+					value: `No channel set up yet`,
+					inline: false,
+				});
+
+			const channelmenu = new ChannelSelectMenuBuilder()
+				.setCustomId(`firstTimeMenu_0_${tempApp.id}`)
+				.addChannelTypes("GuildText")
+				.setPlaceholder("Select the channel users will start verification in")
+				.setMinValues(1)
+				.setMaxValues(1);
+
+			const verificationchannelmenu = new ActionRowBuilder().setComponents(channelmenu);
+			await interaction.reply({ embeds: [generalembed], components: [verificationchannelmenu, nextbuttons] });
+		} else if (subcommand === "edit") {
+			const app = applications.find((a) => a.name.toLowerCase() === name.toLowerCase());
+			if (!app) return interaction.reply({ content: "Application not found.", flags: MessageFlags.Ephemeral });
+
+			const { tempApp, created } = await createTempApplication(interaction.guild.id, {
+				applicationId: app.id,
+				name: app.name,
+			});
+
+			if (!created) {
+				const embed = new EmbedBuilder()
+					.setTitle("Ongoing Application Edit")
+					.setDescription(`Edit for "${app.name}" is already in progress. Continue or start a new one?`)
+					.setColor("#3f7ff1");
+				const continuebuttons = new ActionRowBuilder().addComponents(
+					new ButtonBuilder()
+						.setCustomId(`generalinfo_${tempApp.id}_false`)
+						.setLabel("Continue previous setup")
+						.setStyle("Success"),
+					new ButtonBuilder()
+						.setCustomId(`generalinfo_${tempApp.id}_true`)
+						.setLabel("Start New Setup")
+						.setStyle("Primary"),
+				);
+				return interaction.reply({ embeds: [embed], components: [continuebuttons] });
+			}
+
+			// First time edit for this app
+			generalinfo({ interaction, client, tempApplicationId: tempApp.id });
+		} else if (subcommand === "server") {
+			const component = ServerConfigComponent({
+				guild: interaction.guild,
+				serverConfig,
+				applicationCount: applications.length,
+			});
+
+			return interaction.reply({ ...component, flags: [MessageFlags.IsComponentsV2] });
+		} else if (subcommand === "list") {
+			if (applications.length === 0) {
+				return interaction.reply({
+					content: "No applications found for this server.",
+					flags: MessageFlags.Ephemeral,
+				});
+			}
+			const appList = applications.map((app) => `- **${app.name}**`).join("\n");
+			const applicationlistEmbed = new EmbedBuilder()
+				.setTitle("Applications List")
+				.setDescription(
+					`You currently have ${applications.length} applications set up, you can configure them using these commands:\nEdit: \`/setup edit\`\nDelete: \`/setup delete\`\n${appList}`,
+				)
+				.setColor("#3f7ff1");
+
+			return interaction.reply({ embeds: [applicationlistEmbed] });
+		} else if (subcommand === "delete") {
+			const app = applications.find((a) => a.name.toLowerCase() === name.toLowerCase());
+			if (!app) return interaction.reply({ content: "Application not found.", flags: MessageFlags.Ephemeral });
+
+			const confirmationEmbed = new EmbedBuilder()
+				.setTitle("Confirm Deletion")
+				.setDescription(`Are you sure you want to delete the application "${app.name}"? This action cannot be undone.`)
+				.setColor("#ff3f3f");
+
+			const confirmationButtons = new ActionRowBuilder().addComponents(
+				new ButtonBuilder().setCustomId(`confirmdelete_${app.id}`).setLabel("Delete").setStyle("Danger"),
+				new ButtonBuilder().setCustomId(`canceldelete_${app.id}`).setLabel("Cancel").setStyle("Secondary"),
+			);
+
+			return interaction.reply({ embeds: [confirmationEmbed], components: [confirmationButtons] });
+		}
+	},
 };

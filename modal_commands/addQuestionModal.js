@@ -1,51 +1,48 @@
 const questioninfo = require("../button_commands/setupbuttons/questioninfo.js");
-const {
-  createTemporarySetup,
-  updateTemporarySetup,
-} = require("../js/tempconfigfuncs.js");
+const { updateTempApplication, getTempApplicationById } = require("../js/tempconfigfuncs.js");
+const { buildQuestionFromForm, normalizeQuestions } = require("../js/questionSetupUtils.js");
+const { MessageFlags } = require("discord.js");
 
 module.exports = async ({ interaction, client, context }) => {
-  const isfirsttime = parseInt(context[0]);
+	const isfirsttime = parseInt(context[0], 10);
+	const tempApplicationId = parseInt(context?.[1] ?? context?.[0], 10);
 
-  const question = interaction.fields.getTextInputValue(`question`);
-  const mcq = interaction.fields.getTextInputValue(`mcq`);
-  var mcqArray = mcq ? mcq.split("\n") : [];
+	if (!tempApplicationId || Number.isNaN(tempApplicationId)) {
+		return interaction.reply({
+			content: "Temp Application ID is missing. Please try again.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
 
-  if (mcqArray.length > 9) {
-    mcqArray = mcqArray.slice(0, 9);
-  }
+	const question = interaction.fields.getTextInputValue(`question`);
+	const mcq = interaction.fields.getTextInputValue(`mcq`);
+	let mcqArray = mcq ? mcq.split("\n") : [];
 
-  const { temporarySetup } = await createTemporarySetup(interaction.guild.id);
+	//allow max of 20 MCQ questions.
+	if (mcqArray.length > 20) {
+		mcqArray = mcqArray.slice(0, 20);
+	}
 
-  if (!temporarySetup.questions) {
-    temporarySetup.questions = [];
-  }
+	const { tempApp: temporarySetup, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+	if (error || !temporarySetup) {
+		return interaction.reply({
+			content: error || "Temporary setup not found. Please try again.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
 
-  temporarySetup.questions.push({ content: question, mcq: mcqArray });
+	if (!temporarySetup.questions) temporarySetup.questions = [];
 
-  temporarySetup.questions = temporarySetup.questions
-    ?.map((q) => {
-      if (typeof q === "string") {
-        try {
-          return JSON.parse(q);
-        } catch (error) {
-          console.error("Failed to parse question:", error);
-          return null;
-        }
-      }
-      return q;
-    })
-    .filter((q) => q !== null);
+	temporarySetup.questions = normalizeQuestions(temporarySetup.questions);
+	temporarySetup.questions.push(buildQuestionFromForm({ content: question, mcqInput: mcqArray }));
 
-  await updateTemporarySetup(interaction.guild.id, {
-    questions: temporarySetup.questions,
-  });
+	await updateTempApplication(interaction.guild.id, { questions: temporarySetup.questions }, { id: tempApplicationId });
 
-  if (isfirsttime === 0) {
-    questioninfo({ interaction, client });
-  } else {
-    const firsttimequestions = require("../js/firsttimequestions.js");
+	if (isfirsttime === 0) {
+		questioninfo({ interaction, client, tempApplicationId });
+	} else {
+		const firsttimequestions = require("../js/firsttimequestions.js");
 
-    firsttimequestions({ interaction });
-  }
+		firsttimequestions({ interaction, tempApplicationId });
+	}
 };

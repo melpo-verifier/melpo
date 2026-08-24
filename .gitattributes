@@ -1,0 +1,12 @@
+#Git attibutes file, this will auto convert \r\n to \n for plain text file types, mainly QOL for cross platform code.
+#General extensions
+*.js text           eol=lf
+*.mjs text          eol=lf
+*.json text         eol=lf
+#Text extensions
+*.md    text        eol=lf
+*.txt   text        eol=lf
+*.yml   text        eol=lf
+.env*   text        eol=lf
+LICENSE     text    eol=lf
+CODEOWNERS  text    eol=lf
