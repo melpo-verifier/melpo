@@ -476,10 +476,14 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 				.replace(/\${interaction.guild.name}/gi, guildName)
 				.replace(/{appName}/gi, application.name)
 		: `Your application into **${guildName}** has been denied.`;
+
+	const dmImage = resolveImage(application.denymessage.image);
+
 	const denyEmbed = new EmbedBuilder()
 		.setColor(application.denymessage?.color || "#EB2121")
 		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`);
+		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`)
+		.setImage(dmImage.embedUrl);
 
 	try {
 		await user.send({ embeds: [denyEmbed] });
