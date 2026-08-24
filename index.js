@@ -6,8 +6,60 @@ const { ClusterManager } = require("discord-hybrid-sharding"); // Discord shardi
 const cron = require("node-cron"); // Scheduled task wrapper.
 const { InviteTracker, TempConfig, QuestionId, Verification, Instances } = require("./dbObjects.js"); // Common database objects.
 const { Op } = require("sequelize"); // Database access library.
+const Sentry = require("@sentry/node");
 // const fs = require("node:fs");
 // const path = require("node:path");
+
+const clusterName = "Main";
+
+if (process.env.GLITCHTIP_DSN) {
+	Sentry.init({
+		dsn: process.env.GLITCHTIP_DSN,
+		enableLogs: true,
+		tracesSampleRate: 1.0,
+		autoSessionTracking: false,
+		sendDefaultPii: false,
+		integrations: [
+			Sentry.consoleLoggingIntegration({
+				levels: ["log", "info", "warn", "error"],
+			}),
+		],
+		// Modify event before sending as issue event to glitchtip
+		beforeSend(event) {
+			if (event.server_name) delete event.server_name;
+			if (event.environment) delete event.environment;
+
+			//remove unnecessary contexts
+			if (event.contexts) {
+				delete event.contexts.device;
+				delete event.contexts.app;
+				delete event.contexts.culture;
+				delete event.contexts.cloud_resource;
+				delete event.contexts.os;
+			}
+
+			return event;
+		},
+		// Modify breadcrumb before sending along with issue event to glitchtip
+		beforeBreadcrumb(breadcrumb) {
+			if (breadcrumb.category === "console") {
+				if (breadcrumb?.data?.arguments) {
+					delete breadcrumb.data.arguments;
+				}
+				if (breadcrumb?.data?.logger) {
+					delete breadcrumb.data.logger;
+				}
+			}
+			return breadcrumb;
+		},
+		// Modify log before sending to glitchtip logs
+		beforeSendLog(log) {
+			log.service = clusterName;
+			log.attributes = { ...log.attributes, service: clusterName };
+			return log;
+		},
+	});
+}
 
 console_hooks.SetPrefix("main");
 require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
