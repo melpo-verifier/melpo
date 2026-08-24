@@ -46,7 +46,6 @@ class ErrorHandler {
 
 		let clusterName;
 
-		console.log(client.cluster.id);
 		if (client.cluster?.id >= 0) {
 			clusterName = `${client.cluster.id}`;
 		} else {
