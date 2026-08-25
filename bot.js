@@ -292,44 +292,32 @@ async function createBot(token) {
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
 
 		try {
-			let botMember = member.guild.members.cache.get(client.user.id);
-			if (!botMember) {
-				botMember = await member.guild.members.fetch(client.user.id);
+			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
+			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
+
+			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
+			if (hasUncachedRoles) {
+				await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
 			}
 
-			if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
-
+			// WARNING: Will silently drop invalid roles without user notification. Might be nice to add in the future. -Milo
 			const botHighestPosition = botMember.roles.highest.position;
 			const validRoleIds = serverConfig.autorole.filter((roleId) => {
 				const role = member.guild.roles.cache.get(roleId);
-				return role && role.position < botHighestPosition;
+				return role && role.position < botHighestPosition && !role.managed;
 			});
 
 			if (!validRoleIds.length) return;
 
-			const rolePromises = validRoleIds?.map(async (roleId) => {
-				try {
-					await member.roles.add(roleId, "Auto-role assignment");
-				} catch (roleError) {
-					if (roleError.code === 10007) {
-						throw roleError;
-					} // Unknown Member
-
-					console.error(`Failed to add role ${roleId} to ${member.id}: ${roleError.message}`);
+			await member.roles.add(validRoleIds, "Auto-role assignment").catch((roleError) => {
+				if (roleError.code !== 10007) {
+					console.error(`Failed to add autoroles for ${member.id} in (${member.guild.id}): ${roleError.message}`);
 				}
 			});
-
-			await Promise.allSettled(rolePromises);
 		} catch (error) {
 			if (error.code !== 10007) {
 				ErrorHandler.handle(client, error);
 			}
-		} finally {
-			setTimeout(() => {
-				if (member.guild.members.cache.has(member.id)) {
-					member.guild.members.cache.delete(member.id);
-				}
-			}, 5000);
 		}
 	});
 
