@@ -64,12 +64,10 @@ if (process.env.GLITCHTIP_DSN) {
 console_hooks.SetPrefix("main");
 require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
-if (process.env.ISPRODUCTION === true) {
-	try {
-		require("./api/webhookListener");
-	} catch (error) {
-		console.error("Failed to initialize webhook listener.\n %O", error);
-	}
+try {
+	require("./api/webhookListener");
+} catch (error) {
+	console.error("Failed to initialize webhook listener.\n %O", error);
 }
 
 //Block : Node.js process hooks.
