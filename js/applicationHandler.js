@@ -1175,7 +1175,13 @@ async function Verificationfunc(
 
 									await submitAnswerAndAdvance(
 										currentQuestion,
-										{ content: fieldValue, mcqIndex: selectedOptionIndex },
+										{
+											content: fieldValue,
+											mcqIndex:
+												selectedOptions.length > 0
+													? selectedOptions.map((option) => option.index)
+													: [selectedOptionIndex],
+										},
 										nextQuestionId,
 									);
 								}

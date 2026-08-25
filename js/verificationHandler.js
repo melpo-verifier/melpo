@@ -468,10 +468,14 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 				.replace(/\${interaction.guild.name}/gi, guildName)
 				.replace(/{appName}/gi, application.name)
 		: `Your application into **${guildName}** has been denied.`;
+
+	const dmImage = resolveImage(application.denymessage.image);
+
 	const denyEmbed = new EmbedBuilder()
 		.setColor(application.denymessage?.color || "#EB2121")
 		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`);
+		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`)
+		.setImage(dmImage.embedUrl);
 
 	try {
 		await user.send({ embeds: [denyEmbed] });
@@ -1017,6 +1021,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 				messageids,
 				user: user,
 				status: VerificationStatus.DENIED,
+				reason,
 			});
 		} catch (logError) {
 			if (logError.code === 50001 || logError.code === 50013) {
@@ -1033,6 +1038,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		}
 	}
 
+	// If no separate log channel, edit the current message
 	if (
 		interaction?.message?.flags?.has(MessageFlags.IsComponentsV2) &&
 		(!application.verifylogs || application.reviewchannel === application.verifylogs)
@@ -1040,7 +1046,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		const { container, files } = relinkAttachments(interaction.message);
 
 		const tempMsg = { ...interaction.message, components: [container] };
-		const deniedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.DENIED);
+		const deniedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.DENIED, reason);
 		const editPayload = { flags: [MessageFlags.IsComponentsV2], components: [deniedContainer] };
 
 		if (files) editPayload.files = files;
