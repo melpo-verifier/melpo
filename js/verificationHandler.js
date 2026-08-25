@@ -985,9 +985,9 @@ async function denyUser(interaction, client, application, user, reason = null) {
 			},
 		});
 
-		if (denyCount + 1 >= application.maxdenials) rolesToApply.push(application.deniedrole);
+		if (denyCount + 1 >= application.maxdenials) rolesToApply.push(...application.deniedrole);
 	} else if (application.deniedrole?.length > 0) {
-		rolesToApply.push(application.deniedrole);
+		rolesToApply.push(...application.deniedrole);
 	}
 
 	if (rolesToApply.length > 0) {
