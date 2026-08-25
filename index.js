@@ -64,7 +64,7 @@ if (process.env.GLITCHTIP_DSN) {
 console_hooks.SetPrefix("main");
 require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 
-if (process.env.ISPRODUCTION === true) {
+if (process.env.NODE_ENV === "production") {
 	try {
 		require("./api/webhookListener");
 	} catch (error) {

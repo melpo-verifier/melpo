@@ -137,41 +137,49 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 	const errors = [];
 	const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
 
-	if (verifiedRoles && verifiedRoles.length > 0) {
-		for (const roleId of verifiedRoles) {
-			let role = interaction.guild.roles.cache.get(roleId);
-			if (!role) role = await interaction.guild.roles.fetch(roleId).catch(() => null);
+	if (!botMember?.permissions.has("ManageRoles")) {
+		errors.push("I don't have the `Manage Roles` permission in this server.");
+	}
+
+	const allRoleIds = [...(verifiedRoles || []), ...(unverifiedRoles || [])];
+	const hasUncachedRoles = allRoleIds.some((id) => !interaction.guild.roles.cache.has(id));
+
+	if (hasUncachedRoles) {
+		await interaction.guild.roles.fetch().catch(() => null);
+	}
+
+	function checkRoles(roleIds, action) {
+		if (!roleIds || roleIds.length === 0) return;
+
+		for (const roleId of roleIds) {
+			const role = interaction.guild.roles.cache.get(roleId);
 
 			if (!role) {
 				errors.push(
-					`Role with ID ${roleId} not found (might have been deleted). Please update your server configuration.`,
+					`Role with ID \`${roleId}\` not found (might have been deleted). Please update your server configuration.`,
 				);
 				continue;
 			}
 
-			if (botMember.roles.highest.comparePositionTo(role) <= 0)
-				errors.push(`Cannot assign role ${role.name} because it's higher than or equal to my highest role.`);
+			if (botMember.roles.highest.comparePositionTo(role) <= 0) {
+				errors.push(`Cannot ${action} role ${role.name} because it's higher than or equal to my highest role.`);
+			}
+
+			if (role.managed) {
+				errors.push(
+					`• **Managed Role** (${role}): This is an integration/bot role and cannot be manually assigned or removed.`,
+				);
+			}
 		}
-	} else {
+	}
+
+	if (!verifiedRoles || verifiedRoles.length === 0) {
 		errors.push("No verified role set up. Please set up a verified role using the `/setup` command.");
+	} else {
+		checkRoles(verifiedRoles, "assign");
 	}
 
-	if (unverifiedRoles && unverifiedRoles.length > 0) {
-		for (const roleId of unverifiedRoles) {
-			let role = interaction.guild.roles.cache.get(roleId);
-
-			if (!role) role = await interaction.guild.roles.fetch(roleId).catch(() => null);
-			if (!role) {
-				errors.push(
-					`Role with ID ${roleId} not found (might have been deleted). Please update your server configuration.`,
-				);
-				continue;
-			}
-
-			if (role && botMember.roles.highest.comparePositionTo(role) <= 0)
-				errors.push(`Cannot remove role ${role.name} because it's higher than or equal to my highest role.`);
-		}
-	}
+	checkRoles(unverifiedRoles, "remove");
 
 	return errors;
 }
@@ -179,26 +187,26 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 // Apply roles to user (add verified, remove unverified)
 async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
 	if (unverifiedRoles && unverifiedRoles.length > 0) {
-		for (const roleId of unverifiedRoles) {
-			await user.roles.remove(roleId).catch((err) => {
-				if (err.code === 10011)
-					interaction.channel
-						.send(`Unknown role ${roleId} during removal, skipping. Please reconfigure your roles in setup.`)
-						.catch(() => {});
-				else console.error(`Failed to remove role ${roleId}: ${err.message}`);
-			});
+		try {
+			await user.roles.remove(unverifiedRoles);
+		} catch (err) {
+			console.error(`Failed to remove unverified roles (${interaction.guild.id}): ${err.message}`);
+			await interaction.channel
+				.send(
+					`Failed to remove unverified roles. Please check my permissions and role hierarchy. Error: ${err.message}`,
+				)
+				.catch(() => {});
 		}
 	}
 
 	if (verifiedRoles && verifiedRoles.length > 0) {
-		for (const roleId of verifiedRoles) {
-			await user.roles.add(roleId).catch((err) => {
-				if (err.code === 10011)
-					interaction.channel
-						.send(`Unknown role ${roleId} during addition, skipping. Please reconfigure your roles in setup.`)
-						.catch(() => {});
-				else console.error(`Failed to add role ${roleId}: ${err.message}`);
-			});
+		try {
+			await user.roles.add(verifiedRoles);
+		} catch (err) {
+			console.error(`Failed to add verified roles (${interaction.guild.id}): ${err.message}`);
+			await interaction.channel
+				.send(`Failed to add verified roles. Please check my permissions and role hierarchy. Error: ${err.message}`)
+				.catch(() => {});
 		}
 	}
 }
