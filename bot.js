@@ -292,12 +292,12 @@ async function createBot(token) {
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
 
 		try {
-			const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
+			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
 			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
 			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
 			if (hasUncachedRoles) {
-				await member.guild.roles.fetch().catch(() => null);
+				await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
 			}
 
 			// WARNING: Will silently drop invalid roles without user notification. Might be nice to add in the future. -Milo
