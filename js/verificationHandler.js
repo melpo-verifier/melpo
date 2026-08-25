@@ -1021,6 +1021,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 				messageids,
 				user: user,
 				status: VerificationStatus.DENIED,
+				reason,
 			});
 		} catch (logError) {
 			if (logError.code === 50001 || logError.code === 50013) {
@@ -1037,6 +1038,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		}
 	}
 
+	// If no separate log channel, edit the current message
 	if (
 		interaction?.message?.flags?.has(MessageFlags.IsComponentsV2) &&
 		(!application.verifylogs || application.reviewchannel === application.verifylogs)
@@ -1044,7 +1046,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		const { container, files } = relinkAttachments(interaction.message);
 
 		const tempMsg = { ...interaction.message, components: [container] };
-		const deniedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.DENIED);
+		const deniedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.DENIED, reason);
 		const editPayload = { flags: [MessageFlags.IsComponentsV2], components: [deniedContainer] };
 
 		if (files) editPayload.files = files;
