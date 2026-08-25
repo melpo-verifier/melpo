@@ -218,7 +218,7 @@ const manager = new ClusterManager("./bot.js", {
 	totalShards: "auto",
 	// totalShards: 3,
 	totalClusters: "auto",
-	shardsPerClusters: 2,
+	shardsPerClusters: 8,
 	token: process.env.MELPO_TOKEN,
 	shardArgs: ["sharded"],
 });
