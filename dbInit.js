@@ -24,6 +24,7 @@ require("./models/blacklist.js")(sequelize, Sequelize.DataTypes);
 require("./models/Submissions.js")(sequelize, Sequelize.DataTypes);
 require("./models/PremiumSubscription.js")(sequelize, Sequelize.DataTypes);
 require("./models/GuildWebhook.js")(sequelize, Sequelize.DataTypes);
+require("./models/pendingActions.js")(sequelize, Sequelize.DataTypes);
 
 const force = process.argv.includes("--force") || process.argv.includes("-f");
 const alter = process.argv.includes("--alter") || process.argv.includes("-a");

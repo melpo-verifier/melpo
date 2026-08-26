@@ -24,6 +24,7 @@ const Blacklist = require("./models/blacklist.js")(sequelize, Sequelize.DataType
 const Submissions = require("./models/Submissions.js")(sequelize, Sequelize.DataTypes);
 const GuildWebhook = require("./models/GuildWebhook.js")(sequelize, Sequelize.DataTypes);
 const PremiumSubscription = require("./models/PremiumSubscription.js")(sequelize, Sequelize.DataTypes);
+const PendingActions = require("./models/pendingActions.js")(sequelize, Sequelize.DataTypes);
 
 ServerConfig.hasMany(Application, { foreignKey: "server_id", onDelete: "CASCADE" });
 Application.belongsTo(ServerConfig, { foreignKey: "server_id" });
@@ -46,4 +47,5 @@ module.exports = {
 	Submissions,
 	GuildWebhook,
 	PremiumSubscription,
+	PendingActions,
 };
