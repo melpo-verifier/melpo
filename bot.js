@@ -1,5 +1,5 @@
 //-Initial house keeping
-Error.stackTraceLimit = 5; // (v8/chrome)Set stack limit to 5 to focus on performance over debug depth. - mat
+Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on performance over debug depth. - mat (changed to 30 since debug depth is most important - milo)
 //-Varible Imports
 const console_hooks = require("./util/console_hooks.js"); // Component : Console class hooking functionality -mat
 const fs = require("node:fs"); // Library : Node js file system module.
@@ -22,6 +22,7 @@ const RateLimitError = require("./js/RateLimitHandling.js"); // Component : Rate
 const CommandLoader = require("./js/CommandLoader.js"); // Component : Command loader.
 // const MemoryManager = require("./js/MemoryManager.js"); //
 const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Library : Discord sharding parts.
+const Sentry = require("@sentry/node");
 
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	console.log("sharded arrived!");
@@ -86,9 +87,61 @@ async function createBot(token) {
 
 	const client = new Client(clientOptions);
 
+	let clusterName = process.env.name ? process.env.name.split("_").pop() : "Custom";
+
 	if (isSharded) {
 		client.cluster = new ClusterClient(client);
+		clusterName = `Cluster ${client.cluster.id}`;
 		console_hooks.SetPrefix(`Cluster ${String(client.cluster.id)}`); //Tag cluster in console hooker - Mat
+	}
+
+	if (process.env.GLITCHTIP_DSN) {
+		Sentry.init({
+			dsn: process.env.GLITCHTIP_DSN,
+			enableLogs: true,
+			tracesSampleRate: 1.0,
+			autoSessionTracking: false,
+			sendDefaultPii: false,
+			integrations: [
+				Sentry.consoleLoggingIntegration({
+					levels: ["log", "info", "warn", "error"],
+				}),
+			],
+			// Modify event before sending as issue event to glitchtip
+			beforeSend(event) {
+				if (event.server_name) delete event.server_name;
+				if (event.environment) delete event.environment;
+
+				//remove unnecessary contexts
+				if (event.contexts) {
+					delete event.contexts.device;
+					delete event.contexts.app;
+					delete event.contexts.culture;
+					delete event.contexts.cloud_resource;
+					delete event.contexts.os;
+				}
+
+				return event;
+			},
+			// Modify breadcrumb before sending along with issue event to glitchtip
+			beforeBreadcrumb(breadcrumb) {
+				if (breadcrumb.category === "console") {
+					if (breadcrumb?.data?.arguments) {
+						delete breadcrumb.data.arguments;
+					}
+					if (breadcrumb?.data?.logger) {
+						delete breadcrumb.data.logger;
+					}
+				}
+				return breadcrumb;
+			},
+			// Modify log before sending to glitchtip logs
+			beforeSendLog(log) {
+				log.service = clusterName;
+				log.attributes = { ...log.attributes, service: clusterName };
+				return log;
+			},
+		});
 	}
 
 	new InviteManager(client);
@@ -239,44 +292,32 @@ async function createBot(token) {
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
 
 		try {
-			let botMember = member.guild.members.cache.get(client.user.id);
-			if (!botMember) {
-				botMember = await member.guild.members.fetch(client.user.id);
+			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
+			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
+
+			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
+			if (hasUncachedRoles) {
+				await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
 			}
 
-			if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
-
+			// WARNING: Will silently drop invalid roles without user notification. Might be nice to add in the future. -Milo
 			const botHighestPosition = botMember.roles.highest.position;
 			const validRoleIds = serverConfig.autorole.filter((roleId) => {
 				const role = member.guild.roles.cache.get(roleId);
-				return role && role.position < botHighestPosition;
+				return role && role.position < botHighestPosition && !role.managed;
 			});
 
 			if (!validRoleIds.length) return;
 
-			const rolePromises = validRoleIds?.map(async (roleId) => {
-				try {
-					await member.roles.add(roleId, "Auto-role assignment");
-				} catch (roleError) {
-					if (roleError.code === 10007) {
-						throw roleError;
-					} // Unknown Member
-
-					console.error(`Failed to add role ${roleId} to ${member.id}: ${roleError.message}`);
+			await member.roles.add(validRoleIds, "Auto-role assignment").catch((roleError) => {
+				if (roleError.code !== 10007) {
+					console.error(`Failed to add autoroles for ${member.id} in (${member.guild.id}): ${roleError.message}`);
 				}
 			});
-
-			await Promise.allSettled(rolePromises);
 		} catch (error) {
 			if (error.code !== 10007) {
 				ErrorHandler.handle(client, error);
 			}
-		} finally {
-			setTimeout(() => {
-				if (member.guild.members.cache.has(member.id)) {
-					member.guild.members.cache.delete(member.id);
-				}
-			}, 5000);
 		}
 	});
 

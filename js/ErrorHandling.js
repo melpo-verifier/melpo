@@ -2,6 +2,7 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { BaseError: SequelizeBaseError } = require("sequelize"); //Sequalise base error class, remapped to a particular error type - mat
 const RateLimitError = require("./RateLimitHandling.js");
+const Sentry = require("@sentry/node");
 
 class ErrorHandler {
 	static ERROR_TYPES = {
@@ -42,6 +43,92 @@ class ErrorHandler {
 		const errorType = ErrorHandler.classifyError(error);
 
 		ErrorHandler.updateErrorStats(errorType);
+
+		let clusterName;
+
+		if (client.cluster?.id >= 0) {
+			clusterName = `${client.cluster.id}`;
+		} else {
+			clusterName = process.env.name ? process.env.name.split("_").pop() : "Custom";
+		}
+
+		Sentry.withScope((scope) => {
+			scope.setTag("error_id", errorId);
+			scope.setTag("cluster", clusterName);
+
+			if (interaction) {
+				const commandName = interaction.commandName ?? interaction.customId?.split("_")?.[0] ?? "Unknown";
+				scope.setTag("command", commandName);
+				scope.setTag("guild_id", interaction.guild?.id || "DM");
+				scope.setTag("interaction_type", interaction.type?.toString() || "Unknown");
+			}
+			if (context) {
+				scope.setTag("context_type", context);
+			}
+
+			if (interaction?.guild && interaction.channel) {
+				const botPermissions = interaction.channel.permissionsFor(interaction.guild.members.me);
+
+				scope.setContext("Channel Bot Permissions", {
+					can_view_channel: botPermissions?.has("ViewChannel") ?? false,
+					can_send_messages: botPermissions?.has("SendMessages") ?? false,
+					can_read_message_history: botPermissions?.has("ReadMessageHistory") ?? false,
+					can_embed_links: botPermissions?.has("EmbedLinks") ?? false,
+					can_create_private_threads: botPermissions?.has("CreatePrivateThreads") ?? false,
+					can_create_public_threads: botPermissions?.has("CreatePublicThreads") ?? false,
+					can_send_messages_in_threads: botPermissions?.has("SendMessagesInThreads") ?? false,
+					can_manage_threads: botPermissions?.has("ManageThreads") ?? false,
+					can_manage_messages: botPermissions?.has("ManageMessages") ?? false,
+					raw_permissions_bitfield: botPermissions?.bitfield?.toString() || "0",
+				});
+			}
+
+			// Add specific fields for subErrors
+			if (error?.errors && Array.isArray(error.errors)) {
+				for (const [key, subError] of error.errors) {
+					const fieldDetails = {
+						message: subError.message || subError.toString?.(),
+						...subError,
+					};
+					scope.setContext(`Field Error: ${key}`, fieldDetails);
+				}
+			}
+
+			if (interaction) {
+				const commandArgs = interaction.options?.data?.reduce((acc, opt) => {
+					acc[opt.name] = opt.value ?? (opt.user?.id || opt.role?.id || "True");
+					return acc;
+				}, {});
+
+				scope.setContext("Discord Interaction", {
+					channel_id: interaction.channelId,
+					user_id: interaction.user?.id,
+					options: commandArgs,
+					locale: interaction.locale,
+					guild_member_count: interaction.guild?.memberCount || 0,
+					custom_id: interaction.customId || null,
+					is_deferred: interaction.deferred,
+					is_replied: interaction.replied,
+					interaction_created_at: new Date(interaction.createdTimestamp).toISOString(),
+				});
+
+				scope.setUser({
+					id: interaction.user.id,
+					username: interaction.user.tag,
+				});
+			}
+
+			scope.setContext("Bot Performance & State", {
+				shard_ping: client.ws?.ping ?? 0,
+				shard_id: interaction?.guild?.shardId ?? client.shard?.ids[0] ?? 0,
+				guilds_cached_on_cluster: client.guilds?.cache?.size ?? 0,
+				users_cached_on_cluster: client.users?.cache?.size ?? 0,
+				uptime_seconds: Math.floor(process.uptime()),
+				memory_usage_mb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+			});
+
+			Sentry.captureException(error);
+		});
 
 		console.error(`[${timestamp}] Error ${errorId} (${errorType}):`, {
 			message: error.message,
