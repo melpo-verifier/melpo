@@ -1,5 +1,5 @@
 //-Initial house keeping
-Error.stackTraceLimit = 5; // (v8/chrome)Set stack limit to 5 to focus on performance over debug depth. - mat
+Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on performance over debug depth. - mat (changed to 30 since debug depth is most important - milo)
 //-Varible Imports
 const console_hooks = require("./util/console_hooks.js"); // Console class hooking functionality -mat
 const { ClusterManager } = require("discord-hybrid-sharding"); // Discord sharding parts.
