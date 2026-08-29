@@ -83,8 +83,14 @@ class ErrorHandler {
 				});
 			}
 
+			if (Array.isArray(error?.parent?.errors)) {
+				for (const [key, value] of Object.entries(error.parent.errors)) {
+					scope.setContext(`Parent Error: ${key}`, value);
+				}
+			}
+
 			// Add specific fields for subErrors
-			if (error?.errors && Array.isArray(error.errors)) {
+			if (Array.isArray(error?.errors)) {
 				for (const [key, subError] of error.errors) {
 					const fieldDetails = {
 						message: subError.message || subError.toString?.(),
