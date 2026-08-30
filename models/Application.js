@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
 			finishmessage: { type: DataTypes.JSONB, defaultValue: def_embeds.verify_dm_finish, allowNull: false },
 			denymessage: { type: DataTypes.JSONB, defaultValue: def_embeds.verify_dm_deny, allowNull: false },
 			usethreads: { type: DataTypes.BOOLEAN, defaultValue: false },
+			autoRemoveDeniedRoleEnabled: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
+			autoRemoveDeniedRoleHours: { type: DataTypes.INTEGER, defaultValue: 24, allowNull: false },
+			autoKickUnverifiedEnabled: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
+			cancelKickOnSubmission: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
+			autoKickUnverifiedHours: { type: DataTypes.INTEGER, defaultValue: 48, allowNull: false },
 		},
 		{
 			indexes: [{ unique: true, fields: ["server_id", "name"] }],
