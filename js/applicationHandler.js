@@ -747,13 +747,15 @@ async function processVerificationResult(
 				if (rolesToApply.length > 0 && member.roles) {
 					try {
 						await applyRoles(member, rolesToApply, null, interaction);
-						await scheduleAction({
-							guildId: interaction.guild.id,
-							userId: user.id,
-							applicationId: application.id,
-							actionType: "REMOVE_DENIED_ROLE",
-							durationMs: application.autoRemoveDeniedRoleHours * 60 * 60 * 1000,
-						}).catch((err) => console.error(`Failed to schedule deny role action for user ${user.id}:`, err));
+						if (application.autoRemoveDeniedRoleEnabled && application.autoRemoveDeniedRoleHours > 0) {
+							await scheduleAction({
+								guildId: interaction.guild.id,
+								userId: user.id,
+								applicationId: application.id,
+								actionType: "REMOVE_DENIED_ROLE",
+								durationMs: application.autoRemoveDeniedRoleHours * 60 * 60 * 1000,
+							}).catch((err) => console.error(`Failed to schedule deny role action for user ${user.id}:`, err));
+						}
 					} catch (e) {
 						console.error("Failed to apply denied role due to auto-action", e);
 					}

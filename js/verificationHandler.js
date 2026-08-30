@@ -1008,13 +1008,15 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		}
 
 		await applyRoles(user, rolesToApply, null, interaction);
-		await scheduleAction({
-			guildId: interaction.guild.id,
-			userId: user.id,
-			applicationId: application.id,
-			actionType: "REMOVE_DENIED_ROLE",
-			durationMs: application.autoRemoveDeniedRoleHours * 60 * 60 * 1000,
-		}).catch((err) => console.error(`Failed to schedule deny role action for user ${user.id}:`, err));
+		if (application.autoRemoveDeniedRoleEnabled && application.autoRemoveDeniedRoleHours > 0) {
+			await scheduleAction({
+				guildId: interaction.guild.id,
+				userId: user.id,
+				applicationId: application.id,
+				actionType: "REMOVE_DENIED_ROLE",
+				durationMs: application.autoRemoveDeniedRoleHours * 60 * 60 * 1000,
+			}).catch((err) => console.error(`Failed to schedule deny role action for user ${user.id}:`, err));
+		}
 	}
 
 	if (!messageids || messageids.length === 0) {
