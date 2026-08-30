@@ -3,6 +3,9 @@ const { PendingActions, Application } = require("../dbObjects.js");
 const { isPremiumServer } = require("./DBFunctions.js");
 
 async function scheduleAction({ guildId, userId, applicationId, actionType, durationMs }) {
+	if (!Number.isFinite(durationMs) || durationMs <= 0) {
+		throw new TypeError("durationMs must be a positive number of milliseconds");
+	}
 	const executeAt = new Date(Date.now() + durationMs);
 
 	return await PendingActions.create({

@@ -747,7 +747,11 @@ async function processVerificationResult(
 				if (rolesToApply.length > 0 && member.roles) {
 					try {
 						await applyRoles(member, rolesToApply, null, interaction);
-						if (application.autoRemoveDeniedRoleEnabled && application.autoRemoveDeniedRoleHours > 0) {
+						if (
+							application.autoRemoveDeniedRoleEnabled &&
+							application.autoRemoveDeniedRoleHours > 0 &&
+							(await isPremiumServer(interaction.guild.id))
+						) {
 							await scheduleAction({
 								guildId: interaction.guild.id,
 								userId: user.id,

@@ -1008,7 +1008,11 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		}
 
 		await applyRoles(user, rolesToApply, null, interaction);
-		if (application.autoRemoveDeniedRoleEnabled && application.autoRemoveDeniedRoleHours > 0) {
+		if (
+			application.autoRemoveDeniedRoleEnabled &&
+			application.autoRemoveDeniedRoleHours > 0 &&
+			(await isPremiumServer(interaction.guild.id))
+		) {
 			await scheduleAction({
 				guildId: interaction.guild.id,
 				userId: user.id,
