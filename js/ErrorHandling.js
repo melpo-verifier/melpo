@@ -83,6 +83,17 @@ class ErrorHandler {
 				});
 			}
 
+			// Add specific fields for subErrors
+			if (error?.errors && Array.isArray(error.errors)) {
+				for (const [key, subError] of error.errors) {
+					const fieldDetails = {
+						message: subError.message || subError.toString?.(),
+						...subError,
+					};
+					scope.setContext(`Field Error: ${key}`, fieldDetails);
+				}
+			}
+
 			if (interaction) {
 				const commandArgs = interaction.options?.data?.reduce((acc, opt) => {
 					acc[opt.name] = opt.value ?? (opt.user?.id || opt.role?.id || "True");
