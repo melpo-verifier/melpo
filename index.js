@@ -7,6 +7,8 @@ const cron = require("node-cron"); // Scheduled task wrapper.
 const { InviteTracker, TempConfig, QuestionId, Verification, Instances } = require("./dbObjects.js"); // Common database objects.
 const { Op } = require("sequelize"); // Database access library.
 const Sentry = require("@sentry/node");
+const { startActionWorker } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
+
 // const fs = require("node:fs");
 // const path = require("node:path");
 
@@ -264,7 +266,12 @@ manager.on("clusterCreate", (cluster) => {
 });
 
 //Added a catch to this to identify failure more cleanly - mat
-manager.spawn().catch((reason) => console.error("Failed to spawn cluster manager.\n %O", reason));
+manager
+	.spawn()
+	.then(() => {
+		startActionWorker(manager, 5000); // Start the action worker with a 5-second interval
+	})
+	.catch((reason) => console.error("Failed to spawn cluster manager.\n %O", reason));
 global.shardManager = manager;
 
 function initializeAPI() {

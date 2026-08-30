@@ -4,7 +4,6 @@ const cron = require("node-cron");
 const { resumeApplication } = require("../js/applicationHandler.js");
 //const { status } = require("express/lib/response.js");
 const { _status } = require("express/lib/response.js");
-const { startActionWorker } = require("../js/scheduler.js"); // Component : Scheduler for pending actions
 
 module.exports = {
 	name: Events.ClientReady,
@@ -56,7 +55,5 @@ module.exports = {
 				setPresence().catch(() => {});
 			}
 		});
-
-		startActionWorker(client, 5000); // Start the action worker with a 60-second interval
 	},
 };

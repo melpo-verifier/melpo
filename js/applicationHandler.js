@@ -663,6 +663,9 @@ async function processVerificationResult(
 			console.error("Error saving final application progress:", progressError);
 		}
 
+		const { isPremiumServer } = require(path.join(process.cwd(), "js/DBFunctions.js"));
+		const { scheduleAction, cancelPendingActions } = require(path.join(process.cwd(), "js/scheduler.js"));
+
 		if (reason === "completed") {
 			try {
 				const [verification, created] = await Verification.findOrCreate({
@@ -702,6 +705,16 @@ async function processVerificationResult(
 			await dmChannel
 				.send({ embeds: [endEmbed] })
 				.catch((err) => console.error(`Failed to send completion DM to user ${user.id}:`, err));
+
+			//Delete any kick-timer if server has setup auto-kick and cancel kick upon submission is enabled
+			if (application.cancelKickOnSubmission === true) {
+				await cancelPendingActions({
+					guildId: interaction.guild.id,
+					userId: user.id,
+					applicationId: applicationId,
+					actionType: "UNVERIFIED_KICK",
+				}).catch((err) => console.error(`Failed to cancel pending kick for user ${user.id}:`, err));
+			}
 		} else {
 			let member;
 			try {
@@ -710,7 +723,6 @@ async function processVerificationResult(
 				member = { user, id: user.id, displayAvatarURL: user.displayAvatarURL.bind(user) };
 			}
 
-			const { isPremiumServer } = require(path.join(process.cwd(), "js/DBFunctions.js"));
 			if (reason === "deny") {
 				const rolesToApply = [];
 				if (
@@ -727,14 +739,21 @@ async function processVerificationResult(
 						},
 					});
 
-					if (denyCount >= application.maxdenials) rolesToApply.push(application.deniedrole);
+					if (denyCount >= application.maxdenials) rolesToApply.push(...application.deniedrole);
 				} else if (application.deniedrole?.length > 0) {
-					rolesToApply.push(application.deniedrole);
+					rolesToApply.push(...application.deniedrole);
 				}
 
 				if (rolesToApply.length > 0 && member.roles) {
 					try {
 						await applyRoles(member, rolesToApply, null, interaction);
+						await scheduleAction({
+							guildId: interaction.guild.id,
+							userId: user.id,
+							applicationId: application.id,
+							actionType: "REMOVE_DENIED_ROLE",
+							durationMs: application.autoRemoveDeniedRoleHours * 60 * 60 * 1000,
+						}).catch((err) => console.error(`Failed to schedule deny role action for user ${user.id}:`, err));
 					} catch (e) {
 						console.error("Failed to apply denied role due to auto-action", e);
 					}
