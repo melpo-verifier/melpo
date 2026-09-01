@@ -483,7 +483,7 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 	const denyEmbed = new EmbedBuilder()
 		.setColor(application.denymessage?.color || "#EB2121")
 		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`)
+  		.setDescription((`${description}${reason ? `\n**Reason:** ${reason}` : ''}`).slice(0, 4096))
 		.setImage(dmImage.embedUrl);
 
 	try {
@@ -500,7 +500,7 @@ async function sendKickDM(user, guildName, reason = null) {
 	const kickEmbed = new EmbedBuilder()
 		.setColor("#EB2121")
 		.setTitle(`Kicked from ${guildName}`)
-		.setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`);
+		.setDescription((`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`).slice(0, 4096));
 
 	try {
 		await user.send({ embeds: [kickEmbed] });
