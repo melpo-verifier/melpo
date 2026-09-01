@@ -1,5 +1,5 @@
 //-Initial house keeping
-Error.stackTraceLimit = 5; // (v8/chrome)Set stack limit to 5 to focus on performance over debug depth. - mat
+Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on performance over debug depth. - mat (changed to 30 since debug depth is most important - milo)
 //-Varible Imports
 const console_hooks = require("./util/console_hooks.js"); // Component : Console class hooking functionality -mat
 const fs = require("node:fs"); // Library : Node js file system module.
@@ -23,6 +23,8 @@ const CommandLoader = require("./js/CommandLoader.js"); // Component : Command l
 // const MemoryManager = require("./js/MemoryManager.js"); //
 const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Library : Discord sharding parts.
 const Sentry = require("@sentry/node");
+const { isPremiumServer } = require("./js/DBFunctions.js");
+const { scheduleAction } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
 
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	console.log("sharded arrived!");
@@ -287,6 +289,25 @@ async function createBot(token) {
 		} catch (error) {
 			console.error("Failed to fetch server config:", error);
 			return;
+		}
+
+		//Go through any of the applications in that server and check if any of them has the auto-kick feature enabled. If so, schedule a kick action.
+		if (await isPremiumServer(member.guild.id)) {
+			const applications = await Application.findAll({
+				where: { server_id: member.guild.id },
+				attributes: ["id", "autoKickUnverifiedEnabled", "autoKickUnverifiedHours"],
+			});
+			for (const app of applications) {
+				if (app.autoKickUnverifiedEnabled && app.autoKickUnverifiedHours > 0) {
+					await scheduleAction({
+						guildId: member.guild.id,
+						userId: member.id,
+						applicationId: app.id,
+						actionType: "UNVERIFIED_KICK",
+						durationMs: app.autoKickUnverifiedHours * 60 * 60 * 1000,
+					});
+				}
+			}
 		}
 
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
