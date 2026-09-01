@@ -12,6 +12,7 @@ const {
 const { QuestionId } = require("../dbObjects.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 // MAYBE EASIER TO CHANGE DATABASE TO A USER RELATED DATABASE, NOT MESSAGE ID RELATED DATABASE IN CASE IF THE USER LEAVES THE SERVER (USER -> GUILD1: {...}, gUILD2: {...})
+const safeTruncate = (str) => (str.length > 1024 ? `${str.slice(0, 1024 - 3)}...` : str);
 
 module.exports = async ({ interaction, client }) => {
 	if (interaction.replied || interaction.deferred) {
@@ -106,7 +107,7 @@ module.exports = async ({ interaction, client }) => {
 		const attachmentUrls = [];
 
 		// Truncate if too long
-		if (answercontent.length > 1024) answercontent += String(answercontent.substring(0, 1021)).concat("...");
+		answercontent = safeTruncate(answercontent);
 
 		const questionform = interaction.message.embeds[0];
 		if (totalcontent.length + questionform.fields[0].value.length > 3800)
