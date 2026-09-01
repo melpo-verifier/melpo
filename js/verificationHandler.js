@@ -397,7 +397,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 
 		const welcomeEmbed = new EmbedBuilder()
 			.setTitle(finalTitle?.trim() ? finalTitle.slice(0, 256) : null)
-			.setDescription(finalDescription)
+			.setDescription(finalDescription.slice(0, 4096))
 			.setColor(welcomeMessage.color ?? "#3f7ff1")
 			.setImage(imageAsset.embedUrl);
 

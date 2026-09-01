@@ -181,7 +181,7 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
 		if (step === 0) {
 			if (collected.content.length > 256) {
 				return sendMessage(
-					"interactionreply",
+					"messagereply",
 					"Custom welcome message has been cancelled: The title exceeds the 256 character limit. Please provide a shorter title.",
 				);
 			}
@@ -196,7 +196,7 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
 		} else if (step === 1) {
 			if (collected.content.length > 4096) {
 				return sendMessage(
-					"interactionreply",
+					"messagereply",
 					"Custom welcome message has been cancelled: The description exceeds the 4096 character limit. Please provide a shorter description.",
 				);
 			}

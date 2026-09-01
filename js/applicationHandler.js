@@ -929,6 +929,8 @@ async function Verificationfunc(
 		}
 
 		function createQuestionEmbed(question, responselength) {
+			const safeTruncate = (str) => (str.length > 1024 ? `${str.slice(0, 1024 - 3)}...` : str);
+
 			const DMEmbed = new EmbedBuilder()
 				.setColor("#3f7ff1")
 				.setFooter({ text: 'Click "cancel" to cancel the verification.' });
@@ -955,7 +957,7 @@ async function Verificationfunc(
 
 					DMEmbed.addFields({
 						name: `Question \`${responselength + 1}\``,
-						value: `${question.content}\n\n${mcqWithEmojis}`,
+						value: safeTruncate(`${question.content}\n\n${mcqWithEmojis}`),
 					});
 				} else {
 					const options = question.mcq.slice(0, 25).map((option, index) => ({
@@ -971,10 +973,10 @@ async function Verificationfunc(
 							.setMaxValues(question.allowMultipleSelections ? options.length : 1),
 					);
 
-					DMEmbed.addFields({ name: `Question \`${responselength + 1}\``, value: `${question.content}` });
+					DMEmbed.addFields({ name: `Question \`${responselength + 1}\``, value: safeTruncate(`${question.content}`) });
 				}
 			} else {
-				DMEmbed.addFields({ name: `Question \`${responselength + 1}\``, value: question.content });
+				DMEmbed.addFields({ name: `Question \`${responselength + 1}\``, value: safeTruncate(`${question.content}`) });
 				actionRow = null;
 			}
 
