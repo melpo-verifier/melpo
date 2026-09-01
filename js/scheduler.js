@@ -8,13 +8,18 @@ async function scheduleAction({ guildId, userId, applicationId, actionType, dura
 	}
 	const executeAt = new Date(Date.now() + durationMs);
 
-	return await PendingActions.create({
-		guildId,
-		userId,
-		applicationId,
-		actionType,
-		executeAt,
-	});
+	return await PendingActions.upsert(
+		{
+			guildId,
+			userId,
+			applicationId,
+			actionType,
+			executeAt,
+		},
+		{
+			conflictFields: ["guildId", "userId", "applicationId", "actionType"],
+		},
+	);
 }
 //could be a useful function, but not needed rn.
 async function cancelPendingActions({ guildId, userId, applicationId, actionType }) {
