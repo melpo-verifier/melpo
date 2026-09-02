@@ -79,18 +79,14 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 			.setMaxValues(1);
 
 		questions.forEach((question, index) => {
+			const rawDescription =
+				question.mcq?.length > 0
+					? question.mcq.map((opt) => opt.label ?? opt).join("; ")
+					: "No multiple choice options";
+
 			selectMenu.addOptions({
-				label: question.content.length > 100 ? String(question.content.slice(0, 97)).concat("...") : question.content,
-				description:
-					question.mcq?.length > 0
-						? question.mcq
-								.map((option) =>
-									(option.label ?? option) > 100
-										? String((option.label ?? option).slice(0, 97)).concat("...")
-										: (option.label ?? option),
-								)
-								.join("; ")
-						: "No multiple choice options",
+				label: question.content.length > 100 ? `${question.content.slice(0, 97)}...` : question.content,
+				description: rawDescription.length > 100 ? `${rawDescription.slice(0, 97)}...` : rawDescription,
 				value: `${index + 1}`,
 			});
 		});

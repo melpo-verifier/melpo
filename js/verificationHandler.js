@@ -18,6 +18,7 @@ const { resolveImage } = require("./imageUtils.js");
 const { decryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
+const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
 	const guildData = verification?.guildVerifications?.[guildId];
@@ -396,7 +397,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 
 		const welcomeEmbed = new EmbedBuilder()
 			.setTitle(finalTitle?.trim() ? finalTitle.slice(0, 256) : null)
-			.setDescription(finalDescription)
+			.setDescription(finalDescription.slice(0, 4096))
 			.setColor(welcomeMessage.color ?? "#3f7ff1")
 			.setImage(imageAsset.embedUrl);
 
@@ -482,7 +483,7 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 	const denyEmbed = new EmbedBuilder()
 		.setColor(application.denymessage?.color || "#EB2121")
 		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`)
+  		.setDescription((`${description}${reason ? `\n**Reason:** ${reason}` : ''}`).slice(0, 4096))
 		.setImage(dmImage.embedUrl);
 
 	try {
@@ -499,7 +500,7 @@ async function sendKickDM(user, guildName, reason = null) {
 	const kickEmbed = new EmbedBuilder()
 		.setColor("#EB2121")
 		.setTitle(`Kicked from ${guildName}`)
-		.setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`);
+		.setDescription((`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`).slice(0, 4096));
 
 	try {
 		await user.send({ embeds: [kickEmbed] });
@@ -816,36 +817,45 @@ async function verifyUser(interaction, client, application, user) {
 	const branchRoles = new Set();
 	const regexErrors = [];
 
-	if (submissionData && Array.isArray(submissionData.responses) && (await isPremiumServer(interaction.guild.id))) {
-		const questionsMap = new Map(application.questions.filter((q) => q?.id).map((q) => [q.id, q]));
+	if (await isPremiumServer(interaction.guild.id)) {
+		if (submissionData && Array.isArray(submissionData.responses)) {
+			const questionsMap = new Map(application.questions.filter((q) => q?.id).map((q) => [q.id, q]));
 
-		for (const response of submissionData.responses) {
-			const question = questionsMap.get(response.questionId);
-			if (!question) continue;
+			for (const response of submissionData.responses) {
+				const question = questionsMap.get(response.questionId);
+				if (!question) continue;
 
-			if (response?.mcqIndex?.length > 0) {
-				response.mcqIndex.forEach((index) => {
-					const selectedOption = question.mcq?.[index];
-					if (selectedOption?.roles) selectedOption.roles.forEach((role) => void branchRoles.add(role));
-				});
-			} else if (question.regexBranches && response.content) {
-				for (const regex of question.regexBranches) {
-					try {
-						const regpattern = new RegExp(regex.pattern, "i");
-						if (regpattern.test(response.content)) regex.roles.forEach((role) => void branchRoles.add(role));
-					} catch {
-						regexErrors.push(`${response.questionId}: ${regex.pattern}`);
+				if (response?.mcqIndex?.length > 0) {
+					response.mcqIndex.forEach((index) => {
+						const selectedOption = question.mcq?.[index];
+						if (selectedOption?.roles) selectedOption.roles.forEach((role) => void branchRoles.add(role));
+					});
+				} else if (question.regexBranches && response.content) {
+					for (const regex of question.regexBranches) {
+						try {
+							const regpattern = new RegExp(regex.pattern, "i");
+							if (regpattern.test(response.content)) regex.roles.forEach((role) => void branchRoles.add(role));
+						} catch {
+							regexErrors.push(`${response.questionId}: ${regex.pattern}`);
+						}
 					}
 				}
 			}
+
+			if (regexErrors.length > 0) {
+				await interaction.followUp({
+					content: `The following regex patterns are invalid and their roles were not applied:\n${regexErrors.join("\n")}`,
+					flags: MessageFlags.Ephemeral,
+				});
+			}
 		}
 
-		if (regexErrors.length > 0) {
-			await interaction.followUp({
-				content: `The following regex patterns are invalid and their roles were not applied:\n${regexErrors.join("\n")}`,
-				flags: MessageFlags.Ephemeral,
-			});
-		}
+		await cancelPendingActions({
+			guildId: interaction.guild.id,
+			userId: user.id,
+			applicationId: application.id,
+			actionType: "UNVERIFIED_KICK",
+		}).catch((err) => console.error(`Failed to cancel pending kick for user ${user.id}:`, err));
 	}
 
 	const verifiedRoles = application.verifiedrole;
@@ -998,6 +1008,19 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		}
 
 		await applyRoles(user, rolesToApply, null, interaction);
+		if (
+			application.autoRemoveDeniedRoleEnabled &&
+			application.autoRemoveDeniedRoleHours > 0 &&
+			(await isPremiumServer(interaction.guild.id))
+		) {
+			await scheduleAction({
+				guildId: interaction.guild.id,
+				userId: user.id,
+				applicationId: application.id,
+				actionType: "REMOVE_DENIED_ROLE",
+				durationMs: application.autoRemoveDeniedRoleHours * 60 * 60 * 1000,
+			}).catch((err) => console.error(`Failed to schedule deny role action for user ${user.id}:`, err));
+		}
 	}
 
 	if (!messageids || messageids.length === 0) {
