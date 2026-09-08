@@ -185,6 +185,9 @@ module.exports = class InviteManager {
 					Tracker.code = member.guild.vanityURLCode;
 					Tracker.uses = vanityURL?.uses ?? null;
 				} else {
+					console.warn(
+						`Could not determine the invite used for member ${member.user.tag} in guild ${member.guild.name}.`,
+					);
 					return; // Unknown invite
 				}
 
