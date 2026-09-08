@@ -95,8 +95,8 @@ if (process.env.NODE_ENV === "production") {
 
 async function cleanupOldInvites() {
 	try {
-		const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-		const deleted = await InviteTracker.destroy({ where: { createdAt: { [Op.lt]: thirtyDaysAgo } } });
+		const deleteThreshold = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); //delete invites older than 90 days
+		const deleted = await InviteTracker.destroy({ where: { createdAt: { [Op.lt]: deleteThreshold } } });
 		console.log(`Cleaned up ${deleted} old invites`);
 	} catch (error) {
 		console.error("Failed to cleanup invites:", error);
