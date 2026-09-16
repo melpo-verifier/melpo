@@ -438,9 +438,14 @@ async function constructApplicationEmbed(user, questions, answers, serverId, cli
 		//Observation : `null` has `null` uses is a pattern occasionally seen, will need more profiling - Mat
 		//Note : Speculation is DB null edge case potentially.
 		.concat(
-			`${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+			invitetracker
+				? `\n**Invited by:** ${
+						invitetracker.id === "vanity" || invitetracker.id === "Unknown"
+							? `\`${invitetracker.id}\``
+							: `<@${invitetracker.id}>`
+					} (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)`
+				: "",
 		);
-
 	const container = new ContainerBuilder({ accent_color: 4161521 })
 		.addSectionComponents(
 			new SectionBuilder()
@@ -628,6 +633,7 @@ async function processVerificationResult(
 		const sendPayload = {
 			flags: [MessageFlags.IsComponentsV2],
 			components: [container, isActionActive ? verify : null].filter(Boolean),
+			allowedMentions: { parse: ["roles"] },
 		};
 
 		if (attachment) sendPayload.files = [attachment];
