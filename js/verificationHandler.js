@@ -187,28 +187,36 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
 // Apply roles to user (add verified, remove unverified)
 async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
-	if (unverifiedRoles && unverifiedRoles.length > 0) {
-		try {
-			await user.roles.remove(unverifiedRoles);
-		} catch (err) {
-			console.error(`Failed to remove unverified roles (${interaction.guild.id}): ${err.message}`);
-			await interaction.channel
-				.send(
-					`Failed to remove unverified roles. Please check my permissions and role hierarchy. Error: ${err.message}`,
-				)
-				.catch(() => {});
-		}
-	}
+	try {
+		const currentRoles = new Set(user.roles.cache.keys());
+		let hasChanges = false;
 
-	if (verifiedRoles && verifiedRoles.length > 0) {
-		try {
-			await user.roles.add(verifiedRoles);
-		} catch (err) {
-			console.error(`Failed to add verified roles (${interaction.guild.id}): ${err.message}`);
-			await interaction.channel
-				.send(`Failed to add verified roles. Please check my permissions and role hierarchy. Error: ${err.message}`)
-				.catch(() => {});
+		if (unverifiedRoles && unverifiedRoles.length > 0) {
+			unverifiedRoles.forEach((roleId) => {
+				if (currentRoles.has(roleId)) {
+					currentRoles.delete(roleId);
+					hasChanges = true;
+				}
+			});
 		}
+
+		if (verifiedRoles && verifiedRoles.length > 0) {
+			verifiedRoles.forEach((roleId) => {
+				if (!currentRoles.has(roleId)) {
+					currentRoles.add(roleId);
+					hasChanges = true;
+				}
+			});
+		}
+
+		if (hasChanges) {
+			await user.roles.set(Array.from(currentRoles), "Application role update");
+		}
+	} catch (err) {
+		console.error(`Failed to update roles (${interaction.guild.id}): ${err.message}`);
+		await interaction.channel
+			.send(`Failed to update roles. Please check my permissions and role hierarchy. Error: ${err.message}`)
+			.catch(() => {});
 	}
 }
 
@@ -483,7 +491,7 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 	const denyEmbed = new EmbedBuilder()
 		.setColor(application.denymessage?.color || "#EB2121")
 		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`)
+		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`.slice(0, 4096))
 		.setImage(dmImage.embedUrl);
 
 	try {
@@ -500,7 +508,7 @@ async function sendKickDM(user, guildName, reason = null) {
 	const kickEmbed = new EmbedBuilder()
 		.setColor("#EB2121")
 		.setTitle(`Kicked from ${guildName}`)
-		.setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`);
+		.setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`.slice(0, 4096));
 
 	try {
 		await user.send({ embeds: [kickEmbed] });

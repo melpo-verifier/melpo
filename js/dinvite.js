@@ -132,19 +132,30 @@ module.exports = class InviteManager {
 
 			const invitesData = await activeInviteFetches[member.guild.id];
 
-			const invite = invitesData?.find(
-				(bes) => fetchInvites.has(bes.code) && fetchInvites.get(bes.code).uses < bes.uses,
-			);
+			let invite = invitesData?.find((bes) => fetchInvites.has(bes.code) && fetchInvites.get(bes.code).uses < bes.uses);
+
+			//Check if invite was an expired one. For example single use invites.
+			if (!invite) {
+				const vanishedInvite = fetchInvites.find((cached) => !invitesData?.has(cached.code));
+				if (vanishedInvite) {
+					invite = vanishedInvite;
+				}
+			}
+
+			// Prevent race conditions by updating the cached invite data immediately after detecting the used invite
+			if (invite && fetchInvites.has(invite.code)) {
+				fetchInvites.get(invite.code).uses++;
+			}
 
 			const hasVanityFeature = member.guild.features.includes("VANITY_URL");
 			let usedVanity = false;
 			let vanityURL = null;
 
+			//this code isn't optimal, since it just marks any unknown invite in a server with a vanity url as being invited by vanity URL.
 			if (!invite && hasVanityFeature && member.guild.vanityURLCode) {
-				usedVanity = true;
-
 				try {
 					vanityURL = await getVanityURL(member.guild);
+					usedVanity = true;
 				} catch {
 					vanityURL = null;
 				}
@@ -164,24 +175,19 @@ module.exports = class InviteManager {
 					where: { unique_id: `${member.user.id}_${member.guild.id}` },
 				});
 
-				if (usedVanity) {
+				if (invite) {
+					Tracker.id = invite.inviter ? invite.inviter.id : "Unknown";
+					Tracker.code = invite.code;
+					Tracker.uses = invite.uses;
+				} else if (usedVanity && vanityURL) {
 					// Vanity URL invite
 					Tracker.id = "vanity";
 					Tracker.code = member.guild.vanityURLCode;
 					Tracker.uses = vanityURL?.uses ?? null;
-				} else if (invite) {
-					if (!invite.inviter) {
-						console.warn(
-							`Invite found but inviter is null on guild ${member.guild.id}, invite code: ${invite?.code} ${invite?.uses}`,
-						);
-						return;
-					} else {
-						// Normal invite
-						Tracker.id = invite.inviter.id;
-						Tracker.code = invite.code;
-						Tracker.uses = invite.uses;
-					}
 				} else {
+					console.warn(
+						`Could not determine the invite used for member ${member.user.tag} in guild ${member.guild.name}.`,
+					);
 					return; // Unknown invite
 				}
 
