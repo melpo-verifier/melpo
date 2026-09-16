@@ -187,28 +187,36 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 
 // Apply roles to user (add verified, remove unverified)
 async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
-	if (unverifiedRoles && unverifiedRoles.length > 0) {
-		try {
-			await user.roles.remove(unverifiedRoles);
-		} catch (err) {
-			console.error(`Failed to remove unverified roles (${interaction.guild.id}): ${err.message}`);
-			await interaction.channel
-				.send(
-					`Failed to remove unverified roles. Please check my permissions and role hierarchy. Error: ${err.message}`,
-				)
-				.catch(() => {});
-		}
-	}
+	try {
+		const currentRoles = new Set(user.roles.cache.keys());
+		let hasChanges = false;
 
-	if (verifiedRoles && verifiedRoles.length > 0) {
-		try {
-			await user.roles.add(verifiedRoles);
-		} catch (err) {
-			console.error(`Failed to add verified roles (${interaction.guild.id}): ${err.message}`);
-			await interaction.channel
-				.send(`Failed to add verified roles. Please check my permissions and role hierarchy. Error: ${err.message}`)
-				.catch(() => {});
+		if (unverifiedRoles && unverifiedRoles.length > 0) {
+			unverifiedRoles.forEach((roleId) => {
+				if (currentRoles.has(roleId)) {
+					currentRoles.delete(roleId);
+					hasChanges = true;
+				}
+			});
 		}
+
+		if (verifiedRoles && verifiedRoles.length > 0) {
+			verifiedRoles.forEach((roleId) => {
+				if (!currentRoles.has(roleId)) {
+					currentRoles.add(roleId);
+					hasChanges = true;
+				}
+			});
+		}
+
+		if (hasChanges) {
+			await user.roles.set(Array.from(currentRoles), "Application role update");
+		}
+	} catch (err) {
+		console.error(`Failed to update roles (${interaction.guild.id}): ${err.message}`);
+		await interaction.channel
+			.send(`Failed to update roles. Please check my permissions and role hierarchy. Error: ${err.message}`)
+			.catch(() => {});
 	}
 }
 
