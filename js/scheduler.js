@@ -1,3 +1,4 @@
+const path = require("node:path");
 const { Op } = require("sequelize");
 const { PendingActions, Application } = require("../dbObjects.js");
 const { isPremiumServer } = require("./DBFunctions.js");
@@ -66,9 +67,11 @@ function startActionWorker(manager, intervalMs = 5000) {
 					console.error(`[Scheduler] Application not found for action ID ${action.id}`);
 					continue;
 				}
+				const melpoLoggerPath = path.join(__dirname, "melpoLogger.js");
 
 				await manager.broadcastEval(
-					async (client, { guildId, userId, actionType, verifiedRoles, deniedRoles }) => {
+					async (client, { guildId, userId, actionType, verifiedRoles, deniedRoles, melpoLoggerPath }) => {
+						const { sendMelpoLog, logRolePermissionError } = require(melpoLoggerPath);
 						const guild = client.guilds.cache.get(guildId);
 						if (!guild) return;
 
@@ -79,26 +82,50 @@ function startActionWorker(manager, intervalMs = 5000) {
 
 						async function validateRoles(guild, roleIds) {
 							const botMember = guild.members.me || (await guild.members.fetchMe());
-							if (!botMember?.permissions.has("ManageRoles")) return [];
+							let droppedRoles = [];
+							let failureReason = null;
 
-							const hasUncachedRoles = roleIds.some((id) => !guild.roles.cache.has(id));
-							if (hasUncachedRoles) {
-								await guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+							const hasManageRoles = botMember?.permissions.has("ManageRoles");
+
+							if (!hasManageRoles) {
+								droppedRoles = roleIds;
+								failureReason = "missing_permission";
+							} else {
+								const hasUncachedRoles = roleIds.some((id) => !guild.roles.cache.has(id));
+								if (hasUncachedRoles) {
+									await guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+								}
+
+								const botHighestPosition = botMember.roles.highest.position;
+								droppedRoles = roleIds.filter((roleId) => {
+									const role = guild.roles.cache.get(roleId);
+									return !(role && role.position < botHighestPosition && !role.managed);
+								});
+
+								if (droppedRoles.length > 0) {
+									failureReason = "hierarchy";
+								}
 							}
 
-							// WARNING: Will silently drop invalid roles without user notification. Might be nice to add something in the future to notify the server. -Milo
-							const botHighestPosition = botMember.roles.highest.position;
-							const validRoleIds = roleIds.filter((roleId) => {
-								const role = guild.roles.cache.get(roleId);
-								return role && role.position < botHighestPosition && !role.managed;
-							});
+							if (droppedRoles.length > 0) {
+								await logRolePermissionError(guild, {
+									targetUserId: userId,
+									actionText: "assign/remove roles for",
+									droppedRoles,
+									failureReason,
+								});
+							}
 
-							return validRoleIds;
+							return hasManageRoles ? roleIds.filter((id) => !droppedRoles.includes(id)) : [];
 						}
 
 						if (actionType === "UNVERIFIED_KICK") {
 							if (!member.kickable) {
 								console.log(`[Scheduler] Cannot kick ${userId} from ${guildId}: Member is not kickable.`);
+								await sendMelpoLog(guild, {
+									title: "⚠️ Auto-Kick Failed",
+									description: `Failed to auto-kick <@${userId}> because the member is not kickable. Melpo may be missing the **Kick Members** permission or the member has a role higher than Melpo.`,
+								});
 								return;
 							}
 
@@ -136,6 +163,7 @@ function startActionWorker(manager, intervalMs = 5000) {
 							actionType: action.actionType,
 							verifiedRoles: application.verifiedrole || [],
 							deniedRoles: application.deniedrole || [],
+							melpoLoggerPath,
 						},
 					},
 				);

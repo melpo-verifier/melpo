@@ -25,6 +25,7 @@ const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Librar
 const Sentry = require("@sentry/node");
 const { isPremiumServer } = require("./js/DBFunctions.js");
 const { scheduleAction } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
+const { sendMelpoLog, logRolePermissionError } = require("./js/melpoLogger.js");
 
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	console.log("sharded arrived!");
@@ -285,7 +286,10 @@ async function createBot(token) {
 
 		let serverConfig;
 		try {
-			serverConfig = await ServerConfig.findOne({ where: { server_id: member.guild.id }, attributes: ["autorole"] });
+			serverConfig = await ServerConfig.findOne({
+				where: { server_id: member.guild.id },
+				attributes: ["autorole", "melpologs"],
+			});
 		} catch (error) {
 			console.error("Failed to fetch server config:", error);
 			return;
@@ -314,25 +318,53 @@ async function createBot(token) {
 
 		try {
 			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
-			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
-			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
-			if (hasUncachedRoles) {
-				await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+			let droppedRoles = [];
+			let failureReason = null;
+
+			const hasManageRoles = botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles);
+
+			if (!hasManageRoles) {
+				droppedRoles = serverConfig.autorole;
+				failureReason = "missing_permission";
+			} else {
+				const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
+				if (hasUncachedRoles) {
+					await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+				}
+
+				const botHighestPosition = botMember.roles.highest.position;
+				droppedRoles = serverConfig.autorole.filter((roleId) => {
+					const role = member.guild.roles.cache.get(roleId);
+					return !(role && role.position < botHighestPosition && !role.managed);
+				});
+
+				if (droppedRoles.length > 0) {
+					failureReason = "hierarchy";
+				}
 			}
 
-			// WARNING: Will silently drop invalid roles without user notification. Might be nice to add in the future. -Milo
-			const botHighestPosition = botMember.roles.highest.position;
-			const validRoleIds = serverConfig.autorole.filter((roleId) => {
-				const role = member.guild.roles.cache.get(roleId);
-				return role && role.position < botHighestPosition && !role.managed;
-			});
+			if (droppedRoles.length > 0) {
+				await logRolePermissionError(member.guild, {
+					targetUserId: member.id,
+					actionText: "assign autorole(s) to",
+					droppedRoles,
+					failureReason,
+				});
+			}
+			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
+
+			const validRoleIds = serverConfig.autorole.filter((id) => !droppedRoles.includes(id));
 
 			if (!validRoleIds.length) return;
 
-			await member.roles.add(validRoleIds, "Auto-role assignment").catch((roleError) => {
+			await member.roles.add(validRoleIds, "Auto-role assignment").catch(async (roleError) => {
 				if (roleError.code !== 10007) {
 					console.error(`Failed to add autoroles for ${member.id} in (${member.guild.id}): ${roleError.message}`);
+					await sendMelpoLog(member.guild, {
+						title: "⚠️ Auto-Role Assignment Error",
+						description: `Failed to assign autorole(s) to <@${member.id}>: ${roleError.message}`,
+					});
 				}
 			});
 		} catch (error) {
