@@ -50,7 +50,7 @@ module.exports = {
 				interactionCache.set(cacheKey, { timestamp: Date.now(), processed: true });
 			}
 
-			const userid = await extractUserId(interaction);
+			const userid = await extractUserId(interaction, context, command);
 			let applicationId = null;
 			let tempApplicationId = null;
 
@@ -149,7 +149,15 @@ async function handleInteraction(command, data, client, interaction, collectionN
 	}
 }
 
-async function extractUserId(interaction) {
+async function extractUserId(interaction, context, command) {
+	if (context && context.length > 0) {
+		if (["verifyconfirm", "denyconfirm", "actionconfirm"].includes(command)) {
+			if (context[2] && context[2].length >= 17) return context[2];
+		} else if (["verify", "deny", "action", "question", "reasondeny", "questionModal", "denyModal"].includes(command)) {
+			if (context[1] && context[1].length >= 17) return context[1];
+		}
+	}
+
 	if (interaction.message?.embeds[0]?.footer) {
 		const footerText = interaction.message.embeds[0].footer.text;
 
