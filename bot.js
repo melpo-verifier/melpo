@@ -314,19 +314,71 @@ async function createBot(token) {
 
 		try {
 			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
-			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
-			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
-			if (hasUncachedRoles) {
-				await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+			let droppedRoles = [];
+			let failureReason = null;
+
+			const hasManageRoles = botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles);
+
+			if (!hasManageRoles) {
+				droppedRoles = serverConfig.autorole;
+				failureReason = "missing_permission";
+			} else {
+				const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
+				if (hasUncachedRoles) {
+					await member.guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+				}
+
+				const botHighestPosition = botMember.roles.highest.position;
+				droppedRoles = serverConfig.autorole.filter((roleId) => {
+					const role = member.guild.roles.cache.get(roleId);
+					return !(role && role.position < botHighestPosition && !role.managed);
+				});
+
+				if (droppedRoles.length > 0) {
+					failureReason = "hierarchy";
+				}
 			}
 
-			// WARNING: Will silently drop invalid roles without user notification. Might be nice to add in the future. -Milo
-			const botHighestPosition = botMember.roles.highest.position;
-			const validRoleIds = serverConfig.autorole.filter((roleId) => {
-				const role = member.guild.roles.cache.get(roleId);
-				return role && role.position < botHighestPosition && !role.managed;
-			});
+			if (droppedRoles.length > 0) {
+				const serverConfFull = await ServerConfig.findOne({
+					where: { server_id: member.guild.id },
+					attributes: ["melpologs"],
+				});
+
+				if (serverConfFull?.melpologs) {
+					const logsChannel =
+						member.guild.channels.cache.get(serverConfFull.melpologs) ??
+						(await member.guild.channels.fetch(serverConfFull.melpologs).catch(() => null));
+
+					if (logsChannel) {
+						const droppedMentions = droppedRoles.map((id) => `<@&${id}>`).join(", ");
+
+						const description =
+							failureReason === "missing_permission"
+								? `Failed to assign autorole(s) to <@${member.id}> because I am missing the **Manage Roles** permission.`
+								: `Failed to assign autorole(s) to <@${member.id}> due to role hierarchy. The affected roles are higher than (or equal to) my highest role, managed by an integration, or deleted.`;
+
+						const alertEmbed = {
+							color: 0xff0000,
+							title: "⚠️ Permission Error",
+							description,
+							fields: [
+								{
+									name: "Roles affected",
+									value: droppedMentions,
+								},
+							],
+							timestamp: new Date(),
+						};
+
+						logsChannel.send({ embeds: [alertEmbed] }).catch(() => {});
+					}
+				}
+			}
+			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
+
+			const validRoleIds = serverConfig.autorole.filter((id) => !droppedRoles.includes(id));
 
 			if (!validRoleIds.length) return;
 

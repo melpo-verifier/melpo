@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { PendingActions, Application } = require("../dbObjects.js");
+const { PendingActions, Application, ServerConfig } = require("../dbObjects.js");
 const { isPremiumServer } = require("./DBFunctions.js");
 
 async function scheduleAction({ guildId, userId, applicationId, actionType, durationMs }) {
@@ -66,9 +66,11 @@ function startActionWorker(manager, intervalMs = 5000) {
 					console.error(`[Scheduler] Application not found for action ID ${action.id}`);
 					continue;
 				}
+				const serverConfig = await ServerConfig.findByPk(action.guildId);
+				const melpologsChannelId = serverConfig?.melpologs || null;
 
 				await manager.broadcastEval(
-					async (client, { guildId, userId, actionType, verifiedRoles, deniedRoles }) => {
+					async (client, { guildId, userId, actionType, verifiedRoles, deniedRoles, melpologsChannelId }) => {
 						const guild = client.guilds.cache.get(guildId);
 						if (!guild) return;
 
@@ -79,21 +81,62 @@ function startActionWorker(manager, intervalMs = 5000) {
 
 						async function validateRoles(guild, roleIds) {
 							const botMember = guild.members.me || (await guild.members.fetchMe());
-							if (!botMember?.permissions.has("ManageRoles")) return [];
+							let droppedRoles = [];
+							let failureReason = null;
 
-							const hasUncachedRoles = roleIds.some((id) => !guild.roles.cache.has(id));
-							if (hasUncachedRoles) {
-								await guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+							const hasManageRoles = botMember?.permissions.has("ManageRoles");
+
+							if (!hasManageRoles) {
+								droppedRoles = roleIds;
+								failureReason = "missing_permission";
+							} else {
+								const hasUncachedRoles = roleIds.some((id) => !guild.roles.cache.has(id));
+								if (hasUncachedRoles) {
+									await guild.roles.fetch().catch((error) => console.error("Failed to fetch guild roles:", error));
+								}
+
+								const botHighestPosition = botMember.roles.highest.position;
+								droppedRoles = roleIds.filter((roleId) => {
+									const role = guild.roles.cache.get(roleId);
+									return !(role && role.position < botHighestPosition && !role.managed);
+								});
+
+								if (droppedRoles.length > 0) {
+									failureReason = "hierarchy";
+								}
 							}
 
-							// WARNING: Will silently drop invalid roles without user notification. Might be nice to add something in the future to notify the server. -Milo
-							const botHighestPosition = botMember.roles.highest.position;
-							const validRoleIds = roleIds.filter((roleId) => {
-								const role = guild.roles.cache.get(roleId);
-								return role && role.position < botHighestPosition && !role.managed;
-							});
+							if (droppedRoles.length > 0 && melpologsChannelId) {
+								const logsChannel =
+									guild.channels.cache.get(melpologsChannelId) ??
+									(await guild.channels.fetch(melpologsChannelId).catch(() => null));
 
-							return validRoleIds;
+								if (logsChannel) {
+									const droppedMentions = droppedRoles.map((id) => `<@&${id}>`).join(", ");
+
+									const description =
+										failureReason === "missing_permission"
+											? `Failed to assign/remove roles for <@${userId}> because I am missing the **Manage Roles** permission.`
+											: `Failed to assign/remove roles for <@${userId}> due to role hierarchy. The affected roles are higher than (or equal to) my highest role, managed by an integration, or deleted.`;
+
+									const alertEmbed = {
+										color: 0xff0000,
+										title: "⚠️ Permission Error",
+										description,
+										fields: [
+											{
+												name: "Roles affected",
+												value: droppedMentions,
+											},
+										],
+										timestamp: new Date(),
+									};
+
+									logsChannel.send({ embeds: [alertEmbed] }).catch(() => {});
+								}
+							}
+
+							return hasManageRoles ? roleIds.filter((id) => !droppedRoles.includes(id)) : [];
 						}
 
 						if (actionType === "UNVERIFIED_KICK") {
@@ -136,6 +179,7 @@ function startActionWorker(manager, intervalMs = 5000) {
 							actionType: action.actionType,
 							verifiedRoles: application.verifiedrole || [],
 							deniedRoles: application.deniedrole || [],
+							melpologsChannelId,
 						},
 					},
 				);

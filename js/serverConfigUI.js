@@ -5,6 +5,7 @@ const {
 	SeparatorSpacingSize,
 	ContainerBuilder,
 	ButtonBuilder,
+	ChannelSelectMenuBuilder,
 } = require("discord.js");
 
 const toArray = (value) => {
@@ -42,6 +43,26 @@ const ServerConfigComponent = ({ serverConfig }) => {
 					.setMinValues(0)
 					.setMaxValues(10)
 					.setDefaultRoles(autoRoles.slice(0, 10)),
+			),
+		)
+		.addSeparatorComponents((separator) => separator.setSpacing(SeparatorSpacingSize.Small))
+		.addTextDisplayComponents(
+			(textDisplay) =>
+				textDisplay.setContent(
+					serverConfig?.melpologs ? `**Melpo Logs**\n<#${serverConfig.melpologs}>` : "**Melpo Logs**\nNot configured",
+				),
+			(textDisplay) =>
+				textDisplay.setContent("Select a channel to receive important system alerts and error logs from Melpo."),
+		)
+		.addActionRowComponents((actionRow) =>
+			actionRow.setComponents(
+				new ChannelSelectMenuBuilder()
+					.setCustomId("serverconfig_melpoLogs")
+					.setPlaceholder("Select logs channel")
+					.setChannelTypes("GuildText")
+					.setMinValues(0)
+					.setMaxValues(1)
+					.setDefaultChannels(serverConfig?.melpologs ? [serverConfig.melpologs] : []),
 			),
 		);
 

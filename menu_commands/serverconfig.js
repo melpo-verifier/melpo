@@ -20,6 +20,9 @@ module.exports = async ({ interaction, context }) => {
 		case "autoRoles":
 			await serverConfig.update({ autorole: selectedRoles });
 			break;
+		case "melpoLogs":
+			await serverConfig.update({ melpologs: selectedRoles[0] || null });
+			break;
 	}
 
 	await serverConfig.reload();
