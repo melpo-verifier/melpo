@@ -2,7 +2,7 @@ const { ButtonBuilder, ActionRowBuilder, MessageFlags } = require("discord.js");
 const { getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js"); //the fallback is temporary for migration since button ids aren't updated into the past.
 const { relinkAttachments } = require("../js/verificationHandler.js");
 
-module.exports = async ({ interaction, applicationId }) => {
+module.exports = async ({ interaction, applicationId, context }) => {
 	await interaction.deferUpdate();
 
 	const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
@@ -41,9 +41,11 @@ module.exports = async ({ interaction, applicationId }) => {
 	)
 		return;
 
+	const applicantId = context?.[1] || "";
+
 	const verifyRow = new ActionRowBuilder().addComponents(
 		new ButtonBuilder()
-			.setCustomId(`actionconfirm_${applicationId}_${interaction.user.id}`)
+			.setCustomId(`actionconfirm_${applicationId}_${interaction.user.id}${applicantId ? `_${applicantId}` : ""}`)
 			.setLabel("Confirm Kick")
 			.setStyle("Success"),
 		new ButtonBuilder().setCustomId(`returntomenu_${applicationId}`).setLabel("Cancel").setStyle("Danger"),
