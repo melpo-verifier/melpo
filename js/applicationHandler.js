@@ -21,6 +21,7 @@ const { resolveImage } = require("../js/imageUtils.js");
 const { addMessageId } = require("../js/verificationHandler.js");
 const { encryptData, decryptData } = require("../js/DBFunctions.js");
 const { isPremiumServer } = require("../js/DBFunctions.js");
+const { sendMelpoLog } = require("./melpoLogger.js");
 
 const activeVerifications = new Map();
 const rateLimitMap = new Map();
@@ -768,6 +769,10 @@ async function processVerificationResult(
 						}
 					} catch (e) {
 						console.error("Failed to apply denied role due to auto-action", e);
+						await sendMelpoLog(interaction.guild, {
+							title: "⚠️ Auto-Action Role Error",
+							description: `Failed to apply denied role to <@${user.id}> during auto-action: ${e.message}`,
+						});
 					}
 				}
 			}
@@ -775,7 +780,14 @@ async function processVerificationResult(
 			if (reason === "kick") {
 				const denyReason = "Automated application kick based on response.";
 				await sendKickDM(user, interaction.guild.name, denyReason);
-				if (member.kickable) await member.kick("Auto-kicked during application").catch(() => {});
+				if (member.kickable) {
+					await member.kick("Auto-kicked during application").catch(() => {});
+				} else {
+					await sendMelpoLog(interaction.guild, {
+						title: "⚠️ Auto-Kick Failed",
+						description: `Failed to auto-kick <@${user.id}> during auto-action because the member is not kickable. Melpo may be missing the **Kick Members** permission or the member has a role higher than Melpo.`,
+					});
+				}
 			} else {
 				const denyReason = "Automated application denial based on response.";
 				await sendDenyDM("Melpo (Auto-Action)", user, application, interaction.guild.name, denyReason);

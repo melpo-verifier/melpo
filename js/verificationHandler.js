@@ -13,12 +13,13 @@ const {
 	AttachmentBuilder,
 	WebhookClient,
 } = require("discord.js");
-const { Verification, InviteTracker, Submissions, GuildWebhook, ServerConfig } = require("../dbObjects.js");
+const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
 const { decryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
 const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
+const { logVerificationError } = require("./melpoLogger.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
 	const guildData = verification?.guildVerifications?.[guildId];
@@ -877,35 +878,7 @@ async function verifyUser(interaction, client, application, user) {
 
 	const roleErrors = await validateRoles(interaction, rolesToApply, unverifiedRoles);
 	if (roleErrors.length > 0) {
-		const serverConf = await ServerConfig.findOne({
-			where: { server_id: interaction.guild.id },
-			attributes: ["melpologs"],
-		});
-		if (serverConf?.melpologs) {
-			const logsChannel =
-				interaction.guild.channels.cache.get(serverConf.melpologs) ??
-				(await interaction.guild.channels.fetch(serverConf.melpologs).catch(() => null));
-
-			if (logsChannel) {
-				const alertEmbed = {
-					color: 0xff0000,
-					title: "⚠️ Verification Permission Error",
-					description: `<@${interaction.user.id}> attempted to verify <@${user.id}>, but Melpo is missing permissions to assign or remove some roles!`,
-					fields: [
-						{
-							name: "Errors:",
-							value: roleErrors
-								.map((err) => `- ${err}`)
-								.join("\n")
-								.slice(0, 1024),
-						},
-					],
-					timestamp: new Date(),
-				};
-
-				logsChannel.send({ embeds: [alertEmbed] }).catch(() => {});
-			}
-		}
+		await logVerificationError(interaction, user, "Verification", roleErrors);
 		return await interaction.followUp({
 			content: roleErrors[0],
 			flags: MessageFlags.Ephemeral,
@@ -1043,35 +1016,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		// Validate roles
 		const roleErrors = await validateRoles(interaction, rolesToApply, null);
 		if (roleErrors.length > 0) {
-			const serverConf = await ServerConfig.findOne({
-				where: { server_id: interaction.guild.id },
-				attributes: ["melpologs"],
-			});
-			if (serverConf?.melpologs) {
-				const logsChannel =
-					interaction.guild.channels.cache.get(serverConf.melpologs) ??
-					(await interaction.guild.channels.fetch(serverConf.melpologs).catch(() => null));
-
-				if (logsChannel) {
-					const alertEmbed = {
-						color: 0xff0000,
-						title: "⚠️ Deny Permission Error",
-						description: `<@${interaction.user.id}> attempted to deny <@${user.id}>, but Melpo is missing permissions to assign or remove some roles!`,
-						fields: [
-							{
-								name: "Errors:",
-								value: roleErrors
-									.map((err) => `- ${err}`)
-									.join("\n")
-									.slice(0, 1024),
-							},
-						],
-						timestamp: new Date(),
-					};
-
-					logsChannel.send({ embeds: [alertEmbed] }).catch(() => {});
-				}
-			}
+			await logVerificationError(interaction, user, "Deny", roleErrors);
 			return await interaction.followUp({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
 		}
 

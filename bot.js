@@ -25,6 +25,7 @@ const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Librar
 const Sentry = require("@sentry/node");
 const { isPremiumServer } = require("./js/DBFunctions.js");
 const { scheduleAction } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
+const { sendMelpoLog, logRolePermissionError } = require("./js/melpoLogger.js");
 
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	console.log("sharded arrived!");
@@ -285,7 +286,10 @@ async function createBot(token) {
 
 		let serverConfig;
 		try {
-			serverConfig = await ServerConfig.findOne({ where: { server_id: member.guild.id }, attributes: ["autorole"] });
+			serverConfig = await ServerConfig.findOne({
+				where: { server_id: member.guild.id },
+				attributes: ["autorole", "melpologs"],
+			});
 		} catch (error) {
 			console.error("Failed to fetch server config:", error);
 			return;
@@ -341,40 +345,12 @@ async function createBot(token) {
 			}
 
 			if (droppedRoles.length > 0) {
-				const serverConfFull = await ServerConfig.findOne({
-					where: { server_id: member.guild.id },
-					attributes: ["melpologs"],
+				await logRolePermissionError(member.guild, {
+					targetUserId: member.id,
+					actionText: "assign autorole(s) to",
+					droppedRoles,
+					failureReason,
 				});
-
-				if (serverConfFull?.melpologs) {
-					const logsChannel =
-						member.guild.channels.cache.get(serverConfFull.melpologs) ??
-						(await member.guild.channels.fetch(serverConfFull.melpologs).catch(() => null));
-
-					if (logsChannel) {
-						const droppedMentions = droppedRoles.map((id) => `<@&${id}>`).join(", ");
-
-						const description =
-							failureReason === "missing_permission"
-								? `Failed to assign autorole(s) to <@${member.id}> because I am missing the **Manage Roles** permission.`
-								: `Failed to assign autorole(s) to <@${member.id}> due to role hierarchy. The affected roles are higher than (or equal to) my highest role, managed by an integration, or deleted.`;
-
-						const alertEmbed = {
-							color: 0xff0000,
-							title: "⚠️ Permission Error",
-							description,
-							fields: [
-								{
-									name: "Roles affected",
-									value: droppedMentions,
-								},
-							],
-							timestamp: new Date(),
-						};
-
-						logsChannel.send({ embeds: [alertEmbed] }).catch(() => {});
-					}
-				}
 			}
 			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
@@ -382,9 +358,13 @@ async function createBot(token) {
 
 			if (!validRoleIds.length) return;
 
-			await member.roles.add(validRoleIds, "Auto-role assignment").catch((roleError) => {
+			await member.roles.add(validRoleIds, "Auto-role assignment").catch(async (roleError) => {
 				if (roleError.code !== 10007) {
 					console.error(`Failed to add autoroles for ${member.id} in (${member.guild.id}): ${roleError.message}`);
+					await sendMelpoLog(member.guild, {
+						title: "⚠️ Auto-Role Assignment Error",
+						description: `Failed to assign autorole(s) to <@${member.id}>: ${roleError.message}`,
+					});
 				}
 			});
 		} catch (error) {
