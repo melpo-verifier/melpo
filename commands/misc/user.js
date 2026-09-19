@@ -1,22 +1,5 @@
 const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ComponentType } = require("discord.js");
 
-//Refs:
-//JSON struct for response.
-//https://discord.js.org/docs/packages/discord.js/14.27.0/InteractionReplyOptions:Interface
-//
-//Callbacks, from interaction object.
-//https://discord.js.org/docs/packages/discord.js/14.27.0/CommandInteraction:Class
-//
-//Rest calls
-//https://discord.js.org/docs/packages/rest/main
-
-//Useful bits:
-//https://discord.js.org/docs/packages/discord.js/14.27.0/InteractionReplyOptions:Interface#allowedMentions
-//https://discord.js.org/docs/packages/discord.js/14.27.0/MessageMentionOptions:Interface
-
-//MessageFlags.Ephemeral
-//MessageFlags.IsComponentsV2
-
 /**
  * /user command
  * @param {CommandInteraction} param0 interaction data from discord.js
