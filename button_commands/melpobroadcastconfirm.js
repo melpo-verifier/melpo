@@ -30,19 +30,17 @@ module.exports = async ({ interaction, client }) => {
 				async (c, { embedData, configs }) => {
 					const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-					(async () => {
-						for (const config of configs) {
-							if (!config.melpologs) continue;
-							const guild = c.guilds.cache.get(config.server_id);
-							if (!guild) continue;
+					for (const config of configs) {
+						if (!config.melpologs) continue;
+						const guild = c.guilds.cache.get(config.server_id);
+						if (!guild) continue;
 
-							const channel = guild.channels.cache.get(config.melpologs);
-							if (channel) {
-								await channel.send({ embeds: [embedData] }).catch(() => {});
-								await delay(250);
-							}
+						const channel = guild.channels.cache.get(config.melpologs);
+						if (channel) {
+							await channel.send({ embeds: [embedData] }).catch(() => {});
+							await delay(250);
 						}
-					})();
+					}
 					return true;
 				},
 				{ context: { embedData: previewEmbed.toJSON(), configs: configData } },
