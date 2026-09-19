@@ -30,10 +30,6 @@ module.exports = async ({ interaction, context }) => {
 		if (channel) {
 			const botMember = await interaction.guild.members.fetchMe();
 			const botPermissions = channel.permissionsFor(botMember);
-			//if (
-			//	!botPermissions ||
-			//	!botPermissions.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])
-			//) {
 			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 				return interaction.followUp({
 					content: `I don't have the required permissions in the selected channel. Please make sure I have the following channel-specific permissions in <#${temporarySetup.verifychannel}>:\n- View Channel\n- Send Messages\n\nAlso make sure I have all required global permissions using </checkpermissions:1324406378328096890>.`,
@@ -70,31 +66,15 @@ module.exports = async ({ interaction, context }) => {
 				},
 			]);
 
-		await interaction.editReply({ components: [] });
-		try {
-			await interaction.message.edit({
-				embeds: [updatedEmbed],
-				components: [selectmenu, updatedActionRow],
-			});
-		} catch (error) {
-			if (error.code === 50001 || error.code === 50013) {
-				return interaction.followUp({
-					content:
-						"I don't have permission to edit messages in this channel. Please check my permissions and try again.",
-					flags: MessageFlags.Ephemeral,
-				});
-			}
-			throw error;
-		}
+		await interaction.editReply({
+			embeds: [updatedEmbed],
+			components: [selectmenu, updatedActionRow],
+		});
 	} else if (nextnumber === 1) {
 		const channel = await interaction.guild.channels.fetch(temporarySetup.reviewchannel).catch(() => null);
 		if (channel) {
 			const botMember = await interaction.guild.members.fetchMe();
 			const botPermissions = channel.permissionsFor(botMember);
-			//if (
-			//	!botPermissions ||
-			//	!botPermissions.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])
-			//) {
 			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 				return interaction.followUp({
 					content: `I don't have the required permissions in the selected channel. Please make sure I have the following channel-specific permissions in <#${temporarySetup.reviewchannel}>:\n- View Channel\n- Send Messages\n\nAlso make sure I have all required global permissions using </checkpermissions:1324406378328096890>.`,
@@ -137,22 +117,10 @@ module.exports = async ({ interaction, context }) => {
 				},
 			]);
 
-		await interaction.editReply({ components: [] });
-		try {
-			await interaction.message.edit({
-				embeds: [updatedEmbed],
-				components: [selectmenu, updatedActionRow],
-			});
-		} catch (error) {
-			if (error.code === 50001 || error.code === 50013) {
-				return interaction.followUp({
-					content:
-						"I don't have permission to edit messages in this channel. Please check my permissions and try again.",
-					flags: MessageFlags.Ephemeral,
-				});
-			}
-			throw error;
-		}
+		await interaction.editReply({
+			embeds: [updatedEmbed],
+			components: [selectmenu, updatedActionRow],
+		});
 	} else if (nextnumber === 2) {
 		//check if all roles are valid and bot can assign them
 		const roles = temporarySetup.verifiedrole || [];
