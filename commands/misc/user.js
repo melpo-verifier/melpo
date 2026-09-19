@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ComponentType } = require("discord.js");
 
 //Refs:
 //JSON struct for response.
@@ -42,8 +42,9 @@ async function cmd_user_execute({ interaction }) {
 		//--Primary output content--
 		const BuildContent = () => {
 			let content = "";
+			let time = Math.floor(cur.member.joinedAt / 1000);
 			content += `\`User name\` ${cur.user.username}\n`;
-			content += `\`Joined at\` ${cur.member.joinedAt}\n`;
+			content += `\`Joined at\` <t:${time}:f>\n`;
 		
 			return content;
 		};
