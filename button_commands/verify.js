@@ -2,7 +2,7 @@ const { ButtonBuilder, ActionRowBuilder, MessageFlags } = require("discord.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
 const { relinkAttachments } = require("../js/verificationHandler.js");
 
-module.exports = async ({ interaction, applicationId }) => {
+module.exports = async ({ interaction, applicationId, context }) => {
 	await interaction.deferUpdate();
 
 	const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
@@ -36,10 +36,12 @@ module.exports = async ({ interaction, applicationId }) => {
 	)
 		return;
 
+	const applicantId = context?.[1] || "";
+
 	// Create confirm buttons
 	const verifyRow = new ActionRowBuilder().addComponents(
 		new ButtonBuilder()
-			.setCustomId(`verifyconfirm_${applicationId}_${interaction.user.id}`)
+			.setCustomId(`verifyconfirm_${applicationId}_${interaction.user.id}${applicantId ? `_${applicantId}` : ""}`)
 			.setLabel("Confirm Accept")
 			.setStyle("Success"),
 		new ButtonBuilder().setCustomId(`returntomenu_${applicationId}`).setLabel("Cancel").setStyle("Danger"),
