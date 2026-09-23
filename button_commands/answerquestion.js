@@ -157,11 +157,14 @@ module.exports = async ({ interaction, client }) => {
 
 		if (client.user.id === "849613551080701983" || client.user.id === "916372883087974440") {
 			return client.cluster.broadcastEval(
-				async (c, { verificationChannelId, verificationMessageId, replybutton, container, channelId }) => {
+				async (c, { verificationChannelId, verificationMessageId, replybutton, container, channelId, guildId }) => {
+					const guild = c.guilds.cache.get(guildId);
+					if (!guild) return;
+
 					// Get the thread attached to the verification message
 					let threadchannelid = null;
 					let verificationMessage = null;
-					const verificationChannel = await c.channels.fetch(verificationChannelId);
+					const verificationChannel = await c.channels.fetch(verificationChannelId).catch(() => null);
 
 					if (verificationChannelId !== channelId) {
 						threadchannelid = channelId;
@@ -179,8 +182,8 @@ module.exports = async ({ interaction, client }) => {
 					if (verificationChannel) {
 						const { MessageFlags } = require("discord.js");
 
-						if (threadchannelid) {
-							const threadChannel = c.channels.cache.get(threadchannelid);
+						const threadChannel = await c.channels.fetch(threadchannelid).catch(() => null);
+						if (threadChannel) {
 							await threadChannel.send({
 								flags: [MessageFlags.IsComponentsV2],
 								components: [container, replybutton],
@@ -201,6 +204,7 @@ module.exports = async ({ interaction, client }) => {
 						replybutton: replybutton.toJSON(),
 						container: container.toJSON(),
 						channelId: channelId,
+						guildId: guildId,
 					},
 				},
 			);
