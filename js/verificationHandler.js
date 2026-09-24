@@ -19,6 +19,7 @@ const { decryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
 const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
+const { logVerificationError } = require("./melpoLogger.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
 	const guildData = verification?.guildVerifications?.[guildId];
@@ -163,12 +164,14 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 			}
 
 			if (botMember.roles.highest.comparePositionTo(role) <= 0) {
-				errors.push(`Cannot ${action} role ${role.name} because it's higher than or equal to my highest role.`);
+				errors.push(
+					`Cannot ${action} ${role} because it's higher my highest role. Make sure my role is above the roles I need to manage.`,
+				);
 			}
 
 			if (role.managed) {
 				errors.push(
-					`• **Managed Role** (${role}): This is an integration/bot role and cannot be manually assigned or removed.`,
+					`**Managed Role** (${role}): This is an integration/bot role and cannot be manually assigned or removed.`,
 				);
 			}
 		}
@@ -875,6 +878,7 @@ async function verifyUser(interaction, client, application, user) {
 
 	const roleErrors = await validateRoles(interaction, rolesToApply, unverifiedRoles);
 	if (roleErrors.length > 0) {
+		await logVerificationError(interaction, user, "Verification", roleErrors);
 		return await interaction.followUp({
 			content: roleErrors[0],
 			flags: MessageFlags.Ephemeral,
@@ -1012,6 +1016,7 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		// Validate roles
 		const roleErrors = await validateRoles(interaction, rolesToApply, null);
 		if (roleErrors.length > 0) {
+			await logVerificationError(interaction, user, "Deny", roleErrors);
 			return await interaction.followUp({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
 		}
 
