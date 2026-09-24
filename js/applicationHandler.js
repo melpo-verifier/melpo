@@ -18,7 +18,16 @@ const {
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
 const { resolveImage } = require("../js/imageUtils.js");
-const { addMessageId } = require("../js/verificationHandler.js");
+const {
+	addMessageId,
+	sendDenyDM,
+	sendKickDM,
+	applyRoles,
+	createAutoActionContainer,
+	VerificationStatus,
+} = require("../js/verificationHandler.js");
+const { sendWebhookMessage } = require("../js/messageHelper.js");
+const { scheduleAction, cancelPendingActions } = require("../js/scheduler.js");
 const { encryptData, decryptData } = require("../js/DBFunctions.js");
 const { isPremiumServer } = require("../js/DBFunctions.js");
 
@@ -251,7 +260,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			const startDMEmbed = new EmbedBuilder()
 				//.setTitle(startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null)
 				.setTitle(startEmbedTitle?.trim() ? startEmbedTitle.slice(0, 256) : null)
-				.setDescription(startEmbedDescription ?? null)
+				.setDescription(startEmbedDescription ? startEmbedDescription.slice(0, 4096) : null)
 				.setColor(application.startmessage?.color || "#3f7ff1")
 				.setFooter({
 					text: `Application: ${appName} | Click "cancel" to cancel the verification.`,
@@ -411,7 +420,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 }
 
 async function constructApplicationEmbed(user, questions, answers, serverId, client, pingStaffRoleId, appName) {
-	const guild = await client.guilds.fetch(serverId);
+	const guild = client.guilds.cache.get(serverId);
+	if (!guild) return { container: null, wasTruncated: false, fullText: null };
 
 	const [guildmember, invitetracker] = await Promise.all([
 		guild.members.fetch(user.id).catch(() => null),
@@ -590,12 +600,6 @@ async function processVerificationResult(
 			return;
 		}
 
-		const path = require("node:path");
-		const { sendWebhookMessage } = require(path.join(process.cwd(), "js/messageHelper.js"));
-		const { sendDenyDM, sendKickDM, applyRoles, createAutoActionContainer, VerificationStatus } = require(
-			path.join(process.cwd(), "js/verificationHandler.js"),
-		);
-
 		let { container, attachment } = containerResult;
 
 		if (reason === "kick" || reason === "deny") {
@@ -669,9 +673,6 @@ async function processVerificationResult(
 			console.error("Error saving final application progress:", progressError);
 		}
 
-		const { isPremiumServer } = require(path.join(process.cwd(), "js/DBFunctions.js"));
-		const { scheduleAction, cancelPendingActions } = require(path.join(process.cwd(), "js/scheduler.js"));
-
 		if (reason === "completed") {
 			try {
 				const [verification, created] = await Verification.findOrCreate({
@@ -703,7 +704,7 @@ async function processVerificationResult(
 			const endEmbed = new EmbedBuilder()
 				//.setTitle(finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null)
 				.setTitle(finishEmbedTitle?.trim() ? finishEmbedTitle.slice(0, 256) : null)
-				.setDescription(finishEmbedDescription)
+				.setDescription(finishEmbedDescription ? finishEmbedDescription.slice(0, 4096) : null)
 				.setColor(finishmessage?.color || "#008000")
 				.setFooter({ text: `Application: ${appName}` })
 				.setImage(finishImageAsset.embedUrl);
@@ -1108,6 +1109,9 @@ async function Verificationfunc(
 					processingQueue = processingQueue
 						.then(async () => {
 							try {
+								if (buttoncollector.ended || collector.ended) return;
+								if (i.message.id !== activeQuestionMessage?.id) return;
+
 								await i.deferUpdate().catch(() => console.error("Failed to defer update for cancel button"));
 
 								// handle cancel button
@@ -1245,6 +1249,9 @@ async function Verificationfunc(
 					processingQueue = processingQueue
 						.then(async () => {
 							try {
+								if (buttoncollector.ended || collector.ended) return;
+								if (collected.createdTimestamp < activeQuestionMessage?.createdTimestamp) return;
+
 								const currentQuestion = questionMap.get(currentQuestionId);
 
 								if (!currentQuestion) return;
@@ -1365,17 +1372,11 @@ async function resumeApplication(client) {
 			)
 				continue;
 
-			const [guild, user] = await Promise.all([
-				client.guilds.fetch(progressRow.guild_id).catch(() => null),
-				client.users.fetch(progressRow.user_id).catch(() => null),
-			]);
-			if (!guild || !user) continue;
+			const user = await client.users.fetch(progressRow.user_id).catch(() => null);
+			if (!user) continue;
 
 			const { application, error } = await getApplicationByIdWithFallback(progressRow.app_id, progressRow.guild_id);
 			if (error || !application) continue;
-			const verifyLogsChannel = guild.channels.cache.get(application.reviewchannel);
-			if (!verifyLogsChannel) continue;
-
 			const cancelbutton = new ActionRowBuilder().addComponents(
 				new ButtonBuilder()
 					.setCustomId(`cancelverification-${progressRow.message_id}`)
@@ -1385,8 +1386,6 @@ async function resumeApplication(client) {
 
 			const dmChannel = await client.channels.fetch(payload.dmChannelId).catch(() => null);
 			if (!dmChannel) continue;
-
-			const pseudoInteraction = { guild, user };
 
 			activeVerifications.set(progressRow.user_id, { sessionId: progressRow.message_id, startTime: Date.now() });
 			void (async () => {
@@ -1405,24 +1404,63 @@ async function resumeApplication(client) {
 						resumeState: payload,
 					});
 
-					if (reason === "completed") {
-						await processVerificationResult(
-							user,
-							reason,
-							responses,
-							pseudoInteraction,
-							payload.questionObjects,
-							dmChannel,
-							application.pingrole,
-							progressRow.guild_id,
-							verifyLogsChannel,
-							application.finishmessage,
-							client,
-							application.usethreads,
-							application.name,
-							progressRow.app_id,
-							progressRow.message_id,
-							application,
+					if (reason === "completed" || reason === "kick" || reason === "deny") {
+						await client.cluster.broadcastEval(
+							async (c, context) => {
+								const guild = c.guilds.cache.get(context.guildId);
+								if (!guild) return false;
+
+								const targetUser = await c.users.fetch(context.userId).catch(() => null);
+								if (!targetUser) return false;
+
+								const { processVerificationResult } = require(context.appHandlerPath);
+								const { getApplicationByIdWithFallback } = require(context.tempConfigPath);
+
+								const { application } = await getApplicationByIdWithFallback(context.appId, context.guildId);
+								if (!application) return false;
+
+								const verifyLogsChan = await guild.channels.fetch(application.reviewchannel);
+								const dmChan =
+									(await c.channels.fetch(context.dmChannelId).catch(() => null)) ??
+									(await targetUser.createDM().catch(() => null));
+
+								const pseudoInteraction = { guild, user: targetUser, channel: verifyLogsChan };
+
+								await processVerificationResult(
+									targetUser,
+									context.reason,
+									context.responses,
+									pseudoInteraction,
+									context.botQuestions,
+									dmChan,
+									application.pingrole,
+									context.guildId,
+									verifyLogsChan,
+									application.finishmessage,
+									c,
+									application.usethreads,
+									application.name,
+									context.appId,
+									context.sessionId,
+									application,
+								);
+
+								return true;
+							},
+							{
+								context: {
+									guildId: progressRow.guild_id,
+									userId: progressRow.user_id,
+									reason,
+									responses,
+									botQuestions: payload.questionObjects,
+									dmChannelId: payload.dmChannelId,
+									appId: progressRow.app_id,
+									sessionId: progressRow.message_id,
+									appHandlerPath: __filename,
+									tempConfigPath: require.resolve("./tempconfigfuncs.js"),
+								},
+							},
 						);
 					}
 				} catch (error) {
@@ -1438,4 +1476,4 @@ async function resumeApplication(client) {
 	}
 }
 
-module.exports = { resumeApplication, handleApplicationStart };
+module.exports = { resumeApplication, handleApplicationStart, processVerificationResult };
