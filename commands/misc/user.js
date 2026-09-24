@@ -1,32 +1,27 @@
 const { SlashCommandBuilder, MessageFlags, PermissionFlagsBits, ComponentType } = require("discord.js");
 
-/**
- * /user command
- * @param {CommandInteraction} param0 interaction data from discord.js
- */
-async function cmd_user_execute({ interaction }) {
-	const cur = {
-		channel: "channelID" in interaction ? interaction.channelId : undefined,
-		a_perms: "appPermissions" in interaction ? interaction.appPermissions : undefined,
-		user: "user" in interaction ? interaction.user : undefined,
-		member: "member" in interaction ? interaction.member : undefined,
-	};
-
-	const response = {
-		flags: 0,
-		content: "",
-		components: [],
-	};
-
-	if (interaction.inGuild()) {
-		const a_perms = cur.a_perms !== undefined ? cur.a_perms.bitfield : 0n;
-		response.flags |= MessageFlags.IsComponentsV2;
+module.exports = {
+	data: new SlashCommandBuilder().setName("user").setDescription("Provides information about the user.").setContexts(0),
+	/**
+	 * /user command
+	 * @param {CommandInteraction} param0 interaction data from discord.js
+	 */
+	async execute({ interaction }) {
+		const user = interaction.user; // Grab user from interaction.
+		const member = interaction.member; // Grab member from interaction(Garenteed by interaction handler).
+		const appMask = interaction.appPermissions ?? 0n; // Grab application bitmask from interaction, defaulting to 0n as a failsafe.
+		// Initialise a response, setting components v2 here as all outcomes are the same.
+		const response = {
+			flags: MessageFlags.IsComponentsV2,
+			content: "",
+			components: [],
+		};
 
 		//--Primary output content--
 		const BuildContent = () => {
 			let content = "";
-			const time = Math.floor(cur.member.joinedAt / 1000);
-			content += `\`User name\` ${cur.user.username}\n`;
+			const time = Math.floor(member.joinedAt / 1000);
+			content += `\`User name\` ${user.username}\n`;
 			content += `\`Joined at\` <t:${time}:f>\n`;
 
 			return content;
@@ -45,17 +40,9 @@ async function cmd_user_execute({ interaction }) {
 		response.components = container;
 
 		//--If we do not have permission to view channel or send messages, send as a ephemeral as to respect access rights to channels--
-		if (!(a_perms & PermissionFlagsBits.ViewChannel)) response.flags |= MessageFlags.Ephemeral;
-		if (!(a_perms & PermissionFlagsBits.SendMessages)) response.flags |= MessageFlags.Ephemeral;
-	} else {
-		response.flags |= MessageFlags.Ephemeral;
-		response.content = "This command must be ran inside a server.";
-	}
+		if (!(appMask & PermissionFlagsBits.ViewChannel)) response.flags |= MessageFlags.Ephemeral;
+		if (!(appMask & PermissionFlagsBits.SendMessages)) response.flags |= MessageFlags.Ephemeral;
 
-	await interaction.reply(response);
-}
-
-module.exports = {
-	data: new SlashCommandBuilder().setName("user").setDescription("Provides information about the user.").setContexts(0),
-	execute: cmd_user_execute,
+		await interaction.reply(response);
+	},
 };
