@@ -17,7 +17,6 @@ const {
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
-const { resolveImage } = require("../js/imageUtils.js");
 const {
 	addMessageId,
 	sendDenyDM,
@@ -26,7 +25,7 @@ const {
 	createAutoActionContainer,
 	VerificationStatus,
 } = require("../js/verificationHandler.js");
-const { sendWebhookMessage } = require("../js/messageHelper.js");
+const { sendWebhookMessage, formatCustomMessage } = require("../js/messageHelper.js");
 const { scheduleAction, cancelPendingActions } = require("../js/scheduler.js");
 const { encryptData, decryptData } = require("../js/DBFunctions.js");
 const { isPremiumServer } = require("../js/DBFunctions.js");
@@ -244,33 +243,20 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 				new ButtonBuilder().setCustomId(`cancelverification-${sessionId}`).setLabel("Cancel").setStyle("Danger"),
 			);
 
-			const startEmbedTitle = replaceplaceholder(
-				application.startmessage?.title,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-			const startEmbedDescription = replaceplaceholder(
-				application.startmessage?.description,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-
-			const startEmbedimage = application.startmessage?.image;
-			const startImageAsset = resolveImage(startEmbedimage);
-			const startDMEmbed = new EmbedBuilder()
-				//.setTitle(startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null)
-				.setTitle(startEmbedTitle?.trim() ? startEmbedTitle.slice(0, 256) : null)
-				.setDescription(startEmbedDescription ? startEmbedDescription.slice(0, 4096) : null)
-				.setColor(application.startmessage?.color || "#3f7ff1")
-				.setFooter({
-					text: `Application: ${appName} | Click "cancel" to cancel the verification.`,
-				})
-				.setImage(startImageAsset.embedUrl);
+			const payload = await formatCustomMessage(application.startmessage, {
+				user,
+				interaction,
+				guild: interaction.guild,
+				appName,
+				application,
+				defaultColor: "#3f7ff1",
+				defaultFooter: `Application: ${appName} | Click "cancel" to cancel the verification.`,
+			});
 
 			let startmessage;
 
 			try {
-				startmessage = await dmChannel.send({ embeds: [startDMEmbed] });
+				startmessage = await dmChannel.send(payload);
 			} catch (error) {
 				if (error.code === 50007 || error.code === 50278) {
 					// Cannot send messages to this user
@@ -688,30 +674,22 @@ async function processVerificationResult(
 				console.error("Error setting user verification:", error);
 			}
 
-			const finishEmbedTitle = replaceplaceholder(
-				finishmessage?.title,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-			const finishEmbedDescription = replaceplaceholder(
-				finishmessage?.description,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-			const finishEmbedimage = finishmessage?.image;
-			const finishImageAsset = resolveImage(finishEmbedimage);
+			const payload = await formatCustomMessage(finishmessage, {
+				user,
+				interaction,
+				guild: interaction.guild,
+				appName,
+				application,
+				defaultColor: "#008000",
+				defaultFooter: `Application: ${appName}`,
+			});
 
-			const endEmbed = new EmbedBuilder()
-				//.setTitle(finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null)
-				.setTitle(finishEmbedTitle?.trim() ? finishEmbedTitle.slice(0, 256) : null)
-				.setDescription(finishEmbedDescription ? finishEmbedDescription.slice(0, 4096) : null)
-				.setColor(finishmessage?.color || "#008000")
-				.setFooter({ text: `Application: ${appName}` })
-				.setImage(finishImageAsset.embedUrl);
-
-			await dmChannel
-				.send({ embeds: [endEmbed] })
-				.catch((err) => console.error(`Failed to send completion DM to user ${user.id}:`, err));
+			if (payload) {
+				await dmChannel.send(payload).catch((err) => {
+					if (err.code === 50007 || err.code === 50278) return;
+					console.error(`Failed to send completion DM to user ${user.id}:`, err);
+				});
+			}
 
 			//Delete any kick-timer if server has setup auto-kick and cancel kick upon submission is enabled
 			if (application.cancelKickOnSubmission === true) {
@@ -783,13 +761,6 @@ async function processVerificationResult(
 			}
 		}
 	}
-}
-
-function replaceplaceholder(string, globalUserName, guildName) {
-	if (!string) return null;
-	const result = string.replace(/{username}/g, globalUserName)?.replace(/\${interaction.guild.name}/g, guildName);
-	//return result && result.trim() ? result : null;
-	return result?.trim() ? result : null;
 }
 
 async function Verificationfunc(

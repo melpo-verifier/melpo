@@ -33,15 +33,29 @@ function resolveButtonStyle(style) {
 	return ButtonStyle.Secondary;
 }
 
+function isValidUrl(str) {
+	if (!str || typeof str !== "string") return false;
+	try {
+		const parsed = new URL(str);
+		return parsed.protocol === "http:" || parsed.protocol === "https:";
+	} catch {
+		return false;
+	}
+}
+
 function buildV2Button(btn, app) {
 	const button = new ButtonBuilder();
 
 	if (btn.label) button.setLabel(String(btn.label).slice(0, 80));
 	if (btn.emoji) button.setEmoji(btn.emoji);
 
-	if (btn.action === "link") {
-		if (!btn.url) return null;
-		button.setStyle(ButtonStyle.Link).setURL(btn.url);
+	if (btn.action === "link" || btn.style === "link" || btn.url) {
+		if (!btn.url || !isValidUrl(btn.url)) return null;
+		try {
+			button.setStyle(ButtonStyle.Link).setURL(btn.url);
+		} catch {
+			return null;
+		}
 	} else {
 		button.setStyle(resolveButtonStyle(btn.style));
 		const targetAppId = btn.targetApplicationId || app?.id;
@@ -65,7 +79,12 @@ function buildV2SectionBlock(block, app) {
 		if (!btn) return null;
 		section.setButtonAccessory(btn);
 	} else if (acc.type === "thumbnail" && acc.imageUrl) {
-		section.setThumbnailAccessory(new ThumbnailBuilder({ media: { url: acc.imageUrl } }));
+		if (!isValidUrl(acc.imageUrl)) return null;
+		try {
+			section.setThumbnailAccessory(new ThumbnailBuilder({ media: { url: acc.imageUrl } }));
+		} catch {
+			return null;
+		}
 	} else {
 		return null;
 	}
@@ -134,9 +153,12 @@ function buildBlock(block, app) {
 			);
 
 		case "media":
-			return block.imageUrl
-				? new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(block.imageUrl))
-				: null;
+			if (!block.imageUrl || !isValidUrl(block.imageUrl)) return null;
+			try {
+				return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(block.imageUrl));
+			} catch {
+				return null;
+			}
 
 		case "action_row":
 			return processActionRowBlock(block, app);
