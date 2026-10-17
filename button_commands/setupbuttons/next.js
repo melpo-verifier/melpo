@@ -42,7 +42,7 @@ module.exports = async ({ interaction, context }) => {
 		const channelmenu = new ChannelSelectMenuBuilder()
 			.setCustomId(`firstTimeMenu_1_${tempApplicationId}`)
 			.setChannelTypes("GuildText")
-			.setPlaceholder("Channel the applications will be sent to (for mods)")
+			.setPlaceholder("Application Review Channel")
 			.setMinValues(1)
 			.setMaxValues(1);
 
@@ -51,16 +51,16 @@ module.exports = async ({ interaction, context }) => {
 		//Note : Static invite token.
 		const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
 			.setDescription(
-				`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nGreat! You've set up your user verification channel! Now let's set up the channel where the applications will be sent. This channel will be used to send the applications to the mods for review. Please select the channel where the applications will be sent  and then click the "Next" button below to continue...`,
+				`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nGreat! You've set up your Application start channel! Now select the (staff) review channel where incoming applications should be sent for review, then click **Next** to continue...`,
 			)
 			.setFields([
 				{
-					name: "User Verification Channel `(required)`",
+					name: "Application Start Channel `(required)`",
 					value: `<#${verifyChannel}>`,
 					inline: false,
 				},
 				{
-					name: "Verification Review Channel `(required)`",
+					name: "Application Review Channel `(required)`",
 					value: `No channel set up yet`,
 					inline: false,
 				},
@@ -97,21 +97,21 @@ module.exports = async ({ interaction, context }) => {
 		//Note : Static invite token.
 		const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0])
 			.setDescription(
-				`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nAwesome! We've now set up all required channels! Now we just need to add a verified role and a few questions! We'll start with the verified role, this role will be given to users once they've been verified. Please select the role(s) that you would like to be given to users once they've been verified and then click the "Next" button below to continue...\n\n**Note:** If you set up multiple roles, the bot will give all of them to the user.`,
+				`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nAwesome! We've now set up all required channels! Now we just need to add an accepted role and a few questions! We'll start with the accepted roles, this role will be given to users once they've been accepted by a reviewer.\nPlease select the role(s) that you would like to be given to users once they've been accepted and then click the "Next" button below to continue...\n\n**Note:** If you set up multiple roles, the bot will give all of them to the user.`,
 			)
 			.setFields([
 				{
-					name: "User Verification Channel `(required)`",
+					name: "Application Start Channel `(required)`",
 					value: `<#${verifyChannel}>`,
 					inline: false,
 				},
 				{
-					name: "Verification Review Channel `(required)`",
+					name: "Application Review Channel `(required)`",
 					value: `<#${reviewChannel}>`,
 					inline: false,
 				},
 				{
-					name: "Verified Role `(required)`",
+					name: "Accepted Role(s) `(required)`",
 					value: `No role set up yet`,
 					inline: false,
 				},

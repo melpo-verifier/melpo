@@ -67,7 +67,7 @@ function normalizeMcqInput(mcqInput, existingMcq = []) {
 	});
 }
 
-function buildQuestionFromForm({ existingQuestion, content, mcqInput }) {
+function buildQuestionFromForm({ existingQuestion, content, mcqInput, allowMultipleSelections }) {
 	const baseQuestion = existingQuestion && typeof existingQuestion === "object" ? { ...existingQuestion } : {};
 	const existingMcq = Array.isArray(baseQuestion.mcq) ? baseQuestion.mcq : [];
 	const mcq = normalizeMcqInput(mcqInput, existingMcq);
@@ -79,7 +79,10 @@ function buildQuestionFromForm({ existingQuestion, content, mcqInput }) {
 		mcq,
 		regexBranches: Array.isArray(baseQuestion.regexBranches) ? baseQuestion.regexBranches : [],
 		nextQuestionId: baseQuestion.nextQuestionId ?? null,
-		allowMultipleSelections: baseQuestion.allowMultipleSelections === true,
+		allowMultipleSelections:
+			allowMultipleSelections !== undefined
+				? Boolean(allowMultipleSelections)
+				: baseQuestion.allowMultipleSelections === true,
 		multiSelectNextQuestionId: baseQuestion.multiSelectNextQuestionId ?? null,
 	};
 }

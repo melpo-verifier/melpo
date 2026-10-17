@@ -157,10 +157,10 @@ module.exports = {
 				.setColor("#3f7ff1")
 				.setTitle(`Application Setup: ${name}`)
 				.setDescription(
-					`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nWelcome to the setup of ${name}! I will guide you through the setup process. I need 4 things to be set up in order to start securing your server. We'll start with the User Verification Start Channel.\n\nPlease select the channel where users will start the verification process and then click the "Next" button below to continue...`,
+					`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nWelcome to the setup of ${name}! I will guide you through the setup process. I need 4 things to be set up in order to create an application. We'll start with the Application Start Channel.\n\nPlease select the channel where users will start the Application and then click the "Next" button below to continue...`,
 				)
 				.addFields({
-					name: "User Verification Channel `(required)`",
+					name: "Application Start Channel `(required)`",
 					value: `No channel set up yet`,
 					inline: false,
 				});
@@ -168,7 +168,7 @@ module.exports = {
 			const channelmenu = new ChannelSelectMenuBuilder()
 				.setCustomId(`firstTimeMenu_0_${tempApp.id}`)
 				.addChannelTypes("GuildText")
-				.setPlaceholder("Select the channel users will start verification in")
+				.setPlaceholder("Application start channel")
 				.setMinValues(1)
 				.setMaxValues(1);
 

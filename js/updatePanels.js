@@ -30,7 +30,20 @@ const {
 } = require("./updatePanelsHelpers/messageComparator.js");
 const { resolveColor } = require("discord.js");
 
-const isValidHexColor = (color) => resolveColor(color) !== null;
+const isValidHexColor = (color) => {
+	const hexColorRegex = /^#?[0-9A-Fa-f]{6}$/;
+	const hexTest = hexColorRegex.test(color);
+
+	if (!hexTest) {
+		return false;
+	}
+	try {
+		const test = resolveColor(color) !== null;
+		return test;
+	} catch {
+		return false;
+	}
+};
 
 /**
  * Loops through all applications in a server to sync their application panels.

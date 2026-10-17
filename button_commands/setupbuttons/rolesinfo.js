@@ -22,6 +22,8 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 		});
 	}
 
+	whichdefault = whichdefault ?? 0;
+
 	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
 	if (error) {
 		return interaction.reply({
@@ -36,27 +38,29 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 		applicationSetup = application;
 	}
 
-	// const verifiedRole = tempApp.verifiedrole?.length > 0 ? tempApp.verifiedrole : applicationSetup?.verifiedrole;
-	// const unverifiedRole = tempApp.unverifiedrole?.length > 0 ? tempApp.unverifiedrole : applicationSetup?.unverifiedrole;
-	// const pingRole = tempApp.pingrole?.length > 0 ? tempApp.pingrole : applicationSetup?.pingrole;
-	// const managerRole = tempApp.managerrole?.length > 0 ? tempApp.managerrole : applicationSetup?.managerrole;
 	const verifiedRole =
-		(tempApp.verifiedrole || applicationSetup.verifiedrole)?.length > 0
-			? tempApp.verifiedrole || applicationSetup.verifiedrole
+		(tempApp.verifiedrole || applicationSetup?.verifiedrole)?.length > 0
+			? tempApp.verifiedrole || applicationSetup?.verifiedrole
 			: null;
 	const unverifiedRole =
-		(tempApp.unverifiedrole || applicationSetup.unverifiedrole)?.length > 0
-			? tempApp.unverifiedrole || applicationSetup.unverifiedrole
+		(tempApp.unverifiedrole || applicationSetup?.unverifiedrole)?.length > 0
+			? tempApp.unverifiedrole || applicationSetup?.unverifiedrole
 			: null;
 	const pingRole =
-		(tempApp.pingrole || applicationSetup.pingrole)?.length > 0 ? tempApp.pingrole || applicationSetup.pingrole : null;
+		(tempApp.pingrole || applicationSetup?.pingrole)?.length > 0
+			? tempApp.pingrole || applicationSetup?.pingrole
+			: null;
 	const managerRole =
-		(tempApp.managerrole || applicationSetup.managerrole)?.length > 0
-			? tempApp.managerrole || applicationSetup.managerrole
+		(tempApp.managerrole || applicationSetup?.managerrole)?.length > 0
+			? tempApp.managerrole || applicationSetup?.managerrole
 			: null;
 	const questionpingrole =
-		(tempApp.questionpingrole || applicationSetup.questionpingrole)?.length > 0
-			? tempApp.questionpingrole || applicationSetup.questionpingrole
+		(tempApp.questionpingrole || applicationSetup?.questionpingrole)?.length > 0
+			? tempApp.questionpingrole || applicationSetup?.questionpingrole
+			: null;
+	const deniedRole =
+		(tempApp.deniedrole || applicationSetup?.deniedrole)?.length > 0
+			? tempApp.deniedrole || applicationSetup?.deniedrole
 			: null;
 
 	//Note : Static invite token.
@@ -64,12 +68,12 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 		.setColor("#3f7ff1")
 		.setTitle("Roles setup")
 		.setDescription(
-			"[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply for verification.",
+			"[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the roles assigned, removed, or pinged during the verification process.",
 		)
 		.addFields(
 			{
 				name: "Verified Role (Member Role) `required`",
-				value: `*Role(s) assigned when users get verified*\n${verifiedRole ? verifiedRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up (REQUIRED)"}`,
+				value: `*Role(s) assigned when users get verified*\n${verifiedRole ? verifiedRole.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up (REQUIRED)"}`,
 			},
 			{
 				name: "Auto Role `optional`",
@@ -77,19 +81,23 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 			},
 			{
 				name: "Unverified Role `optional`",
-				value: `*Role(s) to remove from users upon verification*\n${unverifiedRole ? unverifiedRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+				value: `*Role(s) to remove from users upon verification*\n${unverifiedRole ? unverifiedRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
 				name: "Verification Ping Role `optional`",
-				value: `*Role(s) that gets pinged with every new application*\n${pingRole ? pingRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+				value: `*Role(s) that gets pinged with every new application*\n${pingRole ? pingRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
 				name: "Verification Manager Role `optional`",
-				value: `*Users with this role can manage applications (no roles = everyone can manage)*\n${managerRole ? managerRole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+				value: `*Users with this role can manage applications (no roles = everyone can manage)*\n${managerRole ? managerRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
 				name: "Question Ping Role `optional`",
-				value: `*Role(s) that gets pinged when a user answers a question*\n${questionpingrole ? questionpingrole?.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up"}`,
+				value: `*Role(s) that gets pinged when a user answers a question*\n${questionpingrole ? questionpingrole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+			},
+			{
+				name: "Denied Role `optional`",
+				value: `*Role(s) assigned when a user's application is denied*\n${deniedRole ? deniedRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 		);
 
@@ -110,31 +118,37 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 				label: "Verified Role (Member Role)",
 				description: `Role(s) assigned when users get verified`,
 				value: "verifiedRole",
-				default: whichdefault === 0 /*? true : false*/,
+				default: whichdefault === 0,
 			},
 			{
 				label: "Unverified Role",
 				description: "Role(s) to remove from users upon verification",
 				value: "unverifiedRole",
-				default: whichdefault === 1 /*? true : false*/,
+				default: whichdefault === 1,
 			},
 			{
 				label: "Verification Ping Role",
 				description: "Role(s) that gets pinged with every new application",
 				value: "pingRole",
-				default: whichdefault === 2 /*? true : false*/,
+				default: whichdefault === 2,
 			},
 			{
 				label: "Verification Manager Role",
 				description: "Users with this role can manage applications",
 				value: "managerRole",
-				default: whichdefault === 3 /*? true : false*/,
+				default: whichdefault === 3,
 			},
 			{
 				label: "Question Ping Role",
 				description: "Role(s) that gets pinged when a user answers a question",
 				value: "questionpingrole",
-				default: whichdefault === 4 /*? true : false*/,
+				default: whichdefault === 4,
+			},
+			{
+				label: "Denied Role",
+				description: "Role(s) assigned when a user's application is denied",
+				value: "deniedRole",
+				default: whichdefault === 5,
 			},
 		);
 
@@ -154,7 +168,9 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 							? (managerRole ?? [])
 							: whichdefault === 4
 								? (questionpingrole ?? [])
-								: []
+								: whichdefault === 5
+									? (deniedRole ?? [])
+									: []
 			).slice(0, 10),
 		);
 
@@ -165,10 +181,16 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 
 	const categoryButtons = createCategoryButtons(tempApplicationId, 1); // 1 = Roles is disabled
 
-	await interaction.update({
+	const payload = {
 		content: "",
 		embeds: [generalembed],
 		components: [categoryButtons, ...rolemenus, finishbuttons],
 		files: [],
-	});
+	};
+
+	if (interaction.replied || interaction.deferred) {
+		await interaction.message.edit(payload);
+	} else {
+		await interaction.update(payload);
+	}
 };

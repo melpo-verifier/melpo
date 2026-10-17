@@ -1,4 +1,4 @@
-const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
+const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder, MessageFlags } = require("discord.js");
 const { getTempApplicationById } = require("./tempconfigfuncs.js");
 
 async function firsttimequestions({ interaction, applicationId, tempApplicationId }) {
@@ -13,7 +13,7 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 	if (error)
 		return interaction.reply({
 			content: `Error: ${error}`,
-			flags: require("discord.js").MessageFlags.Ephemeral,
+			flags: MessageFlags.Ephemeral,
 		});
 
 	let questions = temporarySetup.questions;
@@ -32,25 +32,25 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 
 	const questionembed = EmbedBuilder.from(interaction.message.embeds[0])
 		.setDescription(
-			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nGreat! You've set up all the required channels and the verified role! Now let's set up the questions. You need to have atleast a single question to finish the setup. Clicking "add question" will show you a prompt to add a question. **For multiple choice questions you use a new line (enter or return) for each option you want to add under the "multiple choice question" field.**\n\nOnce you've added all the questions you want, click the "Next" button below to see a summary and make adjustments or add options.`,
+			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nGreat! You've set up all the required channels and the accepted role! Now let's set up the questions. You need to have atleast a single question to finish the setup. Clicking "add question" will show you a prompt to add a question. **For multiple choice questions you use a new line (enter or return) for each option you want to add under the "multiple choice question" field.**\n\nOnce you've added all the questions you want, click the "Next" button below to see a summary and make adjustments or add options.`,
 		)
 		.setFields([
 			{
-				name: "Verification Channel `(required)`",
+				name: "Application Start Channel `(required)`",
 				value: `<#${verifyChannel}>`,
 				inline: false,
 			},
 			{
-				name: "Verification Review Channel `(required)`",
+				name: "Application Review Channel `(required)`",
 				value: `<#${reviewChannel}>`,
 				inline: false,
 			},
 			{
-				name: "Verified Role `(required)`",
+				name: "Accepted Role(s) `(required)`",
 				value: verifiedRole?.map((role) => `<@&${role}>`).join(", "),
 				inline: false,
 			},
-			{ name: "Questions", value: "_ _", inline: false },
+			{ name: "Questions `(required)`", value: "_ _", inline: false },
 		]);
 
 	const questionbuttons = new ActionRowBuilder().addComponents(
@@ -97,7 +97,12 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 			questions?.map((question, index) => {
 				const mcqContent =
 					question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
-				return { name: `Question ${index + 1}`, value: (question.content + mcqContent).slice(0, 1024), inline: false };
+				const multipleSelectionInfo = question.allowMultipleSelections ? "Multiple options" : "Single option";
+				return {
+					name: `Question ${index + 1}${question.mcq?.length > 0 ? ` \`MCQ (${multipleSelectionInfo})\`` : ""}`,
+					value: (question.content + mcqContent).slice(0, 1024),
+					inline: false,
+				};
 			}),
 		);
 

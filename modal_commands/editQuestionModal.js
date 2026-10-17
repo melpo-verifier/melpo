@@ -6,6 +6,7 @@ const { MessageFlags } = require("discord.js");
 module.exports = async ({ interaction, client, context }) => {
 	const question = interaction.fields.getTextInputValue("question");
 	const mcq = interaction.fields.getTextInputValue("mcq");
+	const allowMultipleSelections = interaction.fields.getCheckbox("allowMultipleSelections");
 	let mcqArray = mcq.split("\n").filter((option) => option.trim().length > 0);
 	if (mcqArray.length > 9) mcqArray = mcqArray.slice(0, 9);
 
@@ -37,6 +38,7 @@ module.exports = async ({ interaction, client, context }) => {
 			existingQuestion: questions[qnumber],
 			content: question,
 			mcqInput: mcqArray,
+			allowMultipleSelections,
 		});
 	} else {
 		questions.splice(qnumber, 1);
