@@ -168,7 +168,7 @@ module.exports = {
 			const channelmenu = new ChannelSelectMenuBuilder()
 				.setCustomId(`firstTimeMenu_0_${tempApp.id}`)
 				.addChannelTypes("GuildText")
-				.setPlaceholder("Application start channel")
+				.setPlaceholder("Application Start Channel")
 				.setMinValues(1)
 				.setMaxValues(1);
 

@@ -82,7 +82,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 					{
 						label: "Enable Auto-Kick",
 						value: "autoKickUnverifiedEnabled",
-						description: "Kick members if they fail to verify in time",
+						description: "Kick members if they fail to apply in time",
 						default: Boolean(autoKickUnverifiedEnabled),
 					},
 					{
@@ -96,7 +96,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 
 		const kickHours = new LabelBuilder()
 			.setLabel("Auto-Kick Hours")
-			.setDescription("Duration in hours before an unverified member is kicked")
+			.setDescription("Duration in hours before an unaccepted member is kicked")
 			.setTextInputComponent(
 				new TextInputBuilder()
 					.setCustomId("autoKickUnverifiedHours")
@@ -182,8 +182,8 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 				inline: false,
 			},
 			{
-				name: "Auto-Kick Unverified Members `✨ Premium`",
-				value: `**${autoKickUnverifiedEnabled ? `🟢 \`Enabled\` — \`${autoKickUnverifiedHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically kicks unverified users if they do not verify within the configured time window.*
+				name: "Auto-Kick Unaccepted Members `✨ Premium`",
+				value: `**${autoKickUnverifiedEnabled ? `🟢 \`Enabled\` — \`${autoKickUnverifiedHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically kicks unaccepted users if they do not apply within the configured time window.*
 				**Cancel Kick on Submission**\n**${cancelKickOnSubmission ? "🟢 `Enabled`" : "🔴 `Disabled`"}**\n***Enabled:** Cancels the auto-kick timer on application submission.\n**Disabled:** Kicks the user regardless of application status.*`,
 				inline: false,
 			},

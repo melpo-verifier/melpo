@@ -16,7 +16,7 @@ var def_embeds = {
 		color: "#3f7ff1",
 	},
 	verify_sv_channel: {
-		title: "How to verify",
+		title: "How to apply",
 		description: `After clicking the "Apply" button below the bot will DM you some questions in order for you to access the server. You'll have to fill out the complete form in order for the moderators to see your application. \n\nClick the "Apply" button below to start the application`,
 		color: "#3f7ff1",
 	},
@@ -31,9 +31,9 @@ var def_embeds = {
 		color: "#EB2121",
 	},
 	verify_dm_start: {
-		title: "${interaction.guild.name}'s Verification",
+		title: "${interaction.guild.name}'s Application",
 		description:
-			'**Welcome to Melpo\'s verification!**\nWelcome {username} to the verification process of ${interaction.guild.name}! Please answer the following questions within 60 minutes. You can cancel the verification any time by clicking "cancel".',
+			'**Welcome to Melpo\'s application!**\nWelcome {username} to the application process of ${interaction.guild.name}! Please answer the following questions within 60 minutes. You can cancel the application any time by clicking "cancel".',
 		color: "#3f7ff1",
 	},
 	verify_dm_finish: {

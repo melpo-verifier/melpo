@@ -46,7 +46,7 @@ module.exports = async ({ interaction, client, context }) => {
 	const verifyChannelObj = interaction.guild.channels.cache.get(verifyChannel);
 	if (!verifyChannelObj) {
 		return interaction.reply({
-			content: "The user verification channel has been deleted. Please set up the user verification channel again.",
+			content: "The application start channel has been deleted. Please set up the application start channel again.",
 			flags: MessageFlags.Ephemeral,
 		});
 	}
@@ -213,13 +213,13 @@ module.exports = async ({ interaction, client, context }) => {
 			.addFields(
 				{
 					name: "✅ Configured",
-					value: `- **Application:** \`${finalApp.name}\`\n- **Application Start Channel:** <#${verifyChannelObj.id}>\n- **Review Channel:** <#${reviewChannel}>\n- **Accepted Role(s):** ${formattedVerifiedRoles}\n_ _`,
+					value: `- **Application:** \`${finalApp.name}\`\n- **Application Start Channel:** <#${verifyChannelObj.id}>\n- **Review Channel:** <#${reviewChannel}>\n- **Accepted Roles:** ${formattedVerifiedRoles}\n_ _`,
 					inline: false,
 				},
 				{
 					name: "🛠️ Free features you can set up next",
 					value:
-						`- **Extra Roles:** Set roles to remove on accept, Denied roles, Review Manager roles, and Ping roles.\n` +
+						`- **Extra Roles:** Set roles to remove on accept, Denied Roles, Reviewer Roles, and Application Ping.\n` +
 						`- **Logs:** Auto-move handled applications to a separate logs channel.\n` +
 						`- **Welcome Messages:** Send a welcome message in your server on approval.\n` +
 						`- **Auto-Threads:** Auto-create discussion threads on incoming submissions.\n` +
@@ -229,7 +229,7 @@ module.exports = async ({ interaction, client, context }) => {
 				{
 					name: "✨ Premium features you can set up next",
 					value:
-						`- **Timers & Limits:** Auto-kick unverified members, re-apply cooldowns & denied-role failure threshold.\n` +
+						`- **Timers & Limits:** Auto-kick unaccepted members, re-apply cooldowns & denied-role failure threshold.\n` +
 						`- **Question Branching (Web):** Regex or multiple choice based: Question branching, auto-kick/deny rules & roles.\n` +
 						`- **Modern Card Layout (Web):** Visual drag-and-drop builder for way more advanced custom message layouts.\n` +
 						`- **Custom Webhook Branding (Web):** Custom bot name & avatar on server-sided messages.\n` +
@@ -255,7 +255,7 @@ module.exports = async ({ interaction, client, context }) => {
 			.setColor("#3f7ff1")
 			.setTitle("Setup finished")
 			.setDescription(
-				`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" has been updated.\nUsers can start their verification in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nYou can redo or adjust this setup any time by running the \`/setup edit ${tempApp.name}\` command again.\nTry out our dashboard for more customization options and an easier way to manage your applications!`,
+				`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nThe application "${tempApp.name}" has been updated.\nUsers can start their application in <#${verifyChannelObj.id}> and applications will then be sent to <#${reviewChannel}>.\n\nYou can redo or adjust this setup any time by running the \`/setup edit ${tempApp.name}\` command again.\nTry out our dashboard for more customization options and an easier way to manage your applications!`,
 			);
 
 		const dashboardlink = new ActionRowBuilder().addComponents(

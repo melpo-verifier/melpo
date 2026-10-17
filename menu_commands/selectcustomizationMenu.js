@@ -41,38 +41,38 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 			.setPlaceholder("Select what message you want to customize")
 			.addOptions(
 				{
-					label: "Verify channel Embed",
-					description: 'Message to which users click "verify" to start verification',
+					label: "Application Panel",
+					description: "Message with which users start the application process",
 					value: "verifychannelembed",
 					default: chosenvalue === "verifychannelembed",
 				},
 				{
-					label: "Verification start message",
-					description: "Message user gets when starting verification",
+					label: "Application Start",
+					description: "Message user gets when starting an application",
 					value: "startmessage",
 					default: chosenvalue === "startmessage",
 				},
 				{
-					label: "Verification finish message",
-					description: "Message user gets when finishing verification",
+					label: "Submission Confirmation",
+					description: "Message user gets when submitting an application",
 					value: "finishmessage",
 					default: chosenvalue === "finishmessage",
 				},
 				{
-					label: "On verify message",
-					description: "Message user gets when getting verified",
+					label: "Acceptance Notice",
+					description: "Message user gets when getting accepted",
 					value: "verifymessage",
 					default: chosenvalue === "verifymessage",
 				},
 				{
-					label: "On deny message",
+					label: "Denial Notice",
 					description: "Message user gets when getting denied",
 					value: "denymessage",
 					default: chosenvalue === "denymessage",
 				},
 				{
-					label: "Verification welcome message",
-					description: "Welcome message in the server when user gets verified",
+					label: "Welcome Message",
+					description: "Welcome message in the server when user gets accepted",
 					value: "verificationwelcomemessage",
 					default: chosenvalue === "verificationwelcomemessage",
 				},
@@ -200,39 +200,39 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 		}
 
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Welcome Message")
+			.setTitle("Welcome Message")
 			.setDescription(
-				`*This message gets sent to a specific channel in the server upon a user getting verified (channel can be changed in the channels tab)*\n**Placeholder options:**\n-# **{usermention}** - mention the user\n-# **{username}** - username\n-# **{modname}** - moderator name (which verified the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server verified member count\n-# **{qn}** - with \`n\` being the number of the question you want the users response.`,
+				`*This message gets sent to a specific channel in the server upon a user getting accepted (channel can be changed in the channels tab)*\n**Placeholder options:**\n-# **{usermention}** - mention the user\n-# **{username}** - username\n-# **{modname}** - moderator name (which accepted the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server accepted member count\n-# **{qn}** - with \`n\` being the number of the question you want the users response.`,
 			);
 	} else if (chosenvalue === "startmessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Start Message")
+			.setTitle("Application Start")
 			.setDescription(
 				`*This message gets sent to a user upon starting the application*\n**Placeholder options:**\n-# **{username}** - username`,
 			);
 	} else if (chosenvalue === "finishmessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Finish Message")
+			.setTitle("Submission Confirmation")
 			.setDescription(
-				`*This message gets sent to a user upon finishing the application*\n**Placeholder options:**\n-# **{username}** - username`,
+				`*This message gets sent to a user upon submitting the application*\n**Placeholder options:**\n-# **{username}** - username`,
 			);
 	} else if (chosenvalue === "verifymessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Message")
+			.setTitle("Acceptance Notice")
 			.setDescription(
-				`*This message gets sent to a user upon getting verified*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which verified the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server verified member count`,
+				`*This message gets sent to a user upon getting accepted*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which accepted the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server accepted member count`,
 			);
 	} else if (chosenvalue === "denymessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Deny Message")
+			.setTitle("Denial Notice")
 			.setDescription(
 				`*This message gets sent to a user upon getting denied*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which denied the user)\n-# **{appName}** - application name`,
 			);
 	} else if (chosenvalue === "verifychannelembed") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Channel Embed")
+			.setTitle("Application Panel")
 			.setDescription(
-				`*This embed gets sent to the user verification channel where users can click to start the verification process*`,
+				`*This embed gets sent to the application start channel where users can click to start the application process*`,
 			);
 	}
 
