@@ -116,7 +116,7 @@ async function formatCustomMessage(config, context = {}) {
 	const isV2 = config.format === "v2" || Array.isArray(config.blocks);
 
 	// V2
-	
+
 	if (isV2) {
 		const rawBlocks = Array.isArray(config.blocks) ? config.blocks : [];
 		const clonedBlocks = JSON.parse(JSON.stringify(rawBlocks));
