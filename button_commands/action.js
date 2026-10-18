@@ -47,8 +47,15 @@ module.exports = async ({ interaction, applicationId, context }) => {
 		new ButtonBuilder()
 			.setCustomId(`actionconfirm_${applicationId}_${interaction.user.id}${applicantId ? `_${applicantId}` : ""}`)
 			.setLabel("Confirm Kick")
-			.setStyle("Success"),
-		new ButtonBuilder().setCustomId(`returntomenu_${applicationId}`).setLabel("Cancel").setStyle("Danger"),
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`reasonaction_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Kick with Reason")
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`returntomenu_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Cancel")
+			.setStyle("Secondary"),
 	);
 
 	if (hasComponents) {

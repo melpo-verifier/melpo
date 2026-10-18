@@ -2,13 +2,26 @@ const { ButtonBuilder, ActionRowBuilder, MessageFlags } = require("discord.js");
 const { getApplicationById } = require("../js/tempconfigfuncs.js");
 const { relinkAttachments } = require("../js/verificationHandler.js");
 
-module.exports = async ({ interaction, applicationId }) => {
+module.exports = async ({ interaction, applicationId, context, userid }) => {
+	const applicantId = context?.[1] || userid || "";
+
 	const verify = new ActionRowBuilder().addComponents(
-		new ButtonBuilder().setCustomId(`verify_${applicationId}`).setLabel("Accept").setStyle("Success"),
-		new ButtonBuilder().setCustomId(`deny_${applicationId}`).setLabel("Deny").setStyle("Danger"),
-		new ButtonBuilder().setCustomId(`reasondeny_${applicationId}`).setLabel("Deny with reason").setStyle("Danger"),
-		new ButtonBuilder().setCustomId(`question_${applicationId}`).setLabel("Question").setStyle("Primary"),
-		new ButtonBuilder().setCustomId(`action_${applicationId}`).setLabel("Kick").setStyle("Secondary"),
+		new ButtonBuilder()
+			.setCustomId(`verify_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Accept")
+			.setStyle("Success"),
+		new ButtonBuilder()
+			.setCustomId(`deny_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Deny")
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`question_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Question")
+			.setStyle("Primary"),
+		new ButtonBuilder()
+			.setCustomId(`action_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Kick")
+			.setStyle("Secondary"),
 	);
 
 	const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
@@ -32,12 +45,23 @@ module.exports = async ({ interaction, applicationId }) => {
 		}
 	}
 
-	if (interaction.message.flags.has(MessageFlags.IsComponentsV2)) {
+	if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
 		const { container, files } = relinkAttachments(interaction.message);
 		const editPayload = { components: [container, verify] };
 
 		if (files) editPayload.files = files;
 
-		await interaction.update(editPayload);
+		if (typeof interaction.update === "function") {
+			await interaction.update(editPayload);
+		} else if (typeof interaction.message?.edit === "function") {
+			await interaction.message.edit(editPayload);
+		}
+	} else if (interaction.message) {
+		const editPayload = { components: [verify] };
+		if (typeof interaction.update === "function") {
+			await interaction.update(editPayload);
+		} else if (typeof interaction.message?.edit === "function") {
+			await interaction.message.edit(editPayload);
+		}
 	}
 };
