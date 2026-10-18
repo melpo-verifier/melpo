@@ -32,12 +32,38 @@ module.exports = async ({ interaction, context }) => {
 				.setMaxLength(2048),
 		);
 
-	const allowMultipleSelections = new LabelBuilder()
-		.setLabel("Allow multiple selections for this question")
-		.setDescription("Allow users to select multiple options for this question")
-		.setCheckboxComponent(new CheckboxBuilder().setCustomId("allowMultipleSelections"));
+	const minSelections = new LabelBuilder()
+		.setLabel("Min Selections")
+		.setDescription("Minimum number of options an applicant must select (default: 1)")
+		.setTextInputComponent(
+			new TextInputBuilder()
+				.setCustomId("minSelections")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("1")
+				.setValue("1")
+				.setRequired(false)
+				.setMaxLength(2),
+		);
 
-	modal.addLabelComponents(Question, MCQ, allowMultipleSelections);
+	const maxSelections = new LabelBuilder()
+		.setLabel("Max Selections")
+		.setDescription("Maximum number of options an applicant can select (default: 1)")
+		.setTextInputComponent(
+			new TextInputBuilder()
+				.setCustomId("maxSelections")
+				.setStyle(TextInputStyle.Short)
+				.setPlaceholder("1")
+				.setValue("1")
+				.setRequired(false)
+				.setMaxLength(2),
+		);
+
+	const allowOther = new LabelBuilder()
+		.setLabel("Allow 'Other' option")
+		.setDescription("Allow applicants to type a custom answer")
+		.setCheckboxComponent(new CheckboxBuilder().setCustomId("allowOther").setDefault(false));
+
+	modal.addLabelComponents(Question, MCQ, minSelections, maxSelections, allowOther);
 
 	await interaction.showModal(modal);
 };

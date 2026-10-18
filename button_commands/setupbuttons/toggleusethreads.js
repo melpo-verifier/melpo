@@ -1,3 +1,4 @@
+const { MessageFlags } = require("discord.js");
 const { updateTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const miscinfo = require("./miscinfo.js");
 
@@ -9,7 +10,7 @@ module.exports = async ({ interaction, context }) => {
 	if (error) {
 		return interaction.reply({
 			content: `Error: ${error}`,
-			flags: require("discord.js").MessageFlags.Ephemeral,
+			flags: MessageFlags.Ephemeral,
 		});
 	}
 

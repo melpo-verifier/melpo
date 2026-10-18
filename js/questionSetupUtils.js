@@ -26,8 +26,36 @@ function normalizeQuestions(questions) {
 				? normalizedQuestion.regexBranches
 				: [];
 			normalizedQuestion.nextQuestionId = normalizedQuestion.nextQuestionId ?? null;
-			normalizedQuestion.allowMultipleSelections = normalizedQuestion.allowMultipleSelections ?? false;
 			normalizedQuestion.multiSelectNextQuestionId = normalizedQuestion.multiSelectNextQuestionId ?? null;
+			normalizedQuestion.otherNextQuestionId = normalizedQuestion.otherNextQuestionId ?? null;
+			normalizedQuestion.otherRoles = Array.isArray(normalizedQuestion.otherRoles) ? normalizedQuestion.otherRoles : [];
+
+			const hasExplicitMin =
+				normalizedQuestion.minSelections !== undefined && normalizedQuestion.minSelections !== null;
+			const hasExplicitMax =
+				normalizedQuestion.maxSelections !== undefined && normalizedQuestion.maxSelections !== null;
+
+			if (hasExplicitMin) {
+				normalizedQuestion.minSelections = Math.max(1, parseInt(normalizedQuestion.minSelections, 10) || 1);
+			} else {
+				normalizedQuestion.minSelections = 1;
+			}
+
+			if (hasExplicitMax) {
+				normalizedQuestion.maxSelections = Math.max(1, parseInt(normalizedQuestion.maxSelections, 10) || 1);
+			} else if (normalizedQuestion.allowMultipleSelections === true) {
+				// backwards compatibility: allowMultipleSelections without min/max -> max = mcq.length
+				normalizedQuestion.maxSelections = normalizedQuestion.mcq.length;
+			} else {
+				normalizedQuestion.maxSelections = 1;
+			}
+
+			// Invariant: maxSelections must be >= minSelections
+			if (normalizedQuestion.maxSelections < normalizedQuestion.minSelections) {
+				normalizedQuestion.maxSelections = normalizedQuestion.minSelections;
+			}
+
+			normalizedQuestion.allowOther = Boolean(normalizedQuestion.allowOther);
 
 			return normalizedQuestion;
 		})
@@ -67,23 +95,59 @@ function normalizeMcqInput(mcqInput, existingMcq = []) {
 	});
 }
 
-function buildQuestionFromForm({ existingQuestion, content, mcqInput, allowMultipleSelections }) {
+function buildQuestionFromForm({
+	existingQuestion,
+	content,
+	mcqInput,
+	minSelections,
+	maxSelections,
+	allowOther,
+	allowMultipleSelections,
+}) {
 	const baseQuestion = existingQuestion && typeof existingQuestion === "object" ? { ...existingQuestion } : {};
 	const existingMcq = Array.isArray(baseQuestion.mcq) ? baseQuestion.mcq : [];
 	const mcq = normalizeMcqInput(mcqInput, existingMcq);
+
+	let parsedMin = 1;
+	if (minSelections !== undefined && minSelections !== null) {
+		parsedMin = Math.max(1, parseInt(minSelections, 10) || 1);
+	} else if (baseQuestion.minSelections !== undefined && baseQuestion.minSelections !== null) {
+		parsedMin = Math.max(1, parseInt(baseQuestion.minSelections, 10) || 1);
+	}
+
+	let parsedMax = 1;
+	if (maxSelections !== undefined && maxSelections !== null) {
+		parsedMax = Math.max(1, parseInt(maxSelections, 10) || 1);
+	} else if (baseQuestion.maxSelections !== undefined && baseQuestion.maxSelections !== null) {
+		parsedMax = Math.max(1, parseInt(baseQuestion.maxSelections, 10) || 1);
+	} else if (
+		allowMultipleSelections !== undefined
+			? Boolean(allowMultipleSelections)
+			: baseQuestion.allowMultipleSelections === true
+	) {
+		parsedMax = Math.max(1, mcq.length);
+	}
+
+	if (parsedMax < parsedMin) {
+		parsedMax = parsedMin;
+	}
+
+	const parsedAllowOther = allowOther !== undefined ? Boolean(allowOther) : Boolean(baseQuestion.allowOther);
 
 	return {
 		...baseQuestion,
 		id: baseQuestion.id || randomUUID(),
 		content,
 		mcq,
+		minSelections: parsedMin,
+		maxSelections: parsedMax,
+		allowOther: parsedAllowOther,
+		allowMultipleSelections: parsedMax > 1,
 		regexBranches: Array.isArray(baseQuestion.regexBranches) ? baseQuestion.regexBranches : [],
 		nextQuestionId: baseQuestion.nextQuestionId ?? null,
-		allowMultipleSelections:
-			allowMultipleSelections !== undefined
-				? Boolean(allowMultipleSelections)
-				: baseQuestion.allowMultipleSelections === true,
 		multiSelectNextQuestionId: baseQuestion.multiSelectNextQuestionId ?? null,
+		otherNextQuestionId: baseQuestion.otherNextQuestionId ?? null,
+		otherRoles: Array.isArray(baseQuestion.otherRoles) ? baseQuestion.otherRoles : [],
 	};
 }
 

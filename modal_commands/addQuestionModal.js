@@ -14,9 +14,11 @@ module.exports = async ({ interaction, client, context }) => {
 		});
 	}
 
-	const question = interaction.fields.getTextInputValue(`question`);
-	const mcq = interaction.fields.getTextInputValue(`mcq`);
-	const allowMultipleSelections = interaction.fields.getCheckbox("allowMultipleSelections");
+	const question = interaction.fields.getTextInputValue("question");
+	const mcq = interaction.fields.getTextInputValue("mcq");
+	const minSelections = interaction.fields.getTextInputValue("minSelections");
+	const maxSelections = interaction.fields.getTextInputValue("maxSelections");
+	const allowOther = interaction.fields.getCheckbox("allowOther");
 	let mcqArray = mcq ? mcq.split("\n") : [];
 
 	//allow max of 20 MCQ questions.
@@ -36,7 +38,13 @@ module.exports = async ({ interaction, client, context }) => {
 
 	temporarySetup.questions = normalizeQuestions(temporarySetup.questions);
 	temporarySetup.questions.push(
-		buildQuestionFromForm({ content: question, mcqInput: mcqArray, allowMultipleSelections }),
+		buildQuestionFromForm({
+			content: question,
+			mcqInput: mcqArray,
+			minSelections,
+			maxSelections,
+			allowOther,
+		}),
 	);
 	await updateTempApplication(interaction.guild.id, { questions: temporarySetup.questions }, { id: tempApplicationId });
 

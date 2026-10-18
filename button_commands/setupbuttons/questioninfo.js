@@ -13,15 +13,6 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 		});
 	}
 
-	//Note : Static invite token.
-	const questionembed = new EmbedBuilder()
-		.setTitle("Questions setup")
-		.setDescription(
-			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply.
-> 💡 **Tip:** Regex or multiple choice based Question branching, auto-kick/deny rules, and conditional roles can be configured on the **[Dashboard](https://melpo.app/dashboard/${interaction.guild.id})** (Premium).`,
-		)
-		.setColor("#3f7ff1");
-
 	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
 	if (error) return interaction.reply({ content: `Error: ${error}`, flags: MessageFlags.Ephemeral });
 
@@ -31,11 +22,28 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 		applicationSetup = application;
 	}
 
+	const imageSubmission =
+		tempApp.imageSubmission !== null && tempApp.imageSubmission !== undefined
+			? tempApp.imageSubmission
+			: (applicationSetup?.imageSubmission ?? true);
+
+	//Note : Static invite token.
+	const questionembed = new EmbedBuilder()
+		.setTitle("Questions setup")
+		.setDescription(
+			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply.\n\n**Image Submissions:** ${imageSubmission ? "🟢 `Enabled`" : "🔴 `Disabled`"}\n> 💡 **Tip:** Regex or multiple choice based Question branching, auto-kick/deny rules, and conditional roles can be configured on the **[Dashboard](https://melpo.app/dashboard/${interaction.guild.id})** (Premium).`,
+		)
+		.setColor("#3f7ff1");
+
 	let questions = normalizeQuestions(tempApp.questions?.length > 0 ? tempApp.questions : applicationSetup?.questions);
 	await updateTempApplication(interaction.guild.id, { questions: questions }, { id: tempApplicationId });
 
 	const questionbuttons = new ActionRowBuilder().addComponents(
 		new ButtonBuilder().setCustomId(`addquestion_0_${tempApplicationId}`).setLabel("Add Question").setStyle("Primary"),
+		new ButtonBuilder()
+			.setCustomId(`toggleimages_${imageSubmission}_${tempApplicationId}`)
+			.setLabel(`Allow Images: ${imageSubmission ? "ON" : "OFF"}`)
+			.setStyle(imageSubmission ? "Success" : "Danger"),
 	);
 
 	const finishbuttons = new ActionRowBuilder().addComponents(
@@ -61,10 +69,13 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 			.setMaxValues(1);
 
 		questions.forEach((question, index) => {
-			const desc =
+			let desc =
 				question.mcq?.length > 0
 					? question.mcq.map((option) => option.label ?? option).join("; ")
 					: "No multiple choice options";
+			if (question.allowOther && question.mcq?.length > 0) {
+				desc += "; Other";
+			}
 
 			selectMenu.addOptions({
 				label: question.content.length > 100 ? String(question.content.slice(0, 97)).concat("...") : question.content,
@@ -77,11 +88,25 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 
 		questionembed.addFields(
 			questions?.map((question, index) => {
-				const mcqContent =
+				let mcqContent =
 					question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
-				const multipleSelectionInfo = question.allowMultipleSelections ? "Multiple options" : "Single option";
+				if (question.allowOther && question.mcq?.length > 0) {
+					mcqContent += "\n- Other (Custom response)";
+				}
+
+				let selectionBadge = "Single option";
+				if (question.maxSelections > 1) {
+					selectionBadge =
+						question.minSelections === question.maxSelections
+							? `${question.minSelections} selections`
+							: `${question.minSelections}-${question.maxSelections} selections`;
+				}
+				if (question.allowOther) {
+					selectionBadge += ", Other allowed";
+				}
+
 				return {
-					name: `Question ${index + 1}${question.mcq?.length > 0 ? ` \`MCQ (${multipleSelectionInfo})\`` : ""}`,
+					name: `Question ${index + 1}${question.mcq?.length > 0 ? ` \`MCQ (${selectionBadge})\`` : ""}`,
 					value: (question.content + mcqContent).slice(0, 1024),
 					inline: false,
 				};
@@ -108,11 +133,20 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	} else {
 		const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
 
-		await interaction.update({
-			content: "",
-			embeds: [questionembed],
-			components: [categoryButtons, questionbuttons, finishbuttons],
-			files: [],
-		});
+		if (interaction.replied || interaction.deferred) {
+			await interaction.message.edit({
+				content: "",
+				embeds: [questionembed],
+				components: [categoryButtons, questionbuttons, finishbuttons],
+				files: [],
+			});
+		} else {
+			await interaction.update({
+				content: "",
+				embeds: [questionembed],
+				components: [categoryButtons, questionbuttons, finishbuttons],
+				files: [],
+			});
+		}
 	}
 };
