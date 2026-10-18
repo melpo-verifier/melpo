@@ -53,15 +53,6 @@ module.exports = async ({ interaction, context }) => {
 	const parsedKickHours = parseInt(rawKickHours, 10);
 	const parsedRemoveDeniedHours = parseInt(rawRemoveDeniedHours, 10);
 
-	console.log({
-		autoKickUnverifiedEnabled,
-		cancelKickOnSubmission,
-		autoRemoveDeniedRoleEnabled,
-		parsedKickHours,
-		parsedRemoveDeniedHours,
-		parsedMaxDenials,
-	});
-
 	await updateTempApplication(
 		interaction.guild.id,
 		{

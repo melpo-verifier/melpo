@@ -91,14 +91,14 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 		const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
 
 		if (interaction.replied || interaction.deferred) {
-			interaction.message.edit({
+			await interaction.message.edit({
 				content: "",
 				embeds: [questionembed],
 				components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
 				files: [],
 			});
 		} else {
-			interaction.update({
+			await interaction.update({
 				content: "",
 				embeds: [questionembed],
 				components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
@@ -108,7 +108,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	} else {
 		const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
 
-		interaction.update({
+		await interaction.update({
 			content: "",
 			embeds: [questionembed],
 			components: [categoryButtons, questionbuttons, finishbuttons],

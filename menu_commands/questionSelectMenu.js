@@ -83,6 +83,6 @@ module.exports = async ({ interaction, client, context }) => {
 	} else {
 		const firsttimequestions = require("../js/firsttimequestions.js");
 
-		firsttimequestions({ interaction, client, tempApplicationId });
+		await firsttimequestions({ interaction, client, tempApplicationId });
 	}
 };

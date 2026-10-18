@@ -202,7 +202,7 @@ module.exports = {
 			}
 
 			// First time edit for this app
-			generalinfo({ interaction, client, tempApplicationId: tempApp.id });
+			await generalinfo({ interaction, client, tempApplicationId: tempApp.id });
 		} else if (subcommand === "server") {
 			const component = ServerConfigComponent({
 				guild: interaction.guild,

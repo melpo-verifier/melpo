@@ -228,6 +228,12 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 			.setDescription(
 				`*This message gets sent to a user upon getting denied*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which denied the user)\n-# **{appName}** - application name`,
 			);
+	} else if (chosenvalue === "denymessage") {
+		infoembed = new EmbedBuilder()
+			.setTitle("Verification Deny Message")
+			.setDescription(
+				`*This message gets sent to a user upon getting denied*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which denied the user)\n-# **{appName}** - application name`,
+			);
 	} else if (chosenvalue === "verifychannelembed") {
 		infoembed = new EmbedBuilder()
 			.setTitle("Application Panel")

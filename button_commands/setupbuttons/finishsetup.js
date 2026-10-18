@@ -219,7 +219,7 @@ module.exports = async ({ interaction, client, context }) => {
 				{
 					name: "🛠️ Free features you can set up next",
 					value:
-						`- **Extra Roles:** Set roles to remove on accept, Denied Roles, Reviewer Roles, and Application Ping.\n` +
+						`- **Extra Roles:** Set roles to remove on accept, Denied roles, Review Manager roles, and Ping roles.\n` +
 						`- **Logs:** Auto-move handled applications to a separate logs channel.\n` +
 						`- **Welcome Messages:** Send a welcome message in your server on approval.\n` +
 						`- **Auto-Threads:** Auto-create discussion threads on incoming submissions.\n` +
@@ -229,7 +229,7 @@ module.exports = async ({ interaction, client, context }) => {
 				{
 					name: "✨ Premium features you can set up next",
 					value:
-						`- **Timers & Limits:** Auto-kick unaccepted members, re-apply cooldowns & denied-role failure threshold.\n` +
+						`- **Timers & Limits:** Auto-kick unverified members, re-apply cooldowns & denied-role failure threshold.\n` +
 						`- **Question Branching (Web):** Regex or multiple choice based: Question branching, auto-kick/deny rules & roles.\n` +
 						`- **Modern Card Layout (Web):** Visual drag-and-drop builder for way more advanced custom message layouts.\n` +
 						`- **Custom Webhook Branding (Web):** Custom bot name & avatar on server-sided messages.\n` +

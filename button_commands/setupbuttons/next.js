@@ -173,6 +173,6 @@ module.exports = async ({ interaction, context }) => {
 
 		const firsttimequestions = require("../../js/firsttimequestions.js");
 
-		firsttimequestions({ interaction, applicationId: tempApplicationId });
+		await firsttimequestions({ interaction, applicationId: tempApplicationId });
 	}
 };
