@@ -13,7 +13,7 @@ const {
 	AttachmentBuilder,
 	WebhookClient,
 } = require("discord.js");
-const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
+const { Verification, InviteTracker, Submissions, GuildWebhook, Application } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
 const { decryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
@@ -135,7 +135,7 @@ function isInReviewChannel(interaction, reviewChannelId) {
 // }
 
 // Validate roles exist and bot can manage them
-async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
+async function validateRoles(interaction, verifiedRoles, unverifiedRoles, requireAssignRoles = true) {
 	const errors = [];
 	const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
 
@@ -175,9 +175,9 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 		}
 	}
 
-	if (!verifiedRoles || verifiedRoles.length === 0) {
+	if (requireAssignRoles && (!verifiedRoles || verifiedRoles.length === 0)) {
 		errors.push("No accepted role set up. Please set up an accepted role using the `/setup` command.");
-	} else {
+	} else if (verifiedRoles && verifiedRoles.length > 0) {
 		checkRoles(verifiedRoles, "assign");
 	}
 
@@ -428,7 +428,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 }
 
 // Send verification DM to user
-async function sendVerifyDM(user, application, interaction, verifiedRoles) {
+async function sendVerifyDM(user, application, interaction, verifiedRoles, reason = null) {
 	if (!application.verifymessage) return;
 
 	const payload = await formatCustomMessage(application.verifymessage, {
@@ -438,6 +438,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 		verifiedRoles,
 		appName: application.name,
 		application,
+		reason,
 		defaultColor: "#008000",
 	});
 
@@ -791,7 +792,7 @@ function createNoApplicationEmbed(user, interaction, invitetracker, status) {
 }
 
 // Main verification handler
-async function verifyUser(interaction, client, application, user) {
+async function verifyUser(interaction, client, application, user, reason = null) {
 	let submissionData;
 
 	if (interaction.isChatInputCommand()) {
@@ -816,7 +817,13 @@ async function verifyUser(interaction, client, application, user) {
 						const selectedOption = question.mcq?.[index];
 						if (selectedOption?.roles) selectedOption.roles.forEach((role) => void branchRoles.add(role));
 					});
-				} else if (question.regexBranches && response.content) {
+				}
+
+				if (response?.otherSelected && Array.isArray(question.otherRoles)) {
+					question.otherRoles.forEach((role) => void branchRoles.add(role));
+				}
+
+				if (question.regexBranches && response.content) {
 					for (const regex of question.regexBranches) {
 						try {
 							const regpattern = new RegExp(regex.pattern, "i");
@@ -844,14 +851,16 @@ async function verifyUser(interaction, client, application, user) {
 		}).catch((err) => console.error(`Failed to cancel pending kick for user ${user.id}:`, err));
 	}
 
-	const verifiedRoles = application.verifiedrole;
-	const unverifiedRoles = application.unverifiedrole;
+	const verifiedRoles = application.verifiedrole || [];
+	const unverifiedRoles = application.unverifiedrole || [];
+	const pendingRoles = application.pendingrole || [];
 	const welcomeMessage = application.verificationwelcomemessage;
 	const welcomeChannel = application.verificationwelcomechannel;
 
+	const rolesToRemove = [...new Set([...unverifiedRoles, ...pendingRoles])];
 	const rolesToApply = [...new Set([...verifiedRoles, ...branchRoles])];
 
-	const roleErrors = await validateRoles(interaction, rolesToApply, unverifiedRoles);
+	const roleErrors = await validateRoles(interaction, rolesToApply, rolesToRemove);
 	if (roleErrors.length > 0) {
 		return await interaction.followUp({
 			content: roleErrors[0],
@@ -859,7 +868,7 @@ async function verifyUser(interaction, client, application, user) {
 		});
 	}
 
-	await applyRoles(user, rolesToApply, unverifiedRoles, interaction);
+	await applyRoles(user, rolesToApply, rolesToRemove, interaction);
 
 	if (welcomeChannel && welcomeMessage) {
 		try {
@@ -882,7 +891,7 @@ async function verifyUser(interaction, client, application, user) {
 		} else if (application.reviewchannel) {
 			logChannel = interaction.guild.channels.cache.get(application.reviewchannel);
 		} else {
-			logchannel = interaction.channel;
+			logChannel = interaction.channel;
 		}
 
 		const invitetracker = await InviteTracker.findOne({
@@ -903,6 +912,7 @@ async function verifyUser(interaction, client, application, user) {
 				messageids,
 				user: user,
 				status: VerificationStatus.VERIFIED,
+				reason,
 			});
 		} catch (logError) {
 			if (logError.code === 50001 || logError.code === 50013) {
@@ -927,7 +937,7 @@ async function verifyUser(interaction, client, application, user) {
 		const { container, files } = relinkAttachments(interaction.message);
 
 		const tempMsg = { ...interaction.message, components: [container] };
-		const verifiedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.VERIFIED);
+		const verifiedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.VERIFIED, reason);
 
 		const editPayload = {
 			flags: [MessageFlags.IsComponentsV2],
@@ -945,7 +955,7 @@ async function verifyUser(interaction, client, application, user) {
 	}
 
 	// Send verification DM
-	const dmResult = await sendVerifyDM(user, application, interaction, verifiedRoles);
+	const dmResult = await sendVerifyDM(user, application, interaction, verifiedRoles, reason);
 
 	if (!interaction.isChatInputCommand()) {
 		if (dmResult.dmDisabled) {
@@ -986,15 +996,20 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		rolesToApply.push(...application.deniedrole);
 	}
 
-	if (rolesToApply.length > 0) {
+	const pendingRoles = application.pendingrole || [];
+	const deniedRemoveRoles = application.deniedremoveroles || [];
+	const rolesToRemove = [...new Set([...pendingRoles, ...deniedRemoveRoles])];
+
+	if (rolesToApply.length > 0 || rolesToRemove.length > 0) {
 		// Validate roles
-		const roleErrors = await validateRoles(interaction, rolesToApply, null);
+		const roleErrors = await validateRoles(interaction, rolesToApply, rolesToRemove, false);
 		if (roleErrors.length > 0) {
 			return await interaction.followUp({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
 		}
 
-		await applyRoles(user, rolesToApply, null, interaction);
+		await applyRoles(user, rolesToApply, rolesToRemove, interaction);
 		if (
+			rolesToApply.length > 0 &&
 			application.autoRemoveDeniedRoleEnabled &&
 			application.autoRemoveDeniedRoleHours > 0 &&
 			(await isPremiumServer(interaction.guild.id))
@@ -1102,6 +1117,116 @@ async function denyUser(interaction, client, application, user, reason = null) {
 	}
 }
 
+// Main kick handler
+async function kickUser(interaction, client, application, user, reason = null) {
+	const member = user.guild ? user : await interaction.guild.members.fetch(user.id).catch(() => null);
+	const userObj = user.user || user;
+
+	if (!member) {
+		return await interaction.followUp({
+			content: "This user is no longer in the server.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	const botMember = interaction.guild.members.me || interaction.guild.members.cache.get(client.user.id);
+	if (!botMember?.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+		return await interaction.followUp({
+			content: "I don't have permission to kick members",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	if (member.id === interaction.guild.ownerId) {
+		return await interaction.followUp({
+			content: "I cannot kick the server owner",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	if (member.roles.highest.position >= botMember.roles.highest.position) {
+		return await interaction.followUp({
+			content:
+				"I cannot kick this user - they have a role higher than or equal to mine, please make sure my highest role is higher than the user's highest role",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	const dmResult = await sendKickDM(userObj, interaction.guild.name, reason);
+
+	const auditReason = (
+		reason ? `Kicked by ${interaction.user.username}: ${reason}` : `Kicked by ${interaction.user.username}`
+	).slice(0, 512);
+
+	await member.kick(auditReason);
+
+	const verification = await Verification.findOne({ where: { userId: userObj.id } });
+
+	const allApplications = await Application.findAll({
+		where: { server_id: interaction.guild.id },
+		attributes: ["id", "reviewchannel", "verifylogs"],
+	});
+
+	for (const app of allApplications) {
+		const appMessageIds = getMessageIds(verification, interaction.guild.id, app.id);
+		if (!appMessageIds || appMessageIds.length === 0) continue;
+
+		try {
+			await processLogMessages({
+				interaction,
+				client,
+				application: app,
+				messageids: appMessageIds,
+				user: member,
+				status: VerificationStatus.KICKED,
+				reason,
+				useRateLimiting: false,
+			});
+		} catch (logError) {
+			if (logError.code !== 50001 && logError.code !== 50013) {
+				console.error("Error processing log messages:", logError);
+			}
+		}
+	}
+
+	if (!application?.verifylogs || application.reviewchannel === application.verifylogs) {
+		if (interaction?.message?.flags?.has(MessageFlags.IsComponentsV2)) {
+			const { container, files } = relinkAttachments(interaction.message);
+
+			const tempMsg = { ...interaction.message, components: [container] };
+			const kickedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.KICKED, reason);
+
+			const editPayload = {
+				flags: [MessageFlags.IsComponentsV2],
+				components: [kickedContainer],
+			};
+
+			if (files) editPayload.files = files;
+
+			await interaction.editReply(editPayload);
+
+			if (interaction.message.thread) await interaction.message.thread.setArchived(true);
+		}
+	}
+
+	await cleanupVerificationData(verification, interaction.guild.id, userObj.id);
+
+	if (!interaction.isChatInputCommand()) {
+		if (dmResult?.dmDisabled) {
+			await interaction.followUp({
+				content:
+					"✅ User kicked successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.",
+				flags: MessageFlags.Ephemeral,
+			});
+		} else {
+			await interaction.followUp({
+				content: "✅ User kicked successfully!",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+	}
+}
+
 function relinkAttachments(message) {
 	const container = JSON.parse(JSON.stringify(message.components?.[0] || {}));
 	const comps = container.components || [];
@@ -1146,4 +1271,5 @@ module.exports = {
 	createNoApplicationEmbed,
 	verifyUser,
 	denyUser,
+	kickUser,
 };

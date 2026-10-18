@@ -6,7 +6,9 @@ module.exports = async ({ interaction, applicationId, context }) => {
 	await interaction.deferUpdate();
 
 	const { application, error } = await getApplicationById(applicationId, interaction.guild.id);
-	if (error) return interaction.followUp({ content: `Error: ${error}`, flags: MessageFlags.Ephemeral });
+	if (error) {
+		return interaction.followUp({ content: `Error: ${error}`, flags: MessageFlags.Ephemeral });
+	}
 
 	// Permission check
 	if (application && Array.isArray(application.managerrole) && application.managerrole.length > 0) {
@@ -44,7 +46,14 @@ module.exports = async ({ interaction, applicationId, context }) => {
 			.setCustomId(`verifyconfirm_${applicationId}_${interaction.user.id}${applicantId ? `_${applicantId}` : ""}`)
 			.setLabel("Confirm Accept")
 			.setStyle("Success"),
-		new ButtonBuilder().setCustomId(`returntomenu_${applicationId}`).setLabel("Cancel").setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`reasonverify_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Accept with Reason")
+			.setStyle("Success"),
+		new ButtonBuilder()
+			.setCustomId(`returntomenu_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Cancel")
+			.setStyle("Danger"),
 	);
 
 	if (hasComponents) {

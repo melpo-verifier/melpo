@@ -6,7 +6,6 @@ module.exports = async ({ interaction, applicationId, context }) => {
 	await interaction.deferUpdate();
 
 	const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
-
 	if (error) {
 		return interaction.followUp({
 			content: `Error: ${error}`,
@@ -44,8 +43,15 @@ module.exports = async ({ interaction, applicationId, context }) => {
 		new ButtonBuilder()
 			.setCustomId(`denyconfirm_${applicationId}_${interaction.user.id}${applicantId ? `_${applicantId}` : ""}`)
 			.setLabel("Confirm Denial")
-			.setStyle("Success"),
-		new ButtonBuilder().setCustomId(`returntomenu_${applicationId}`).setLabel("Cancel").setStyle("Danger"),
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`reasondeny_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Deny with Reason")
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`returntomenu_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Cancel")
+			.setStyle("Secondary"),
 	);
 
 	if (hasComponents) {

@@ -79,10 +79,13 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 			.setMaxValues(1);
 
 		questions.forEach((question, index) => {
-			const rawDescription =
+			let rawDescription =
 				question.mcq?.length > 0
 					? question.mcq.map((opt) => opt.label ?? opt).join("; ")
 					: "No multiple choice options";
+			if (question.allowOther && question.mcq?.length > 0) {
+				rawDescription += "; Other";
+			}
 
 			selectMenu.addOptions({
 				label: question.content.length > 100 ? `${question.content.slice(0, 97)}...` : question.content,
@@ -95,11 +98,25 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 
 		questionembed.addFields(
 			questions?.map((question, index) => {
-				const mcqContent =
+				let mcqContent =
 					question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
-				const multipleSelectionInfo = question.allowMultipleSelections ? "Multiple options" : "Single option";
+				if (question.allowOther && question.mcq?.length > 0) {
+					mcqContent += "\n- Other (Custom response)";
+				}
+
+				let selectionBadge = "Single option";
+				if (question.maxSelections > 1) {
+					selectionBadge =
+						question.minSelections === question.maxSelections
+							? `${question.minSelections} selections`
+							: `${question.minSelections}-${question.maxSelections} selections`;
+				}
+				if (question.allowOther) {
+					selectionBadge += ", Other allowed";
+				}
+
 				return {
-					name: `Question ${index + 1}${question.mcq?.length > 0 ? ` \`MCQ (${multipleSelectionInfo})\`` : ""}`,
+					name: `Question ${index + 1}${question.mcq?.length > 0 ? ` \`MCQ (${selectionBadge})\`` : ""}`,
 					value: (question.content + mcqContent).slice(0, 1024),
 					inline: false,
 				};

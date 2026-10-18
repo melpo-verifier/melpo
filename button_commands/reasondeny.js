@@ -4,8 +4,8 @@ const { checkManagerPermission } = require("../js/verificationHandler.js");
 
 module.exports = async ({ interaction, client, userid, applicationId }) => {
 	if (!userid) throw new Error("Could not fetch user ID from the embed");
-	const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
 
+	const { application, error } = await getApplicationByIdWithFallback(applicationId, interaction.guild.id);
 	if (error) {
 		return interaction.reply({
 			content: `Error: ${error}`,
@@ -23,13 +23,14 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
 	const user = await client.users.fetch(userid);
 	const modal = new ModalBuilder().setCustomId(`denyModal_${applicationId}_${userid}`).setTitle(`Deny ${user.tag}`);
+
 	const denyinput = new TextInputBuilder()
 		.setCustomId("denyInput")
-		.setLabel(`Please provide a reason for denying this user`)
-		.setStyle(TextInputStyle.Paragraph);
+		.setLabel("Please provide a reason for denying this user")
+		.setStyle(TextInputStyle.Paragraph)
+		.setRequired(true);
 
 	const denyRow = new ActionRowBuilder().addComponents(denyinput);
-
 	modal.addComponents(denyRow);
 
 	await interaction.showModal(modal);

@@ -7,7 +7,6 @@ const {
 	TextInputStyle,
 	MessageFlags,
 	LabelBuilder,
-	CheckboxBuilder,
 	CheckboxGroupBuilder,
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById, updateTempApplication } = require("../../js/tempconfigfuncs.js");
@@ -64,6 +63,11 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 			? tempApp.autoRemoveDeniedRoleHours
 			: (applicationSetup?.autoRemoveDeniedRoleHours ?? 24);
 
+	let resetDeniedThresholdOnRemove =
+		tempApp.resetDeniedThresholdOnRemove !== null && tempApp.resetDeniedThresholdOnRemove !== undefined
+			? tempApp.resetDeniedThresholdOnRemove
+			: (applicationSetup?.resetDeniedThresholdOnRemove ?? true);
+
 	let maxdenials = tempApp.maxdenials !== undefined ? tempApp.maxdenials : (applicationSetup?.maxdenials ?? null);
 
 	const action = context?.[1];
@@ -107,14 +111,27 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 					.setValue(String(autoKickUnverifiedHours ?? 48)),
 			);
 
-		const removeDeniedToggle = new LabelBuilder()
-			.setLabel("Enable Auto-Remove Denied Role")
-			.setDescription("Automatically clear the denied role after a timeout")
-			.setCheckboxComponent(
-				new CheckboxBuilder()
-					.setCustomId("autoRemoveDeniedRoleEnabled")
-					.setDefault(Boolean(autoRemoveDeniedRoleEnabled)),
-			);
+		const removeDeniedToggle = new LabelBuilder().setLabel("Denied Role Timer Settings").setCheckboxGroupComponent(
+			new CheckboxGroupBuilder()
+				.setCustomId("deniedRoleOptions")
+				.setRequired(false)
+				.setMinValues(0)
+				.setMaxValues(2)
+				.addOptions([
+					{
+						label: "Enable Auto-Remove Denied Role",
+						value: "autoRemoveDeniedRoleEnabled",
+						description: "Automatically clear the denied role after a timeout",
+						default: Boolean(autoRemoveDeniedRoleEnabled),
+					},
+					{
+						label: "Reset Denial Threshold on Removal",
+						value: "resetDeniedThresholdOnRemove",
+						description: "Reset user's denial count back to 0 when the denied role is removed",
+						default: Boolean(resetDeniedThresholdOnRemove),
+					},
+				]),
+		);
 
 		const removeDeniedHours = new LabelBuilder().setLabel("Remove Denied Role Hours").setTextInputComponent(
 			new TextInputBuilder()
@@ -139,7 +156,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 					.setValue(maxdenials !== null && maxdenials !== undefined ? String(maxdenials) : ""),
 			);
 
-		modal.addLabelComponents(kickHours, kickToggle, removeDeniedHours, removeDeniedToggle, maxDenials);
+		modal.addLabelComponents(kickToggle, kickHours, removeDeniedToggle, removeDeniedHours, maxDenials);
 
 		return await interaction.showModal(modal);
 	}
@@ -164,6 +181,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	if (!isPremium) {
 		autoKickUnverifiedEnabled = false;
 		autoRemoveDeniedRoleEnabled = false;
+		resetDeniedThresholdOnRemove = false;
 		cancelKickOnSubmission = false;
 		maxdenials = null;
 	}
@@ -189,7 +207,8 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 			},
 			{
 				name: "Auto-Remove Denied Role `✨ Premium`",
-				value: `**${autoRemoveDeniedRoleEnabled ? `🟢 \`Enabled\` — \`${autoRemoveDeniedRoleHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically removes the assigned Denied Role after the configured cooldown hours.*`,
+				value: `**${autoRemoveDeniedRoleEnabled ? `🟢 \`Enabled\` — \`${autoRemoveDeniedRoleHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically removes the assigned Denied Role after the configured cooldown hours.*
+				**Reset Denial Threshold on Removal**\n**${resetDeniedThresholdOnRemove ? "🟢 `Enabled`" : "🔴 `Disabled`"}**\n***Enabled:** Resets user's denial count back to 0 when the denied role is removed so they must reach the threshold again.\n**Disabled:** Keeps past denial count, meaning they don't have to reach the threshold again.*`,
 				inline: false,
 			},
 			{

@@ -118,6 +118,39 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 
 		applicationId = application.id;
 		const appName = application.name;
+
+		const member = interaction.member ?? (await interaction.guild.members.fetch(user.id).catch(() => null));
+		const memberHasRole = (roleId) => {
+			if (!member?.roles) return false;
+			if (member.roles.cache && typeof member.roles.cache.has === "function") {
+				return member.roles.cache.has(roleId);
+			}
+			if (Array.isArray(member.roles)) {
+				return member.roles.includes(roleId);
+			}
+			return false;
+		};
+
+		// 1. Ignore roles check
+		const ignoreRoles = Array.isArray(application.ignoreroles) ? application.ignoreroles : [];
+		if (ignoreRoles.length > 0 && ignoreRoles.some((roleId) => memberHasRole(roleId))) {
+			return await interaction.editReply({
+				content: `You cannot apply because you have a restricted role. (${ignoreRoles
+					.filter((roleId) => memberHasRole(roleId))
+					.map((roleId) => `<@&${roleId}>`)
+					.join(", ")})`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+
+		// 2. Allowed roles check
+		const allowedRoles = Array.isArray(application.allowedroles) ? application.allowedroles : [];
+		if (allowedRoles.length > 0 && !allowedRoles.some((roleId) => memberHasRole(roleId))) {
+			return await interaction.editReply({
+				content: `You do not have the required role to apply. You need one of the following roles: ${allowedRoles.map((roleId) => `<@&${roleId}>`).join(", ")}`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
 		const {
 			verifychannel: verifyChannelId,
 			reviewchannel: verifyLogsChannelId,
@@ -302,6 +335,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 							encryptionKey,
 							resumeState,
 							isPremium,
+							imageSubmission: application.imageSubmission ?? true,
 						},
 						cluster: 0,
 					})
@@ -350,6 +384,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 						encryptionKey,
 						resumeState,
 						isPremium,
+						imageSubmission: application.imageSubmission ?? true,
 					});
 
 					activeVerifications.delete(user.id);
@@ -597,10 +632,6 @@ async function processVerificationResult(
 				.setLabel("Deny")
 				.setStyle("Danger"),
 			new ButtonBuilder()
-				.setCustomId(`reasondeny_${applicationId}_${interaction.user.id}`)
-				.setLabel("Deny with reason")
-				.setStyle("Danger"),
-			new ButtonBuilder()
 				.setCustomId(`question_${applicationId}_${interaction.user.id}`)
 				.setLabel("Question")
 				.setStyle("Primary"),
@@ -663,6 +694,13 @@ async function processVerificationResult(
 				}
 			} catch (error) {
 				console.error("Error setting user verification:", error);
+			}
+
+			if (application.pendingrole && Array.isArray(application.pendingrole) && application.pendingrole.length > 0) {
+				const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+				if (member) {
+					await applyRoles(member, application.pendingrole, null, interaction);
+				}
 			}
 
 			const payload = await formatCustomMessage(finishmessage, {
@@ -768,6 +806,7 @@ async function Verificationfunc(
 		DBFunctionsPath,
 		resumeState,
 		isPremium,
+		imageSubmission = true,
 	},
 ) {
 	return new Promise((resolve, reject) => {
@@ -855,12 +894,17 @@ async function Verificationfunc(
 			selectedOptionIndex,
 			answerText,
 			selectedOptionCount = 0,
+			otherSelected = false,
 		) {
 			// If MCQ with multiple selections, use multiSelectNextQuestionId.
 			if (!isPremium) return getSequentialNextQuestionId(currentQuestionIndex);
 
 			if (selectedOptionCount > 1 && currentQuestion.multiSelectNextQuestionId)
 				return resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex);
+
+			// If Other was the sole selection and question has otherNextQuestionId
+			if (selectedOptionCount === 1 && otherSelected && currentQuestion.otherNextQuestionId)
+				return resolveNextQuestionId(currentQuestion.otherNextQuestionId, currentQuestionIndex);
 
 			// If MCQ with a selected option and that option has a nextQuestionId
 			if (selectedOptionIndex !== null && currentQuestion.mcq && currentQuestion.mcq.length > 0) {
@@ -905,10 +949,14 @@ async function Verificationfunc(
 				.setFooter({ text: 'Click "cancel" to cancel the application.' });
 
 			let actionRow = new ActionRowBuilder();
-			if (question.mcq && question.mcq.length > 0) {
-				//buttons if 5 buttons or less, select menu if more
-				if (question.mcq.length <= 5 && question.allowMultipleSelections !== true) {
-					//Biome fix : Marked option as unused via _
+			const hasMcq = question.mcq && question.mcq.length > 0;
+			if (hasMcq) {
+				const isMultiSelect = question.maxSelections > 1 || question.allowMultipleSelections === true;
+				const hasOther = Boolean(question.allowOther);
+				const optionsCount = question.mcq.length;
+				const useSelectMenu = isMultiSelect || hasOther || optionsCount > 5;
+
+				if (!useSelectMenu) {
 					question.mcq.forEach((_option, index) => {
 						const buttonIndex = index + 1;
 
@@ -921,7 +969,7 @@ async function Verificationfunc(
 					});
 
 					const mcqWithEmojis = question.mcq
-						.map((option, index) => `${numberToEmoji[index]} ${option?.label ?? option}`)
+						.map((option, index) => `${numberToEmoji[index] || `[${index + 1}]`} ${option?.label ?? option}`)
 						.join("\n ");
 
 					DMEmbed.addFields({
@@ -929,17 +977,30 @@ async function Verificationfunc(
 						value: safeTruncate(`${question.content}\n\n${mcqWithEmojis}`),
 					});
 				} else {
-					const options = question.mcq.slice(0, 25).map((option, index) => ({
+					const options = question.mcq.slice(0, 20).map((option, index) => ({
 						label: (option.label || option).toString().slice(0, 100),
 						value: (index + 1).toString(),
 					}));
+
+					if (hasOther) {
+						options.push({
+							label: "Other",
+							value: "other",
+							description: "Specify a custom answer",
+						});
+					}
+
+					const minValues = Math.max(1, Math.min(question.minSelections || 1, options.length));
+					const configuredMax = question.maxSelections || (question.allowMultipleSelections ? options.length : 1);
+					const maxValues = Math.max(minValues, Math.min(configuredMax, options.length));
+
 					actionRow.addComponents(
 						new StringSelectMenuBuilder()
 							.setCustomId("mcq_select")
 							.addOptions(options)
 							.setPlaceholder("Select an option")
-							.setMinValues(question.allowMultipleSelections ? 1 : 1)
-							.setMaxValues(question.allowMultipleSelections ? options.length : 1),
+							.setMinValues(minValues)
+							.setMaxValues(maxValues),
 					);
 
 					DMEmbed.addFields({ name: `Question \`${responselength + 1}\``, value: safeTruncate(`${question.content}`) });
@@ -957,6 +1018,7 @@ async function Verificationfunc(
 				const user = await c.users.fetch(userid);
 				const dmChannel = await c.channels.fetch(dmChannelId);
 				let activeQuestionMessage;
+				let awaitingOther = null;
 
 				// Get the first question
 				const firstQuestion = botQuestions[0];
@@ -1128,9 +1190,13 @@ async function Verificationfunc(
 
 										const mcqanswer =
 											currentQuestion.mcq[selectedOptionIndex]?.label ?? currentQuestion.mcq[selectedOptionIndex];
-										fieldValue = `${numberToEmoji[selectedOptionIndex]} ${mcqanswer}`;
+										fieldValue = `${numberToEmoji[selectedOptionIndex] || `[${selectedOptionIndex + 1}]`} ${mcqanswer}`;
 									} else if (i.isStringSelectMenu()) {
-										const selectedIndexes = i.values.map((value) => parseInt(value, 10) - 1);
+										const isOtherSelected = i.values.includes("other");
+										const selectedIndexes = i.values
+											.filter((value) => value !== "other")
+											.map((value) => parseInt(value, 10) - 1);
+
 										selectedOptions = selectedIndexes
 											.map((index) => {
 												if (index < 0 || index >= currentQuestion.mcq.length) {
@@ -1142,8 +1208,30 @@ async function Verificationfunc(
 											})
 											.filter((item) => item !== null);
 
+										if (isOtherSelected) {
+											awaitingOther = {
+												questionId: currentQuestion.id,
+												normalSelected: selectedOptions,
+											};
+
+											// Remove select menu so applicant cannot change selection while typing custom text
+											await activeQuestionMessage
+												.edit({
+													components: [cancelbutton].filter(Boolean),
+												})
+												.catch(() => {});
+
+											await dmChannel.send({
+												content: "Please type your custom response for **Other** in this chat:",
+											});
+											return;
+										}
+
 										fieldValue = selectedOptions
-											.map((option) => `${numberToEmoji[option.index]} ${option.option?.label ?? option.option}`)
+											.map(
+												(option) =>
+													`${numberToEmoji[option.index] || `[${option.index + 1}]`} ${option.option?.label ?? option.option}`,
+											)
 											.join("\n ");
 										if (selectedOptions.length > 0) selectedOptionIndex = selectedOptions[0].index;
 									}
@@ -1217,14 +1305,48 @@ async function Verificationfunc(
 								const currentQuestion = questionMap.get(currentQuestionId);
 
 								if (!currentQuestion) return;
-								if (currentQuestion.mcq && currentQuestion.mcq.length > 0) return;
+
+								const hasMcq = currentQuestion.mcq && currentQuestion.mcq.length > 0;
+								if (hasMcq) {
+									if (!awaitingOther || awaitingOther.questionId !== currentQuestion.id) {
+										return;
+									}
+								}
+
+								if (imageSubmission === false && collected.attachments?.size > 0) {
+									await collected.author
+										.send("Images are not allowed. Please submit your answer with text only.")
+										.catch(() => {});
+									return;
+								}
 
 								let totalcontent = collected.content;
 								let answercontent = collected.content;
+								let mcqIndices = [];
+								let selectedOptionIndex = null;
+								let selectedCount = 1;
 
-								if (totalcontent.length < 1 && collected.attachments.size === 0) {
-									totalcontent = "No answer provided";
-									answercontent = "No answer provided";
+								let otherSelected = false;
+								if (hasMcq && awaitingOther) {
+									otherSelected = true;
+									const customText = collected.content.trim() || "No custom response provided";
+									const normalLines = awaitingOther.normalSelected.map(
+										(opt) => `${numberToEmoji[opt.index] || `[${opt.index + 1}]`} ${opt.option?.label ?? opt.option}`,
+									);
+									const otherLine = `Other: ${customText}`;
+									const combinedLines = [...normalLines, otherLine];
+
+									answercontent = combinedLines.join("\n ");
+									totalcontent = answercontent;
+									mcqIndices = awaitingOther.normalSelected.map((opt) => opt.index);
+									selectedOptionIndex = mcqIndices.length > 0 ? mcqIndices[0] : null;
+									selectedCount = awaitingOther.normalSelected.length + 1;
+									awaitingOther = null;
+								} else {
+									if (totalcontent.length < 1 && collected.attachments.size === 0) {
+										totalcontent = "No answer provided";
+										answercontent = "No answer provided";
+									}
 								}
 
 								const questionLength = currentQuestion.content.length;
@@ -1246,13 +1368,20 @@ async function Verificationfunc(
 									currentQuestion,
 									currentQuestionIndex,
 									isPremium,
-									null,
+									selectedOptionIndex,
 									answercontent,
+									selectedCount,
+									otherSelected,
 								);
 
 								await submitAnswerAndAdvance(
 									currentQuestion,
-									{ content: totalcontent, attachments: collected.attachments?.map((attachment) => attachment.url) },
+									{
+										content: totalcontent,
+										...(mcqIndices.length > 0 && { mcqIndex: mcqIndices }),
+										...(otherSelected && { otherSelected: true }),
+										attachments: collected.attachments?.map((attachment) => attachment.url),
+									},
 									nextQuestionId,
 								);
 							} catch (error) {
@@ -1364,6 +1493,7 @@ async function resumeApplication(client) {
 						DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
 						encryptionKey: process.env.ENCRYPTION_KEY,
 						resumeState: payload,
+						imageSubmission: application.imageSubmission ?? true,
 					});
 
 					if (reason === "completed" || reason === "kick" || reason === "deny") {

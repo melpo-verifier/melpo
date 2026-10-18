@@ -76,16 +76,15 @@ module.exports = async ({ interaction, client }) => {
 	const collectorFilter = (m) => m.author.id === user.id;
 	const messageCollector = dmChannel.createMessageCollector({
 		filter: collectorFilter,
-		max: 1,
 	});
 
 	const buttonFilter = (i) => i.customId === "cancel" && i.user.id === user.id;
 	const buttonCollector = dmChannel.createMessageComponentCollector({
 		filter: buttonFilter,
-		max: 1,
 	});
 
 	buttonCollector.on("collect", async (i) => {
+		buttonCollector.stop("cancelled");
 		message.edit({ components: [confirmrow] });
 		await QuestionId.create(questionIdData);
 		i.update({
@@ -102,6 +101,15 @@ module.exports = async ({ interaction, client }) => {
 	const verificationChannelId = application.reviewchannel;
 
 	messageCollector.on("collect", async (m) => {
+		const imageSubmission = application?.imageSubmission ?? true;
+		if (imageSubmission === false && m.attachments?.size > 0) {
+			await dmChannel.send("Images are not allowed. Please try again with text only.");
+			return;
+		}
+
+		messageCollector.stop("answered");
+		buttonCollector.stop("answered");
+
 		let totalcontent = m.content;
 		let answercontent = m.content;
 		const attachmentUrls = [];
