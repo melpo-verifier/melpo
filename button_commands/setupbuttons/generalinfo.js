@@ -16,7 +16,23 @@ const {
 const { createCategoryButtons } = require("../../js/constants.js");
 
 module.exports = async ({ interaction, context, whichdefault, applicationId, tempApplicationId, client }) => {
-	tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
+	if (context?.[1] === "edit") {
+		const targetAppId = parseInt(context[0], 10);
+		const { application, error: appError } = await getApplicationById(targetAppId, interaction.guild.id);
+		if (appError || !application) {
+			return interaction.reply({
+				content: `Error: ${appError || "Application not found."}`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+		const { tempApp: editTempApp } = await createTempApplication(interaction.guild.id, {
+			applicationId: application.id,
+			name: application.name,
+		});
+		tempApplicationId = editTempApp.id;
+	} else {
+		tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
+	}
 
 	if (!tempApplicationId) {
 		return interaction.reply({
@@ -89,8 +105,7 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
 		.setTitle("Channels setup")
 		.setDescription(
 			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)${adtext ? `\n-# ${adtext}` : ""}
-			\n**Not all options are available here. Head over to the [dashboard](https://melpo.app/dashboard/${interaction.guild.id}) for more customization and advanced options!**
-			\n_ _`,
+> 💡 **Tip:** Not all options are available within Discord. Head over to the [dashboard](https://melpo.app/dashboard/${interaction.guild.id}) for more customization and advanced options!`,
 		)
 		.addFields(
 			{

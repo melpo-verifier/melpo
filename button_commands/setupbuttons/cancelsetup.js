@@ -13,6 +13,7 @@ module.exports = async ({ interaction, context }) => {
 		const tempstartmessage = temporarySetup?.startmessage;
 		const tempfinishmessage = temporarySetup?.finishmessage;
 		const tempverifymessage = temporarySetup?.verifymessage;
+		const tempdenymessage = temporarySetup?.denymessage;
 		const tempverificationwelcomemessage = temporarySetup?.verificationwelcomemessage;
 
 		if (tempverifychannelembed?.image)
@@ -53,7 +54,10 @@ module.exports = async ({ interaction, context }) => {
 				appName,
 				"verificationwelcomemessage",
 				tempverificationwelcomemessage.image,
+				"images/verificationwelcomemessage",
 			);
+		if (tempdenymessage?.image)
+			await deleteNewImage(interaction.guild.id, appName, "denymessage", tempdenymessage.image, "images/denymessage");
 
 		await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
 	}

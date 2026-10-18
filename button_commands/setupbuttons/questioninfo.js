@@ -17,9 +17,10 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	const questionembed = new EmbedBuilder()
 		.setTitle("Questions setup")
 		.setDescription(
-			"[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply for verification.",
+			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply for verification.
+> 💡 **Tip:** Regex or multiple choice based Question branching, auto-kick/deny rules, and conditional roles can be configured on the **[Dashboard](https://melpo.app/dashboard/${interaction.guild.id})** (Premium).`,
 		)
-		.setColor("#0099ff");
+		.setColor("#3f7ff1");
 
 	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
 	if (error) return interaction.reply({ content: `Error: ${error}`, flags: MessageFlags.Ephemeral });
@@ -78,8 +79,9 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 			questions?.map((question, index) => {
 				const mcqContent =
 					question.mcq?.length > 0 ? question.mcq.map((option) => `\n- ${option.label ?? option}`).join("") : "";
+				const multipleSelectionInfo = question.allowMultipleSelections ? "Multiple options" : "Single option";
 				return {
-					name: `Question ${index + 1}`,
+					name: `Question ${index + 1}${question.mcq?.length > 0 ? ` \`MCQ (${multipleSelectionInfo})\`` : ""}`,
 					value: (question.content + mcqContent).slice(0, 1024),
 					inline: false,
 				};
@@ -89,14 +91,14 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 		const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
 
 		if (interaction.replied || interaction.deferred) {
-			interaction.message.edit({
+			await interaction.message.edit({
 				content: "",
 				embeds: [questionembed],
 				components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
 				files: [],
 			});
 		} else {
-			interaction.update({
+			await interaction.update({
 				content: "",
 				embeds: [questionembed],
 				components: [categoryButtons, editmenu, questionbuttons, finishbuttons],
@@ -106,7 +108,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	} else {
 		const categoryButtons = createCategoryButtons(tempApplicationId, 2); // 2 = Questions is disabled
 
-		interaction.update({
+		await interaction.update({
 			content: "",
 			embeds: [questionembed],
 			components: [categoryButtons, questionbuttons, finishbuttons],

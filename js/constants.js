@@ -9,7 +9,10 @@ function createCategoryButtons(tempApplicationId, disabledIndex = -1) {
 			.setCustomId(`customizationinfo_${tempApplicationId}`)
 			.setLabel("Customization")
 			.setStyle("Secondary"),
-		new ButtonBuilder().setCustomId(`miscinfo_${tempApplicationId}`).setLabel("Misc").setStyle("Secondary"),
+		new ButtonBuilder()
+			.setCustomId(`miscinfo_${tempApplicationId}`)
+			.setLabel("Threads & Automations")
+			.setStyle("Secondary"),
 	];
 
 	if (disabledIndex >= 0 && disabledIndex < buttons.length) buttons[disabledIndex].setDisabled(true);
