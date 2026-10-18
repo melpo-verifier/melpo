@@ -107,11 +107,14 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 		);
 
 		if (interaction.replied || interaction.deferred)
-			interaction.message.edit({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] });
+			await interaction.message.edit({
+				embeds: [questionembed],
+				components: [editmenu, questionbuttons, finishbuttons],
+			});
 		else interaction.update({ embeds: [questionembed], components: [editmenu, questionbuttons, finishbuttons] });
 	} else {
 		if (interaction.replied || interaction.deferred)
-			interaction.message.edit({ embeds: [questionembed], components: [questionbuttons, finishbuttons] });
+			await interaction.message.edit({ embeds: [questionembed], components: [questionbuttons, finishbuttons] });
 		else interaction.update({ embeds: [questionembed], components: [questionbuttons, finishbuttons] });
 	}
 }
