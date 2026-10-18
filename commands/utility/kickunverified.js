@@ -59,7 +59,7 @@ module.exports = {
 
 	async execute({ interaction }) {
 		if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-			return interaction.reply({
+			return await interaction.reply({
 				content: "You need `Administrator` permissions to use this command.",
 				flags: MessageFlags.Ephemeral,
 			});
@@ -101,19 +101,19 @@ module.exports = {
 					.setURL("https://discord.gg/jjGAwwwxZz"),
 			);
 
-			return interaction.editReply({ embeds: [premiumEmbed], components: [linkButtons] });
+			return await interaction.editReply({ embeds: [premiumEmbed], components: [linkButtons] });
 		}
 
 		const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
 		if (!botMember.permissions.has(PermissionFlagsBits.KickMembers)) {
-			return interaction.editReply({
+			return await interaction.editReply({
 				content: "I do not have the `Kick Members` permission in this server.",
 			});
 		}
 
 		const targetRole = interaction.options.getRole("role");
 		if (targetRole.id === interaction.guild.id) {
-			return interaction.editReply({
+			return await interaction.editReply({
 				content: "You cannot target the `@everyone` role with `/kickunverified`. Please specify a specific role.",
 			});
 		}
@@ -135,7 +135,7 @@ module.exports = {
 		} catch (error) {
 			console.log(error?.data);
 			if (error.data?.retry_after) {
-				interaction.editReply({
+				await interaction.editReply({
 					content: `Failed to fetch members, rate-limited. Please try again in ${error.data.retry_after}s.`,
 				});
 				return;
@@ -174,7 +174,7 @@ module.exports = {
 			if (unkickableMembers.length > 0) {
 				message += `\n\n⚠️ Found **${unkickableMembers.length}** matching member(s), but they cannot be kicked due to role hierarchy, bot permissions, or server ownership.`;
 			}
-			return interaction.editReply({ content: message });
+			return await interaction.editReply({ content: message });
 		}
 
 		const fileRows = [
@@ -234,7 +234,7 @@ module.exports = {
 				time: 120000,
 			});
 		} catch {
-			return interaction.editReply({
+			return await interaction.editReply({
 				content: "Confirmation timed out. No members were kicked.",
 				embeds: [],
 				components: [],
@@ -244,7 +244,7 @@ module.exports = {
 
 		if (collectedInteraction.customId === "kickcancel") {
 			await collectedInteraction.deferUpdate();
-			return interaction.editReply({
+			return await interaction.editReply({
 				content: "Bulk kick cancelled. No members were kicked.",
 				embeds: [],
 				components: [],
@@ -285,7 +285,7 @@ module.exports = {
 
 			if (graceInteraction.customId === "kickcancel") {
 				await graceInteraction.deferUpdate();
-				return interaction.editReply({
+				return await interaction.editReply({
 					content: "Bulk kick cancelled. No members were kicked.",
 					embeds: [],
 					components: [],
@@ -310,7 +310,7 @@ module.exports = {
 
 		stopCollector.on("collect", async (stopInteraction) => {
 			isStopped = true;
-			await stopInteraction.deferUpdate();
+			await stopInteraction.deferUpdate().catch(() => {});
 			stopCollector.stop();
 		});
 
@@ -415,12 +415,20 @@ module.exports = {
 				files: [candidateAttachment],
 				components: [],
 			});
+			await interaction
+				.editReply({
+					content: "Bulk kick operation completed. Summary sent in this channel.",
+					embeds: [],
+					components: [],
+					files: [],
+				})
+				.catch(() => {});
 		} catch {
 			await interaction
 				.editReply({
 					embeds: [finalEmbed],
-					components: [candidateAttachment],
-					files: [],
+					files: [candidateAttachment],
+					components: [],
 				})
 				.catch(() => {});
 		}
