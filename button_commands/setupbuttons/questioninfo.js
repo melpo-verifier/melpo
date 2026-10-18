@@ -17,7 +17,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	const questionembed = new EmbedBuilder()
 		.setTitle("Questions setup")
 		.setDescription(
-			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply for verification.
+			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the questions that will be asked to users when they apply.
 > 💡 **Tip:** Regex or multiple choice based Question branching, auto-kick/deny rules, and conditional roles can be configured on the **[Dashboard](https://melpo.app/dashboard/${interaction.guild.id})** (Premium).`,
 		)
 		.setColor("#3f7ff1");

@@ -185,7 +185,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 		const verifyLogsChannel = interaction.guild.channels.cache.get(verifyLogsChannelId);
 		if (!verifyLogsChannel) {
 			return await interaction.editReply({
-				content: `<@${user.id}>, the application review channel could not be found! Please contact server staff.`,
+				content: `<@${user.id}>, the review channel could not be found! Please contact server staff.`,
 			});
 		}
 
@@ -197,7 +197,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 		//) {
 		if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 			return await interaction.editReply({
-				content: `<@${user.id}>, I don't have permissions to send messages in the application review channel!`,
+				content: `<@${user.id}>, I don't have permissions to send messages in the review channel!`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -250,7 +250,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 				appName,
 				application,
 				defaultColor: "#3f7ff1",
-				defaultFooter: `Application: ${appName} | Click "cancel" to cancel the verification.`,
+				defaultFooter: `Application: ${appName} | Click "cancel" to cancel the application.`,
 			});
 
 			let startmessage;
@@ -271,9 +271,9 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			}
 
 			const startedEmbed = new EmbedBuilder()
-				.setTitle("Verification Started")
+				.setTitle("Application Started")
 				.setDescription(
-					`Verification started, check your DMs or [click here](https://discord.com/channels/@me/${dmChannel.id}/${startmessage.id})!`,
+					`Application started, check your DMs or [click here](https://discord.com/channels/@me/${dmChannel.id}/${startmessage.id})!`,
 				)
 				.setColor("#3f7ff1");
 
@@ -331,11 +331,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 						activeVerifications.delete(user.id);
 						await Submissions.destroy({ where: { message_id: sessionId } }).catch(() => {});
 
-						if (
-							!error.toString().includes("Verification was canceled") &&
-							!error.toString().includes("Verification timed out")
-						)
-							throw error;
+						const isExpected = error.toString().includes("was canceled") || error.toString().includes("timed out");
+						if (!isExpected) throw error;
 					});
 			} else {
 				//non sharded instances
@@ -378,25 +375,19 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 					activeVerifications.delete(user.id);
 					await Submissions.destroy({ where: { message_id: sessionId } }).catch(() => {});
 
-					if (
-						!error.toString().includes("Verification was canceled") &&
-						!error.toString().includes("Verification timed out")
-					)
-						throw error;
+					const isExpected = error.toString().includes("was canceled") || error.toString().includes("timed out");
+					if (!isExpected) throw error;
 				}
 			}
 		} catch (error) {
-			if (
-				!error.toString().includes("Verification was canceled") &&
-				!error.toString().includes("Verification timed out")
-			)
-				throw error;
+			const isExpected = error.toString().includes("was canceled") || error.toString().includes("timed out");
+			if (!isExpected) throw error;
 		}
 	} catch (error) {
-		console.error("Verification error:", error);
+		console.error("Application error:", error);
 		await interaction
 			.followUp({
-				content: `An error occurred during the verification process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
+				content: `An error occurred during the application process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
 				flags: MessageFlags.Ephemeral,
 			})
 			.catch(() => {});
@@ -580,7 +571,7 @@ async function processVerificationResult(
 			await dmChannel
 				.send({
 					content:
-						"An error occurred while processing your verification. This can happen when you left or have been kicked from the server during your application.",
+						"An error occurred while processing your application. This can happen when you left or have been kicked from the server during your application.",
 				})
 				.catch(() => {});
 			return;
@@ -911,7 +902,7 @@ async function Verificationfunc(
 
 			const DMEmbed = new EmbedBuilder()
 				.setColor("#3f7ff1")
-				.setFooter({ text: 'Click "cancel" to cancel the verification.' });
+				.setFooter({ text: 'Click "cancel" to cancel the application.' });
 
 			let actionRow = new ActionRowBuilder();
 			if (question.mcq && question.mcq.length > 0) {
@@ -970,7 +961,7 @@ async function Verificationfunc(
 				// Get the first question
 				const firstQuestion = botQuestions[0];
 				if (!firstQuestion) {
-					reject(new Error("No questions found in verification"));
+					reject(new Error("No questions found in application"));
 					return;
 				}
 
@@ -1291,23 +1282,23 @@ async function Verificationfunc(
 							resolve([reason, responses]);
 						} else if (reason === "canceled") {
 							await clearProgress();
-							reject(new Error("Verification was canceled"));
+							reject(new Error("Application was canceled"));
 						} else if (reason === "time") {
 							const timeoutEmbed = new EmbedBuilder()
-								.setTitle("Verification Timed Out")
-								.setDescription("The verification process has timed out. Please restart the verification.")
+								.setTitle("Application Timed Out")
+								.setDescription("The application process has timed out. Please restart the application.")
 								.setColor("#ff0000");
 
 							await dmChannel.send({ embeds: [timeoutEmbed] }).catch(() => {});
 							await clearProgress();
-							reject(new Error("Verification timed out"));
+							reject(new Error("Application timed out"));
 						} else if (reason === "error") {
-							reject(new Error("Verification ended due to an internal error"));
+							reject(new Error("Application ended due to an internal error"));
 						} else {
-							reject(new Error(`Verification ended unexpectedly: ${reason}`));
+							reject(new Error(`Application ended unexpectedly: ${reason}`));
 						}
 					} catch (error) {
-						console.error(`Error in verification end handler for user ${userid}:`, error);
+						console.error(`Error in application end handler for user ${userid}:`, error);
 						reject(error);
 					}
 				});

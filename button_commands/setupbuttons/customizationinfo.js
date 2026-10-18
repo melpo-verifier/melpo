@@ -29,33 +29,33 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 	const messageFields = [
 		{
 			key: "verifychannelembed",
-			label: "Verify channel Embed",
-			description: 'Message to which users click "verify" to start verification',
+			label: "Application Panel",
+			description: "Message with which users start the application process",
 		},
 		{
 			key: "startmessage",
-			label: "Verification start message",
-			description: "Message user gets when starting verification",
+			label: "Application Start",
+			description: "Message user gets when starting an application",
 		},
 		{
 			key: "finishmessage",
-			label: "Verification finish message",
-			description: "Message user gets when finishing verification",
+			label: "Submission Confirmation",
+			description: "Message user gets when submitting an application",
 		},
 		{
 			key: "verifymessage",
-			label: "On verify message",
-			description: "Message user gets when getting verified",
+			label: "Acceptance Notice",
+			description: "Message user gets when getting accepted",
 		},
 		{
 			key: "denymessage",
-			label: "On deny message",
+			label: "Denial Notice",
 			description: "Message user gets when getting denied",
 		},
 		{
 			key: "verificationwelcomemessage",
-			label: "Verification welcome message",
-			description: "Welcome message in the server when user gets verified",
+			label: "Welcome Message",
+			description: "Welcome message in the server when user gets accepted",
 		},
 	];
 
@@ -73,7 +73,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 		.setColor("#3f7ff1")
 		.setTitle("Customization setup")
 		.setDescription(
-			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nYou can customize all messages that the bot sends. Please note that the verification welcome message only has effect when a verification welcome channel is set up in the "Channels" section.
+			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nYou can customize all messages that the bot sends. Please note that the welcome message only has effect when a welcome channel is set up in the "Channels" section.
 > 💡 **Tip:** For easier editing, or premium Drag & Drop Modern Card Layout (components V2), check out the **[Web Dashboard](https://melpo.app/dashboard/${interaction.guild.id})**.
 \n**Customizable Messages:**\n${statusLines.join("\n")}`,
 		);

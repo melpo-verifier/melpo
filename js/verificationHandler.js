@@ -102,7 +102,7 @@ async function checkManagerPermission(interaction, application) {
 		if (!hasManagerRole) {
 			return {
 				allowed: false,
-				message: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+				message: `You do not have permission to manage applications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
 			};
 		}
 	}
@@ -176,7 +176,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 	}
 
 	if (!verifiedRoles || verifiedRoles.length === 0) {
-		errors.push("No verified role set up. Please set up a verified role using the `/setup` command.");
+		errors.push("No accepted role set up. Please set up an accepted role using the `/setup` command.");
 	} else {
 		checkRoles(verifiedRoles, "assign");
 	}
@@ -241,7 +241,7 @@ function handleV2Edit(interaction, message, status, reason = null, memberId = nu
 		statusSuffix = `\n**Status:** \`Left Server\``;
 	} else {
 		const statusTextMap = {
-			[VerificationStatus.VERIFIED]: "Verified",
+			[VerificationStatus.VERIFIED]: "Accepted",
 			[VerificationStatus.DENIED]: "Denied",
 			[VerificationStatus.KICKED]: "Kicked",
 		};
@@ -605,7 +605,7 @@ async function processLogMessages({
 
 			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 				return await interaction.channel.send({
-					content: `<@${user.id}>, I don't have permissions to send messages in the verification review channel!`,
+					content: `<@${user.id}>, I don't have permissions to send messages in the application logs channel!`,
 				});
 			}
 		}
@@ -776,8 +776,8 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
 
 // Create "no application" embed for users verified/denied without application
 function createNoApplicationEmbed(user, interaction, invitetracker, status) {
-	const statusText = status === VerificationStatus.VERIFIED ? "VERIFIED" : "DENIED";
-	const actionText = status === VerificationStatus.VERIFIED ? "Verified" : "Denied";
+	const statusText = status === VerificationStatus.VERIFIED ? "ACCEPTED" : "DENIED";
+	const actionText = status === VerificationStatus.VERIFIED ? "Accepted" : "Denied";
 	const color = StatusColors[status];
 
 	return new EmbedBuilder()
@@ -950,12 +950,12 @@ async function verifyUser(interaction, client, application, user) {
 	if (!interaction.isChatInputCommand()) {
 		if (dmResult.dmDisabled) {
 			await interaction.followUp({
-				content: `✅ User Verified successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
+				content: `✅ User accepted successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		} else {
 			await interaction.followUp({
-				content: `✅ User verified successfully!\n${rolesToApply.length} role(s) applied.`,
+				content: `✅ User accepted successfully!\n${rolesToApply.length} role(s) applied.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}

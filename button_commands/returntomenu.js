@@ -26,7 +26,7 @@ module.exports = async ({ interaction, applicationId }) => {
 
 		if (!hasManagerRole) {
 			return interaction.reply({
-				content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+				content: `You do not have permission to manage applications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}

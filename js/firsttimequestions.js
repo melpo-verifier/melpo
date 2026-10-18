@@ -41,12 +41,12 @@ async function firsttimequestions({ interaction, applicationId, tempApplicationI
 				inline: false,
 			},
 			{
-				name: "Application Review Channel `(required)`",
+				name: "Review Channel `(required)`",
 				value: `<#${reviewChannel}>`,
 				inline: false,
 			},
 			{
-				name: "Accepted Role(s) `(required)`",
+				name: "Accepted Roles `(required)`",
 				value: verifiedRole?.map((role) => `<@&${role}>`).join(", "),
 				inline: false,
 			},

@@ -27,7 +27,7 @@ module.exports = async ({ interaction, context }) => {
 
 	if (!positiveIntRegex.test(rawKickHours)) {
 		return interaction.reply({
-			content: "Invalid input for **Auto-Kick Unverified Hours**: please enter a positive number (e.g., `48`).",
+			content: "Invalid input for **Auto-Kick Hours**: please enter a positive number (e.g., `48`).",
 			flags: MessageFlags.Ephemeral,
 		});
 	}

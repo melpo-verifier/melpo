@@ -18,7 +18,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 	const originaluserid = context[1]?.toString();
 	if (originaluserid && originaluserid !== interaction.user.id) {
 		return await interaction.followUp({
-			content: "This verification is already handled by another user!",
+			content: "This application is already handled by another user!",
 			flags: MessageFlags.Ephemeral,
 		});
 	}

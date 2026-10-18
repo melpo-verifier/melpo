@@ -42,7 +42,7 @@ module.exports = async ({ interaction, context }) => {
 		const channelmenu = new ChannelSelectMenuBuilder()
 			.setCustomId(`firstTimeMenu_1_${tempApplicationId}`)
 			.setChannelTypes("GuildText")
-			.setPlaceholder("Application Review Channel")
+			.setPlaceholder("Review Channel")
 			.setMinValues(1)
 			.setMaxValues(1);
 
@@ -60,7 +60,7 @@ module.exports = async ({ interaction, context }) => {
 					inline: false,
 				},
 				{
-					name: "Application Review Channel `(required)`",
+					name: "Review Channel `(required)`",
 					value: `No channel set up yet`,
 					inline: false,
 				},
@@ -88,7 +88,7 @@ module.exports = async ({ interaction, context }) => {
 
 		const channelmenu = new RoleSelectMenuBuilder()
 			.setCustomId(`firstTimeMenu_2_${tempApplicationId}`)
-			.setPlaceholder("Role(s) to be given to verified users")
+			.setPlaceholder("Accepted Roles")
 			.setMinValues(1)
 			.setMaxValues(15);
 
@@ -106,12 +106,12 @@ module.exports = async ({ interaction, context }) => {
 					inline: false,
 				},
 				{
-					name: "Application Review Channel `(required)`",
+					name: "Review Channel `(required)`",
 					value: `<#${reviewChannel}>`,
 					inline: false,
 				},
 				{
-					name: "Accepted Role(s) `(required)`",
+					name: "Accepted Roles `(required)`",
 					value: `No role set up yet`,
 					inline: false,
 				},

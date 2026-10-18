@@ -5,18 +5,18 @@ const { checkManagerPermission, isInReviewChannel, verifyUser } = require("../..
 module.exports = {
 	data: new SlashCommandBuilder()
 		.setName("verify")
-		.setDescription("verifies (multiple) people")
+		.setDescription("Accepts (multiple) users")
 		.setContexts(0)
 		.addStringOption((option) =>
 			option
 				.setName("users")
-				.setDescription("The users to verify (mention them or provide their IDs)")
+				.setDescription("The users to accept (mention them or provide their IDs)")
 				.setRequired(true),
 		)
 		.addStringOption((option) =>
 			option
 				.setName("application")
-				.setDescription("The application to use for verification (required if multiple exist)")
+				.setDescription("The application to use (required if multiple exist)")
 				.setAutocomplete(true)
 				.setRequired(false),
 		),
@@ -79,13 +79,13 @@ module.exports = {
 			!isInReviewChannel(interaction, application.reviewchannel)
 		) {
 			return interaction.reply({
-				content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a manager role in \`/setup\` to use this command everywhere.`,
+				content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a reviewer role in \`/setup\` to use this command everywhere.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
 		if (!application?.verifiedrole || application.verifiedrole.length === 0) {
 			return interaction.reply({
-				content: "Please set a verified role in the server configuration by using the `/setup` command",
+				content: "Please set an accepted role in the server configuration by using the `/setup` command",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -122,9 +122,9 @@ module.exports = {
 			return interaction.reply({ content: "No valid users found in this server.", flags: MessageFlags.Ephemeral });
 
 		if (users.some((user) => user.user.bot))
-			return interaction.reply({ content: "You cannot verify a bot.", flags: MessageFlags.Ephemeral });
+			return interaction.reply({ content: "You cannot accept a bot.", flags: MessageFlags.Ephemeral });
 
-		await interaction.reply(`Verifying ${users.length} user(s)...`);
+		await interaction.reply(`Accepting ${users.length} user(s)...`);
 
 		const results = { success: [], notFound: [] };
 
@@ -133,7 +133,7 @@ module.exports = {
 				await verifyUser(interaction, client, application, user);
 				results.success.push(user.id);
 			} catch (error) {
-				console.error(`Could not verify user: ${error}`);
+				console.error(`Could not accept user: ${error}`);
 				results.notFound.push(user.id);
 			}
 		}
@@ -141,7 +141,7 @@ module.exports = {
 		let replyMessage = "";
 
 		if (results.success.length > 0)
-			replyMessage += `**Successfully verified:** ${results.success.map((id) => `<@${id}>`).join(", ")}`;
+			replyMessage += `**Successfully accepted:** ${results.success.map((id) => `<@${id}>`).join(", ")}`;
 
 		if (results.notFound.length > 0)
 			replyMessage += `\n**Users not found:** ${results.notFound.map((id) => `<@${id}>`).join(", ")}`;

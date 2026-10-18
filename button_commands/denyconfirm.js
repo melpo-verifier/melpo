@@ -9,7 +9,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 	const originaluserid = context[1]?.toString();
 	if (originaluserid && originaluserid !== interaction.user.id) {
 		return await interaction.followUp({
-			content: "This verification is already handled by another user!",
+			content: "This application is already handled by another user!",
 			flags: MessageFlags.Ephemeral,
 		});
 	}
@@ -50,7 +50,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 	} catch {
 		return await interaction.followUp({
 			content:
-				"User not found in server. This user has probably left this server.\n-# If you believe this is an error, please contact the developer.\nYou can always verify someone manually using `/verify`",
+				"User not found in server. This user has probably left this server.\n-# If you believe this is an error, please contact the developer.\nYou can always accept someone manually using `/verify`",
 			flags: MessageFlags.Ephemeral,
 		});
 	}

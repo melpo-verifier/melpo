@@ -82,7 +82,7 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 					{
 						label: "Enable Auto-Kick",
 						value: "autoKickUnverifiedEnabled",
-						description: "Kick members if they fail to verify in time",
+						description: "Kick members if they fail to apply in time",
 						default: Boolean(autoKickUnverifiedEnabled),
 					},
 					{

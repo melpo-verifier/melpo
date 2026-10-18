@@ -68,35 +68,35 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 		.setColor("#3f7ff1")
 		.setTitle("Roles setup")
 		.setDescription(
-			"[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the roles assigned, removed, or pinged during the verification process.",
+			"[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)\n\nHere you can view and edit the roles assigned, removed, or pinged during the application process.",
 		)
 		.addFields(
 			{
-				name: "Verified Role (Member Role) `required`",
-				value: `*Role(s) assigned when users get verified*\n${verifiedRole ? verifiedRole.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up (REQUIRED)"}`,
+				name: "Accepted Roles `required`",
+				value: `*Role(s) assigned when users get accepted*\n${verifiedRole ? verifiedRole.map((role) => `<@&${role}>`).join(", ") : "No role(s) set up (REQUIRED)"}`,
 			},
 			{
 				name: "Auto Role `optional`",
 				value: `*⚠️ Moved to server configuration! (\`/setup server\`)!*`,
 			},
 			{
-				name: "Unverified Role `optional`",
-				value: `*Role(s) to remove from users upon verification*\n${unverifiedRole ? unverifiedRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+				name: "Roles to remove on accept `optional`",
+				value: `*Role(s) to remove from users upon acceptance*\n${unverifiedRole ? unverifiedRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
-				name: "Verification Ping Role `optional`",
+				name: "Application Ping `optional`",
 				value: `*Role(s) that gets pinged with every new application*\n${pingRole ? pingRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
-				name: "Verification Manager Role `optional`",
-				value: `*Users with this role can manage applications (no roles = everyone can manage)*\n${managerRole ? managerRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+				name: "Reviewer Roles `optional`",
+				value: `*Users with this role can review applications (no roles = everyone can review)*\n${managerRole ? managerRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
-				name: "Question Ping Role `optional`",
+				name: "Question Ping `optional`",
 				value: `*Role(s) that gets pinged when a user answers a question*\n${questionpingrole ? questionpingrole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 			{
-				name: "Denied Role `optional`",
+				name: "Denied Roles `optional`",
 				value: `*Role(s) assigned when a user's application is denied*\n${deniedRole ? deniedRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 		);
@@ -115,37 +115,37 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 		.setPlaceholder("Select what role you want to edit")
 		.addOptions(
 			{
-				label: "Verified Role (Member Role)",
-				description: `Role(s) assigned when users get verified`,
+				label: "Accepted Roles",
+				description: "Role(s) assigned when users get accepted",
 				value: "verifiedRole",
 				default: whichdefault === 0,
 			},
 			{
-				label: "Unverified Role",
-				description: "Role(s) to remove from users upon verification",
+				label: "Roles to remove on accept",
+				description: "Role(s) to remove from users upon acceptance",
 				value: "unverifiedRole",
 				default: whichdefault === 1,
 			},
 			{
-				label: "Verification Ping Role",
+				label: "Application Ping",
 				description: "Role(s) that gets pinged with every new application",
 				value: "pingRole",
 				default: whichdefault === 2,
 			},
 			{
-				label: "Verification Manager Role",
-				description: "Users with this role can manage applications",
+				label: "Reviewer Roles",
+				description: "Users with this role can review applications",
 				value: "managerRole",
 				default: whichdefault === 3,
 			},
 			{
-				label: "Question Ping Role",
+				label: "Question Ping",
 				description: "Role(s) that gets pinged when a user answers a question",
 				value: "questionpingrole",
 				default: whichdefault === 4,
 			},
 			{
-				label: "Denied Role",
+				label: "Denied Roles",
 				description: "Role(s) assigned when a user's application is denied",
 				value: "deniedRole",
 				default: whichdefault === 5,
