@@ -58,6 +58,16 @@ module.exports = {
 				},
 				{ transaction },
 			);
+			await queryInterface.addColumn(
+				"applications",
+				"autoRemoveDeniedRoleEnabled",
+				{
+					type: Sequelize.BOOLEAN,
+					defaultValue: false,
+					allowNull: false,
+				},
+				{ transaction },
+			);
 
 			await queryInterface.addColumn(
 				"tempapplications",
@@ -107,6 +117,15 @@ module.exports = {
 			await queryInterface.addColumn(
 				"tempapplications",
 				"resetDeniedThresholdOnRemove",
+				{
+					type: Sequelize.BOOLEAN,
+					defaultValue: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"tempapplications",
+				"autoRemoveDeniedRoleEnabled",
 				{
 					type: Sequelize.BOOLEAN,
 					defaultValue: false,
