@@ -38,7 +38,7 @@
 		"uuid": "^11.1.0"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.0",
+		"@biomejs/biome": "^2.5.15",
 		"globals": "^16.3.0",
 		"nodemon": "^3.1.10"
 	},
