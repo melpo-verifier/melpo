@@ -1,7 +1,7 @@
 const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 
 module.exports = async ({ interaction }) => {
-	const modal = new ModalBuilder().setCustomId(`verifyfilterModal`).setTitle("Set verify filter words");
+	const modal = new ModalBuilder().setCustomId(`verifyfilterModal`).setTitle("Set application filter words");
 
 	const words = new TextInputBuilder()
 		.setCustomId(`blacklistedwords`)

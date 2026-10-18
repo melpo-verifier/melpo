@@ -19,6 +19,7 @@ const { decryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
 const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
+const { formatCustomMessage, sendWebhookMessage } = require("./messageHelper.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
 	const guildData = verification?.guildVerifications?.[guildId];
@@ -101,7 +102,7 @@ async function checkManagerPermission(interaction, application) {
 		if (!hasManagerRole) {
 			return {
 				allowed: false,
-				message: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+				message: `You do not have permission to manage applications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
 			};
 		}
 	}
@@ -175,7 +176,7 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 	}
 
 	if (!verifiedRoles || verifiedRoles.length === 0) {
-		errors.push("No verified role set up. Please set up a verified role using the `/setup` command.");
+		errors.push("No accepted role set up. Please set up an accepted role using the `/setup` command.");
 	} else {
 		checkRoles(verifiedRoles, "assign");
 	}
@@ -240,7 +241,7 @@ function handleV2Edit(interaction, message, status, reason = null, memberId = nu
 		statusSuffix = `\n**Status:** \`Left Server\``;
 	} else {
 		const statusTextMap = {
-			[VerificationStatus.VERIFIED]: "Verified",
+			[VerificationStatus.VERIFIED]: "Accepted",
 			[VerificationStatus.DENIED]: "Denied",
 			[VerificationStatus.KICKED]: "Kicked",
 		};
@@ -385,91 +386,65 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 	const channel = interaction.guild.channels.cache.get(welcomeChannel);
 	if (!channel) throw new Error(`Welcome channel ${welcomeChannel} not found`);
 
-	if (welcomeMessage.text) {
-		const finalText = await processText(welcomeMessage.text, user, interaction, verifiedRoles);
-		const textImage = resolveImage(welcomeMessage.image);
-		const finalmessage = { content: finalText };
+	const isV2 = welcomeMessage.format === "v2" || Array.isArray(welcomeMessage.blocks);
 
-		if (textImage.embedUrl) finalmessage.embeds = [new EmbedBuilder().setImage(textImage.embedUrl)];
-		await channel.send(finalmessage);
-	} else {
-		const finalTitle = welcomeMessage.title
-			? await processText(welcomeMessage.title, user, interaction, verifiedRoles)
-			: null;
-		const finalDescription = welcomeMessage.description
-			? await processText(welcomeMessage.description, user, interaction, verifiedRoles)
-			: null;
-		const messageContent = getMentions(finalDescription);
+	const contextOptions = {
+		user,
+		member: interaction.guild.members.cache.get(user.id),
+		interaction,
+		guild: interaction.guild,
+		verifiedRoles,
+		appName: application.name,
+		application,
+	};
 
+	if (!isV2) {
+		const avatarURL =
+			user.user?.displayAvatarURL?.({ dynamic: true, size: 128 }) ||
+			user.displayAvatarURL?.({ dynamic: true, size: 128 });
 		const imageAsset = resolveImage(welcomeMessage.image);
-
-		const welcomeEmbed = new EmbedBuilder()
-			.setTitle(finalTitle?.trim() ? finalTitle.slice(0, 256) : null)
-			.setDescription(finalDescription.slice(0, 4096))
-			.setColor(welcomeMessage.color ?? "#3f7ff1")
-			.setImage(imageAsset.embedUrl);
-
-		if (imageAsset.embedUrl) {
-			welcomeEmbed.setAuthor({
-				name: user.user.globalName ?? user.user.username,
-				iconURL: user.user.displayAvatarURL({ dynamic: true, size: 128 }),
-			});
+		if (imageAsset?.embedUrl) {
+			contextOptions.author = {
+				name: user.user?.globalName ?? user.user?.username ?? user.globalName ?? user.username,
+				iconURL: avatarURL,
+			};
 		} else {
-			welcomeEmbed.setThumbnail(user.user.displayAvatarURL({ dynamic: true, size: 512 }));
+			contextOptions.thumbnail =
+				user.user?.displayAvatarURL?.({ dynamic: true, size: 512 }) ||
+				user.displayAvatarURL?.({ dynamic: true, size: 512 });
 		}
-
-		if (application.branding_enabled === true) {
-			const webhook = await GuildWebhook.findOne({ where: { channel_id: channel.id } });
-			if (webhook) {
-				try {
-					const webhookData = decryptData(String(webhook.encrypted_token));
-					if (!webhookData?.id || !webhookData.token)
-						throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`);
-
-					const client = new WebhookClient({ id: webhookData.id, token: webhookData.token });
-					const name = application.custom_name || "Melpo Verifier";
-					const avatarURL = application.custom_avatar_url || null;
-					await client.send({
-						username: name,
-						avatarURL: avatarURL,
-						content: messageContent || null,
-						embeds: [welcomeEmbed],
-					});
-					return;
-				} catch (error) {
-					interaction
-						.followUp({
-							content: `Welcome channel webhook error: ${error.message}`,
-							flags: MessageFlags.Ephemeral,
-						})
-						.catch(() => {});
-					console.error("Error sending welcome webhook:", error.message);
-				}
-			}
-		}
-
-		await channel.send({ content: messageContent || null, embeds: [welcomeEmbed] });
 	}
+
+	const payload = await formatCustomMessage(welcomeMessage, contextOptions);
+	if (!payload) return;
+
+	if (!isV2 && !payload.content && welcomeMessage.description) {
+		const finalDesc = payload.embeds?.[0]?.data?.description;
+		const messageContent = getMentions(finalDesc);
+		if (messageContent) payload.content = messageContent;
+	}
+
+	await sendWebhookMessage(channel, application, payload);
 }
 
 // Send verification DM to user
 async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 	if (!application.verifymessage) return;
 
-	const { title, description, color, image } = application.verifymessage;
+	const payload = await formatCustomMessage(application.verifymessage, {
+		user,
+		interaction,
+		guild: interaction.guild,
+		verifiedRoles,
+		appName: application.name,
+		application,
+		defaultColor: "#008000",
+	});
 
-	const finalTitle = await processText(title, user, interaction, verifiedRoles, application.name);
-	const finalDescription = await processText(description, user, interaction, verifiedRoles, application.name);
-	const dmImage = resolveImage(image);
-
-	const finalEmbed = new EmbedBuilder()
-		.setTitle(finalTitle?.trim() ? finalTitle.slice(0, 256) : null)
-		.setDescription(finalDescription)
-		.setColor(color ?? null)
-		.setImage(dmImage.embedUrl);
+	if (!payload) return;
 
 	try {
-		await user.send({ embeds: [finalEmbed] });
+		await user.send(payload);
 		return { success: true };
 	} catch (error) {
 		if (error.code === 50007 || error.code === 50278) return { success: false, dmDisabled: true };
@@ -479,23 +454,26 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
 // Send denial DM to user
 async function sendDenyDM(modname, user, application, guildName, reason = null) {
-	const description = application.denymessage?.description
-		? application.denymessage.description
-				.replace(/{modname}/gi, modname)
-				.replace(/\${interaction.guild.name}/gi, guildName)
-				.replace(/{appName}/gi, application.name)
-		: `Your application into **${guildName}** has been denied.`;
+	const config = application.denymessage || {
+		title: "Application Denied",
+		description: `Your application into **${guildName}** has been denied.`,
+		color: "#EB2121",
+	};
 
-	const dmImage = resolveImage(application.denymessage.image);
+	const payload = await formatCustomMessage(config, {
+		user,
+		modname,
+		guild: { name: guildName },
+		appName: application.name,
+		reason,
+		application,
+		defaultColor: "#EB2121",
+	});
 
-	const denyEmbed = new EmbedBuilder()
-		.setColor(application.denymessage?.color || "#EB2121")
-		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`.slice(0, 4096))
-		.setImage(dmImage.embedUrl);
+	if (!payload) return;
 
 	try {
-		await user.send({ embeds: [denyEmbed] });
+		await user.send(payload);
 		return { success: true };
 	} catch (error) {
 		if (error.code === 50007 || error.code === 50278) return { success: false, dmDisabled: true };
@@ -627,7 +605,7 @@ async function processLogMessages({
 
 			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 				return await interaction.channel.send({
-					content: `<@${user.id}>, I don't have permissions to send messages in the verification review channel!`,
+					content: `<@${user.id}>, I don't have permissions to send messages in the application logs channel!`,
 				});
 			}
 		}
@@ -798,8 +776,8 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
 
 // Create "no application" embed for users verified/denied without application
 function createNoApplicationEmbed(user, interaction, invitetracker, status) {
-	const statusText = status === VerificationStatus.VERIFIED ? "VERIFIED" : "DENIED";
-	const actionText = status === VerificationStatus.VERIFIED ? "Verified" : "Denied";
+	const statusText = status === VerificationStatus.VERIFIED ? "ACCEPTED" : "DENIED";
+	const actionText = status === VerificationStatus.VERIFIED ? "Accepted" : "Denied";
 	const color = StatusColors[status];
 
 	return new EmbedBuilder()
@@ -972,12 +950,12 @@ async function verifyUser(interaction, client, application, user) {
 	if (!interaction.isChatInputCommand()) {
 		if (dmResult.dmDisabled) {
 			await interaction.followUp({
-				content: `✅ User Verified successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
+				content: `✅ User accepted successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		} else {
 			await interaction.followUp({
-				content: `✅ User verified successfully!\n${rolesToApply.length} role(s) applied.`,
+				content: `✅ User accepted successfully!\n${rolesToApply.length} role(s) applied.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}

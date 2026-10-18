@@ -76,13 +76,13 @@ module.exports = {
 			!isInReviewChannel(interaction, application.reviewchannel)
 		) {
 			return interaction.reply({
-				content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a manager role in \`/setup\` to use this command everywhere.`,
+				content: `Please use this command in <#${application.reviewchannel}> or its threads, or set up a reviewer role in \`/setup\` to use this command everywhere.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
 		if (!application?.verifiedrole || application.verifiedrole.length === 0) {
 			return interaction.reply({
-				content: "Please set a verified role in the server configuration by using the `/setup` command",
+				content: "Please set an accepted role in the server configuration by using the `/setup` command",
 				flags: MessageFlags.Ephemeral,
 			});
 		}

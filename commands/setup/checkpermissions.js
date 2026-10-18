@@ -87,7 +87,7 @@ module.exports = {
 
 			if (app?.verifychannel) {
 				const verifyChannel = interaction.guild.channels.cache.get(app.verifychannel);
-				description += `**Verify Channel (${verifyChannel ? verifyChannel : "Unknown/Deleted"})**\n`;
+				description += `**Application Start Channel (${verifyChannel ? verifyChannel : "Unknown/Deleted"})**\n`;
 				if (verifyChannel) {
 					const verifyPerms = verifyChannel.permissionsFor(botMember);
 					description += `${verifyPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
@@ -118,7 +118,7 @@ module.exports = {
 
 			if (app?.verifylogs) {
 				const logsChannel = interaction.guild.channels.cache.get(app.verifylogs);
-				description += `\n**Verification Logs Channel (${logsChannel ? logsChannel : "Unknown/Deleted"})**\n`;
+				description += `\n**Application Logs (${logsChannel ? logsChannel : "Unknown/Deleted"})**\n`;
 				if (logsChannel) {
 					const logsPerms = logsChannel.permissionsFor(botMember);
 					description += `${logsPerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
@@ -135,7 +135,7 @@ module.exports = {
 
 			if (app?.verificationwelcomechannel) {
 				const welcomeChannel = interaction.guild.channels.cache.get(app.verificationwelcomechannel);
-				description += `\n**Verification Welcome Channel (${welcomeChannel ? welcomeChannel : "Unknown/Deleted"})**\n`;
+				description += `\n**Welcome Channel (${welcomeChannel ? welcomeChannel : "Unknown/Deleted"})**\n`;
 				if (welcomeChannel) {
 					const welcomePerms = welcomeChannel.permissionsFor(botMember);
 					description += `${welcomePerms.has(PermissionsBitField.Flags.ViewChannel) ? "✅" : "❌"} View Channel\n`;
@@ -165,7 +165,7 @@ module.exports = {
 					if (verifiedRole) {
 						const canManageRole = botRole.position > verifiedRole.position;
 						if (!canManageRole) roleHierarchyIssues++;
-						description += `**Verified Role:** ${verifiedRole} (Position: ${verifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+						description += `**Accepted Roles:** ${verifiedRole} (Position: ${verifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
 					}
 				}
 			}
@@ -177,7 +177,19 @@ module.exports = {
 					if (unverifiedRole) {
 						const canManageRole = botRole.position > unverifiedRole.position;
 						if (!canManageRole) roleHierarchyIssues++;
-						description += `**Unverified Role:** ${unverifiedRole} (Position: ${unverifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+						description += `**Roles to remove on accept:** ${unverifiedRole} (Position: ${unverifiedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
+					}
+				}
+			}
+
+			if (app?.deniedrole && app.deniedrole.length > 0) {
+				const deniedRoles = Array.isArray(app.deniedrole) ? app.deniedrole : [app.deniedrole];
+				for (const roleId of deniedRoles) {
+					const deniedRole = interaction.guild.roles.cache.get(roleId);
+					if (deniedRole) {
+						const canManageRole = botRole.position > deniedRole.position;
+						if (!canManageRole) roleHierarchyIssues++;
+						description += `**Denied Roles:** ${deniedRole} (Position: ${deniedRole.position}) ${canManageRole ? "✅" : "❌"}\n`;
 					}
 				}
 			}
@@ -199,7 +211,7 @@ module.exports = {
 				for (const roleId of managerRoles) {
 					const managerRole = interaction.guild.roles.cache.get(roleId);
 					if (managerRole) {
-						description += `**Manager Role:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`;
+						description += `**Reviewer Roles:** ${managerRole} (Position: ${managerRole.position}) ℹ️\n`;
 					}
 				}
 			}

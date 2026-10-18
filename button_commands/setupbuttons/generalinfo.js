@@ -16,7 +16,23 @@ const {
 const { createCategoryButtons } = require("../../js/constants.js");
 
 module.exports = async ({ interaction, context, whichdefault, applicationId, tempApplicationId, client }) => {
-	tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
+	if (context?.[1] === "edit") {
+		const targetAppId = parseInt(context[0], 10);
+		const { application, error: appError } = await getApplicationById(targetAppId, interaction.guild.id);
+		if (appError || !application) {
+			return interaction.reply({
+				content: `Error: ${appError || "Application not found."}`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+		const { tempApp: editTempApp } = await createTempApplication(interaction.guild.id, {
+			applicationId: application.id,
+			name: application.name,
+		});
+		tempApplicationId = editTempApp.id;
+	} else {
+		tempApplicationId = tempApplicationId ?? applicationId ?? (context?.[0] ? parseInt(context[0], 10) : null);
+	}
 
 	if (!tempApplicationId) {
 		return interaction.reply({
@@ -89,27 +105,26 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
 		.setTitle("Channels setup")
 		.setDescription(
 			`[Support server](https://discord.gg/jjGAwwwxZz) | [support me on Ko-Fi](https://ko-fi.com/melpo)${adtext ? `\n-# ${adtext}` : ""}
-			\n**Not all options are available here. Head over to the [dashboard](https://melpo.app/dashboard/${interaction.guild.id}) for more customization and advanced options!**
-			\n_ _`,
+> 💡 **Tip:** Not all options are available within Discord. Head over to the [dashboard](https://melpo.app/dashboard/${interaction.guild.id}) for more customization and advanced options!`,
 		)
 		.addFields(
 			{
-				name: "Verification Start Channel `required`",
+				name: "Application Start Channel `required`",
 				value: verifyChannel ? `<#${verifyChannel.toString()}>` : `**Not set up**`,
 				inline: false,
 			},
 			{
-				name: "Verification Review Channel `required`",
+				name: "Review Channel `required`",
 				value: reviewChannel ? `<#${reviewChannel.toString()}>` : `**Not set up**`,
 				inline: false,
 			},
 			{
-				name: "Verification Logs Channel `optional`",
+				name: "Application Logs `optional`",
 				value: verifyLogsChannel ? `<#${verifyLogsChannel.toString()}>` : `**Not set up**`,
 				inline: false,
 			},
 			{
-				name: "Verification welcome message `optional`",
+				name: "Welcome Channel `optional`",
 				value: `${verificationwelcomechannel ? `<#${verificationwelcomechannel.toString()}>` : "**Not set up**"}\n*To customize welcome message, go to "customization" button*`,
 				inline: false,
 			},
@@ -129,28 +144,28 @@ module.exports = async ({ interaction, context, whichdefault, applicationId, tem
 		.setPlaceholder("Select which channel you want to setup")
 		.addOptions(
 			{
-				label: "Verification Start Channel",
-				description: "Channel in which users start their verification process",
+				label: "Application Start Channel",
+				description: "Channel in which users start their application process",
 				value: "verifyChannel",
 				//default: (whichdefault === 0) /*? true : false*/,
 				default: whichdefault === 0 /*? true : false*/,
 			},
 			{
-				label: "Verification Review Channel",
-				description: "Channel in which staff reviews verification applications",
+				label: "Review Channel",
+				description: "Channel in which staff reviews applications",
 				value: "reviewChannel",
 				//default: (whichdefault === 1) /*? true : false*/,
 				default: whichdefault === 1 /*? true : false*/,
 			},
 			{
-				label: "Verification Logs Channel",
+				label: "Application Logs",
 				description: "Channel in which handled applications are logged",
 				value: "verifyLogsChannel",
 				//default: (whichdefault === 2) /*? true : false*/,
 				default: whichdefault === 2 /*? true : false*/,
 			},
 			{
-				label: "Verification Welcome Channel",
+				label: "Welcome Channel",
 				description: "Channel in which the welcome message will be sent",
 				value: "verificationWelcomeChannel",
 				//default: (whichdefault === 3) /*? true : false*/,

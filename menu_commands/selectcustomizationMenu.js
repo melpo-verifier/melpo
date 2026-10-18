@@ -7,7 +7,7 @@ const {
 	MessageFlags,
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
-const { resolveImage } = require("../js/imageUtils.js");
+const { getPublicUrl } = require("../js/customizationImages.js");
 const { isValidHexColor } = require("../js/updatePanels.js");
 
 module.exports = async ({ interaction, customIdValue, tempApplicationId, context }) => {
@@ -25,6 +25,83 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 	if (tempApp.applicationId) {
 		const { application } = await getApplicationById(tempApp.applicationId, interaction.guild.id);
 		applicationSetup = application;
+	}
+
+	const messageConfig =
+		tempApp[chosenvalue] && Object.keys(tempApp[chosenvalue]).length > 0
+			? tempApp[chosenvalue]
+			: applicationSetup?.[chosenvalue];
+
+	const isV2 = messageConfig?.format === "v2" || Array.isArray(messageConfig?.blocks);
+
+	// Rebuild the customization select menu with the correct default
+	const selectcustomizationMenu = new ActionRowBuilder().addComponents(
+		new StringSelectMenuBuilder()
+			.setCustomId(`selectcustomizationMenu_${tempApplicationId}`)
+			.setPlaceholder("Select what message you want to customize")
+			.addOptions(
+				{
+					label: "Application Panel",
+					description: "Message with which users start the application process",
+					value: "verifychannelembed",
+					default: chosenvalue === "verifychannelembed",
+				},
+				{
+					label: "Application Start",
+					description: "Message user gets when starting an application",
+					value: "startmessage",
+					default: chosenvalue === "startmessage",
+				},
+				{
+					label: "Submission Confirmation",
+					description: "Message user gets when submitting an application",
+					value: "finishmessage",
+					default: chosenvalue === "finishmessage",
+				},
+				{
+					label: "Acceptance Notice",
+					description: "Message user gets when getting accepted",
+					value: "verifymessage",
+					default: chosenvalue === "verifymessage",
+				},
+				{
+					label: "Denial Notice",
+					description: "Message user gets when getting denied",
+					value: "denymessage",
+					default: chosenvalue === "denymessage",
+				},
+				{
+					label: "Welcome Message",
+					description: "Welcome message in the server when user gets accepted",
+					value: "verificationwelcomemessage",
+					default: chosenvalue === "verificationwelcomemessage",
+				},
+			),
+	);
+
+	// Get the finish buttons from the last component
+	const finishbuttons = interaction.message.components[interaction.message.components.length - 1];
+
+	if (isV2) {
+		const v2NoticeEmbed = new EmbedBuilder()
+			.setColor("#3f7ff1")
+			.setTitle("🧩 Components V2 Layout Active (Editable through Dashboard)")
+			.setDescription(
+				`This message (\`${chosenvalue}\`) is configured using the advanced **Modern Card Layout** (Discord Components V2).\n\n**To edit this message, go to the [Melpo Web Dashboard](https://melpo.app/dashboard/${interaction.guild.id}).**`,
+			);
+
+		const v2Payload = {
+			content: null,
+			embeds: [v2NoticeEmbed],
+			components: [interaction.message.components[0], selectcustomizationMenu, finishbuttons],
+		};
+
+		if (interaction.replied || interaction.deferred) {
+			await interaction.message.edit(v2Payload);
+		} else {
+			await interaction.update(v2Payload);
+		}
+		return;
 	}
 
 	const title =
@@ -123,114 +200,60 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 		}
 
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Welcome Message")
+			.setTitle("Welcome Message")
 			.setDescription(
-				`*This message gets sent to a specific channel in the server upon a user getting verified (channel can be changed in the channels tab)*\n**Placeholder options:**\n-# **{usermention}** - mention the user\n-# **{username}** - username\n-# **{modname}** - moderator name (which verified the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server verified member count\n-# **{qn}** - with \`n\` being the number of the question you want the users response.`,
+				`*This message gets sent to a specific channel in the server upon a user getting accepted (channel can be changed in the channels tab)*\n**Placeholder options:**\n-# **{usermention}** - mention the user\n-# **{username}** - username\n-# **{modname}** - moderator name (which accepted the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server accepted member count\n-# **{qn}** - with \`n\` being the number of the question you want the users response.`,
 			);
 	} else if (chosenvalue === "startmessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Start Message")
+			.setTitle("Application Start")
 			.setDescription(
 				`*This message gets sent to a user upon starting the application*\n**Placeholder options:**\n-# **{username}** - username`,
 			);
 	} else if (chosenvalue === "finishmessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Finish Message")
+			.setTitle("Submission Confirmation")
 			.setDescription(
-				`*This message gets sent to a user upon finishing the application*\n**Placeholder options:**\n-# **{username}** - username`,
+				`*This message gets sent to a user upon submitting the application*\n**Placeholder options:**\n-# **{username}** - username`,
 			);
 	} else if (chosenvalue === "verifymessage") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Message")
+			.setTitle("Acceptance Notice")
 			.setDescription(
-				`*This message gets sent to a user upon getting verified*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which verified the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server verified member count`,
+				`*This message gets sent to a user upon getting accepted*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which accepted the user)\n-# **{members}** - server member count\n-# **{verifiedmembers}** - server accepted member count`,
+			);
+	} else if (chosenvalue === "denymessage") {
+		infoembed = new EmbedBuilder()
+			.setTitle("Denial Notice")
+			.setDescription(
+				`*This message gets sent to a user upon getting denied*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which denied the user)\n-# **{appName}** - application name`,
 			);
 	} else if (chosenvalue === "verifychannelembed") {
 		infoembed = new EmbedBuilder()
-			.setTitle("Verification Channel Embed")
+			.setTitle("Application Panel")
 			.setDescription(
-				`*This embed gets sent to the user verification channel where users can click to start the verification process*`,
+				`*This embed gets sent to the application start channel where users can click to start the application process*`,
 			);
 	}
 
 	if (infoembed) infoembed.setColor("#3f7ff1");
 
 	if (image && embed) {
-		const asset = resolveImage(image);
-		if (asset.embedUrl) embed.setColor(isValidHexColor(color) ? color : "#3f7ff1").setImage(asset.embedUrl);
+		const imageUrl = typeof image === "string" ? image : image?.url || getPublicUrl(image?.key);
+		if (imageUrl) embed.setColor(isValidHexColor(color) ? color : "#3f7ff1").setImage(imageUrl);
 	}
 
 	if (embed !== undefined) embed.setFooter({ text: `This is the ${chosenvalue}.` });
 
-	// Rebuild the customization select menu with the correct default
-	const selectcustomizationMenu = new ActionRowBuilder().addComponents(
-		new StringSelectMenuBuilder()
-			.setCustomId(`selectcustomizationMenu_${tempApplicationId}`)
-			.setPlaceholder("Select what message you want to customize")
-			.addOptions(
-				{
-					label: "Verify channel Embed",
-					description: `Message to which users click "verify" to start verification`,
-					value: "verifychannelembed",
-					default: chosenvalue === "verifychannelembed",
-				},
-				{
-					label: "Verification start message",
-					description: `Message user gets when starting verification`,
-					value: "startmessage",
-					default: chosenvalue === "startmessage",
-				},
-				{
-					label: "Verification finish message",
-					description: "Message user gets when finishing verification",
-					value: "finishmessage",
-					default: chosenvalue === "finishmessage",
-				},
-				{
-					label: "On verify message",
-					description: "Message user gets when getting verified",
-					value: "verifymessage",
-					default: chosenvalue === "verifymessage",
-				},
-				{
-					label: "Verification welcome message",
-					description: "Welcome message in the server when user gets verified",
-					value: "verificationwelcomemessage",
-					default: chosenvalue === "verificationwelcomemessage",
-				},
-			),
-	);
-
-	// Get the finish buttons from the last component
-	const finishbuttons = interaction.message.components[interaction.message.components.length - 1];
+	const payload = {
+		content: text ? text : null,
+		embeds: embed ? (infoembed ? [infoembed, embed] : [embed]) : [infoembed],
+		components: [interaction.message.components[0], selectcustomizationMenu, colourmenu, setImage, finishbuttons],
+	};
 
 	if (interaction.replied || interaction.deferred) {
-		if (chosenvalue === "verificationwelcomemessage" || chosenvalue === "verifychannelembed") {
-			interaction.message.edit({
-				content: text ? text : null,
-				embeds: embed ? [infoembed, embed] : [infoembed],
-				components: [interaction.message.components[0], selectcustomizationMenu, colourmenu, setImage, finishbuttons],
-			});
-		} else {
-			interaction.message.edit({
-				content: text ? text : null,
-				embeds: infoembed ? [infoembed, embed] : [embed],
-				components: [interaction.message.components[0], selectcustomizationMenu, setImage, finishbuttons],
-			});
-		}
+		await interaction.message.edit(payload);
 	} else {
-		if (chosenvalue === "verificationwelcomemessage" || chosenvalue === "verifychannelembed") {
-			interaction.update({
-				content: text ? text : null,
-				embeds: embed ? [infoembed, embed] : [infoembed],
-				components: [interaction.message.components[0], selectcustomizationMenu, colourmenu, setImage, finishbuttons],
-			});
-		} else {
-			interaction.update({
-				content: text ? text : null,
-				embeds: infoembed ? [infoembed, embed] : [embed],
-				components: [interaction.message.components[0], selectcustomizationMenu, setImage, finishbuttons],
-			});
-		}
+		await interaction.update(payload);
 	}
 };

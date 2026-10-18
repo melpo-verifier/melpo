@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
+const { ModalBuilder, TextInputBuilder, TextInputStyle, LabelBuilder, CheckboxBuilder } = require("discord.js");
 
 module.exports = async ({ interaction, context }) => {
 	const isfirsttime = parseInt(context[0], 10);
@@ -8,25 +8,36 @@ module.exports = async ({ interaction, context }) => {
 		.setCustomId(`addQuestionModal_${isfirsttime}_${tempApplicationId}`)
 		.setTitle("Add Question");
 
-	const Question = new TextInputBuilder()
-		.setCustomId(`question`)
+	const Question = new LabelBuilder()
 		.setLabel("Question")
-		.setStyle(TextInputStyle.Paragraph)
-		.setPlaceholder("Enter your question here")
-		.setRequired(true)
-		.setMaxLength(512);
+		.setDescription("Enter the question you want to ask applicants")
+		.setTextInputComponent(
+			new TextInputBuilder()
+				.setCustomId(`question`)
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder("Enter your question here")
+				.setMaxLength(1024)
+				.setRequired(true),
+		);
 
-	const MCQ = new TextInputBuilder()
-		.setCustomId(`mcq`)
-		.setLabel("Multiple Choice Question, 1 option/line max 9")
-		.setStyle(TextInputStyle.Paragraph)
-		.setPlaceholder("List of options. Every option should be on a new line")
-		.setRequired(false)
-		.setMaxLength(512);
+	const MCQ = new LabelBuilder()
+		.setLabel("Optional Multiple Choice: 1 option/line")
+		.setDescription("List of options. Every option should be on a new line (each option max 100 characters)")
+		.setTextInputComponent(
+			new TextInputBuilder()
+				.setCustomId(`mcq`)
+				.setStyle(TextInputStyle.Paragraph)
+				.setPlaceholder("List of options. Every option should be on a new line")
+				.setRequired(false)
+				.setMaxLength(2048),
+		);
 
-	const questionRow = new ActionRowBuilder().addComponents(Question);
-	const mcqRow = new ActionRowBuilder().addComponents(MCQ);
-	modal.addComponents(questionRow, mcqRow);
+	const allowMultipleSelections = new LabelBuilder()
+		.setLabel("Allow multiple selections for this question")
+		.setDescription("Allow users to select multiple options for this question")
+		.setCheckboxComponent(new CheckboxBuilder().setCustomId("allowMultipleSelections"));
+
+	modal.addLabelComponents(Question, MCQ, allowMultipleSelections);
 
 	await interaction.showModal(modal);
 };

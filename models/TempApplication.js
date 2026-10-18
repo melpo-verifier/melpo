@@ -31,6 +31,11 @@ module.exports = (sequelize, DataTypes) => {
 			finishmessage: { type: DataTypes.JSONB },
 			denymessage: { type: DataTypes.JSONB },
 			usethreads: { type: DataTypes.BOOLEAN, defaultValue: null, allowNull: true },
+			autoRemoveDeniedRoleEnabled: { type: DataTypes.BOOLEAN, defaultValue: null, allowNull: true },
+			autoRemoveDeniedRoleHours: { type: DataTypes.INTEGER, defaultValue: null, allowNull: true },
+			autoKickUnverifiedEnabled: { type: DataTypes.BOOLEAN, defaultValue: null, allowNull: true },
+			cancelKickOnSubmission: { type: DataTypes.BOOLEAN, defaultValue: null, allowNull: true },
+			autoKickUnverifiedHours: { type: DataTypes.INTEGER, defaultValue: null, allowNull: true },
 		},
 		{
 			indexes: [

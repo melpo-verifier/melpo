@@ -22,6 +22,9 @@ module.exports = async ({ interaction, client, context }) => {
 		case "questionpingrole":
 			whichdefault = 4;
 			break;
+		case "deniedRole":
+			whichdefault = 5;
+			break;
 	}
 
 	await rolesinfo({ interaction, client, whichdefault, tempApplicationId });

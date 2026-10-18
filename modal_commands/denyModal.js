@@ -41,7 +41,7 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 	} catch {
 		return await interaction.followUp({
 			content:
-				"User not found in server. This user has probably left this server.\n-# If you believe this is an error, please contact the developer.\nYou can always verify someone manually using `/verify`",
+				"User not found in server. This user has probably left this server.\n-# If you believe this is an error, please contact the developer.\nYou can always accept someone manually using `/verify`",
 			flags: MessageFlags.Ephemeral,
 		});
 	}

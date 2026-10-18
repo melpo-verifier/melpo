@@ -17,7 +17,7 @@ module.exports = {
 
 		const linkbuttons = new ActionRowBuilder().addComponents(
 			new ButtonBuilder().setLabel("Ko-Fi").setStyle(5).setURL("https://ko-fi.com/melpo"),
-			new ButtonBuilder().setLabel("Custom bot dashboard").setStyle(5).setURL("https://melpo.app/custom-bot"),
+			new ButtonBuilder().setLabel("Custom bot dashboard").setStyle(5).setURL("https://melpo.app/premium"),
 		);
 
 		await interaction.reply({ embeds: [adembed], components: [linkbuttons] });

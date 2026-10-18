@@ -1,45 +1,36 @@
-const { updateTempApplication, getTempApplicationById } = require("../js/tempconfigfuncs.js");
+const { MessageFlags } = require("discord.js");
+const { getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const rolesinfo = require("../button_commands/setupbuttons/rolesinfo.js");
 
 module.exports = async ({ interaction, client, context }) => {
 	const selectedRole = parseInt(context[0], 10);
 	const tempApplicationId = parseInt(context[1], 10);
 
-	let whichdefault;
-
-	const { error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
-	if (error) {
+	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
+	if (error || !tempApp) {
 		return interaction.reply({
-			content: `Error: ${error}`,
-			flags: require("discord.js").MessageFlags.Ephemeral,
+			content: `Error: ${error || "Temporary application setup not found."}`,
+			flags: MessageFlags.Ephemeral,
 		});
 	}
 
 	const roles = interaction.values;
 
-	//Note : Should be able to just pass selectedRole directly to save complexity - mat
-	switch (selectedRole) {
-		case 0:
-			whichdefault = 0;
-			await updateTempApplication(interaction.guild.id, { verifiedrole: roles }, { id: tempApplicationId });
-			break;
-		case 1:
-			whichdefault = 1;
-			await updateTempApplication(interaction.guild.id, { unverifiedrole: roles }, { id: tempApplicationId });
-			break;
-		case 2:
-			whichdefault = 2;
-			await updateTempApplication(interaction.guild.id, { pingrole: roles }, { id: tempApplicationId });
-			break;
-		case 3:
-			whichdefault = 3;
-			await updateTempApplication(interaction.guild.id, { managerrole: roles }, { id: tempApplicationId });
-			break;
-		case 4:
-			whichdefault = 4;
-			await updateTempApplication(interaction.guild.id, { questionpingrole: roles }, { id: tempApplicationId });
-			break;
+	const roleFieldMap = {
+		0: "verifiedrole",
+		1: "unverifiedrole",
+		2: "pingrole",
+		3: "managerrole",
+		4: "questionpingrole",
+		5: "deniedrole",
+	};
+
+	const targetField = roleFieldMap[selectedRole];
+	if (targetField) {
+		tempApp[targetField] = roles;
+		tempApp.changed(targetField, true);
+		await tempApp.save();
 	}
 
-	await rolesinfo({ interaction, client, whichdefault, tempApplicationId });
+	await rolesinfo({ interaction, client, whichdefault: selectedRole, tempApplicationId });
 };

@@ -17,7 +17,6 @@ const {
 } = require("discord.js");
 const { v4: uuidv4 } = require("uuid");
 const { updateVerifications, getApplicationByIdWithFallback } = require("../js/tempconfigfuncs.js");
-const { resolveImage } = require("../js/imageUtils.js");
 const {
 	addMessageId,
 	sendDenyDM,
@@ -26,7 +25,7 @@ const {
 	createAutoActionContainer,
 	VerificationStatus,
 } = require("../js/verificationHandler.js");
-const { sendWebhookMessage } = require("../js/messageHelper.js");
+const { sendWebhookMessage, formatCustomMessage } = require("../js/messageHelper.js");
 const { scheduleAction, cancelPendingActions } = require("../js/scheduler.js");
 const { encryptData, decryptData } = require("../js/DBFunctions.js");
 const { isPremiumServer } = require("../js/DBFunctions.js");
@@ -186,7 +185,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 		const verifyLogsChannel = interaction.guild.channels.cache.get(verifyLogsChannelId);
 		if (!verifyLogsChannel) {
 			return await interaction.editReply({
-				content: `<@${user.id}>, the application review channel could not be found! Please contact server staff.`,
+				content: `<@${user.id}>, the review channel could not be found! Please contact server staff.`,
 			});
 		}
 
@@ -198,7 +197,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 		//) {
 		if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 			return await interaction.editReply({
-				content: `<@${user.id}>, I don't have permissions to send messages in the application review channel!`,
+				content: `<@${user.id}>, I don't have permissions to send messages in the review channel!`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -244,33 +243,20 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 				new ButtonBuilder().setCustomId(`cancelverification-${sessionId}`).setLabel("Cancel").setStyle("Danger"),
 			);
 
-			const startEmbedTitle = replaceplaceholder(
-				application.startmessage?.title,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-			const startEmbedDescription = replaceplaceholder(
-				application.startmessage?.description,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-
-			const startEmbedimage = application.startmessage?.image;
-			const startImageAsset = resolveImage(startEmbedimage);
-			const startDMEmbed = new EmbedBuilder()
-				//.setTitle(startEmbedTitle && startEmbedTitle.trim() ? startEmbedTitle : null)
-				.setTitle(startEmbedTitle?.trim() ? startEmbedTitle.slice(0, 256) : null)
-				.setDescription(startEmbedDescription ? startEmbedDescription.slice(0, 4096) : null)
-				.setColor(application.startmessage?.color || "#3f7ff1")
-				.setFooter({
-					text: `Application: ${appName} | Click "cancel" to cancel the verification.`,
-				})
-				.setImage(startImageAsset.embedUrl);
+			const payload = await formatCustomMessage(application.startmessage, {
+				user,
+				interaction,
+				guild: interaction.guild,
+				appName,
+				application,
+				defaultColor: "#3f7ff1",
+				defaultFooter: `Application: ${appName} | Click "cancel" to cancel the application.`,
+			});
 
 			let startmessage;
 
 			try {
-				startmessage = await dmChannel.send({ embeds: [startDMEmbed] });
+				startmessage = await dmChannel.send(payload);
 			} catch (error) {
 				if (error.code === 50007 || error.code === 50278) {
 					// Cannot send messages to this user
@@ -285,9 +271,9 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			}
 
 			const startedEmbed = new EmbedBuilder()
-				.setTitle("Verification Started")
+				.setTitle("Application Started")
 				.setDescription(
-					`Verification started, check your DMs or [click here](https://discord.com/channels/@me/${dmChannel.id}/${startmessage.id})!`,
+					`Application started, check your DMs or [click here](https://discord.com/channels/@me/${dmChannel.id}/${startmessage.id})!`,
 				)
 				.setColor("#3f7ff1");
 
@@ -345,11 +331,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 						activeVerifications.delete(user.id);
 						await Submissions.destroy({ where: { message_id: sessionId } }).catch(() => {});
 
-						if (
-							!error.toString().includes("Verification was canceled") &&
-							!error.toString().includes("Verification timed out")
-						)
-							throw error;
+						const isExpected = error.toString().includes("was canceled") || error.toString().includes("timed out");
+						if (!isExpected) throw error;
 					});
 			} else {
 				//non sharded instances
@@ -392,25 +375,19 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 					activeVerifications.delete(user.id);
 					await Submissions.destroy({ where: { message_id: sessionId } }).catch(() => {});
 
-					if (
-						!error.toString().includes("Verification was canceled") &&
-						!error.toString().includes("Verification timed out")
-					)
-						throw error;
+					const isExpected = error.toString().includes("was canceled") || error.toString().includes("timed out");
+					if (!isExpected) throw error;
 				}
 			}
 		} catch (error) {
-			if (
-				!error.toString().includes("Verification was canceled") &&
-				!error.toString().includes("Verification timed out")
-			)
-				throw error;
+			const isExpected = error.toString().includes("was canceled") || error.toString().includes("timed out");
+			if (!isExpected) throw error;
 		}
 	} catch (error) {
-		console.error("Verification error:", error);
+		console.error("Application error:", error);
 		await interaction
 			.followUp({
-				content: `An error occurred during the verification process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
+				content: `An error occurred during the application process! Please try again later or contact the server staff/[Melpo's Support server](https://discord.gg/jjGAwwwxZz). (${error.message})`,
 				flags: MessageFlags.Ephemeral,
 			})
 			.catch(() => {});
@@ -594,7 +571,7 @@ async function processVerificationResult(
 			await dmChannel
 				.send({
 					content:
-						"An error occurred while processing your verification. This can happen when you left or have been kicked from the server during your application.",
+						"An error occurred while processing your application. This can happen when you left or have been kicked from the server during your application.",
 				})
 				.catch(() => {});
 			return;
@@ -688,30 +665,22 @@ async function processVerificationResult(
 				console.error("Error setting user verification:", error);
 			}
 
-			const finishEmbedTitle = replaceplaceholder(
-				finishmessage?.title,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-			const finishEmbedDescription = replaceplaceholder(
-				finishmessage?.description,
-				interaction.user.globalName ?? interaction.user.username,
-				interaction.guild.name,
-			);
-			const finishEmbedimage = finishmessage?.image;
-			const finishImageAsset = resolveImage(finishEmbedimage);
+			const payload = await formatCustomMessage(finishmessage, {
+				user,
+				interaction,
+				guild: interaction.guild,
+				appName,
+				application,
+				defaultColor: "#008000",
+				defaultFooter: `Application: ${appName}`,
+			});
 
-			const endEmbed = new EmbedBuilder()
-				//.setTitle(finishEmbedTitle && finishEmbedTitle.trim() ? finishEmbedTitle : null)
-				.setTitle(finishEmbedTitle?.trim() ? finishEmbedTitle.slice(0, 256) : null)
-				.setDescription(finishEmbedDescription ? finishEmbedDescription.slice(0, 4096) : null)
-				.setColor(finishmessage?.color || "#008000")
-				.setFooter({ text: `Application: ${appName}` })
-				.setImage(finishImageAsset.embedUrl);
-
-			await dmChannel
-				.send({ embeds: [endEmbed] })
-				.catch((err) => console.error(`Failed to send completion DM to user ${user.id}:`, err));
+			if (payload) {
+				await dmChannel.send(payload).catch((err) => {
+					if (err.code === 50007 || err.code === 50278) return;
+					console.error(`Failed to send completion DM to user ${user.id}:`, err);
+				});
+			}
 
 			//Delete any kick-timer if server has setup auto-kick and cancel kick upon submission is enabled
 			if (application.cancelKickOnSubmission === true) {
@@ -783,13 +752,6 @@ async function processVerificationResult(
 			}
 		}
 	}
-}
-
-function replaceplaceholder(string, globalUserName, guildName) {
-	if (!string) return null;
-	const result = string.replace(/{username}/g, globalUserName)?.replace(/\${interaction.guild.name}/g, guildName);
-	//return result && result.trim() ? result : null;
-	return result?.trim() ? result : null;
 }
 
 async function Verificationfunc(
@@ -940,7 +902,7 @@ async function Verificationfunc(
 
 			const DMEmbed = new EmbedBuilder()
 				.setColor("#3f7ff1")
-				.setFooter({ text: 'Click "cancel" to cancel the verification.' });
+				.setFooter({ text: 'Click "cancel" to cancel the application.' });
 
 			let actionRow = new ActionRowBuilder();
 			if (question.mcq && question.mcq.length > 0) {
@@ -999,7 +961,7 @@ async function Verificationfunc(
 				// Get the first question
 				const firstQuestion = botQuestions[0];
 				if (!firstQuestion) {
-					reject(new Error("No questions found in verification"));
+					reject(new Error("No questions found in application"));
 					return;
 				}
 
@@ -1320,23 +1282,23 @@ async function Verificationfunc(
 							resolve([reason, responses]);
 						} else if (reason === "canceled") {
 							await clearProgress();
-							reject(new Error("Verification was canceled"));
+							reject(new Error("Application was canceled"));
 						} else if (reason === "time") {
 							const timeoutEmbed = new EmbedBuilder()
-								.setTitle("Verification Timed Out")
-								.setDescription("The verification process has timed out. Please restart the verification.")
+								.setTitle("Application Timed Out")
+								.setDescription("The application process has timed out. Please restart the application.")
 								.setColor("#ff0000");
 
 							await dmChannel.send({ embeds: [timeoutEmbed] }).catch(() => {});
 							await clearProgress();
-							reject(new Error("Verification timed out"));
+							reject(new Error("Application timed out"));
 						} else if (reason === "error") {
-							reject(new Error("Verification ended due to an internal error"));
+							reject(new Error("Application ended due to an internal error"));
 						} else {
-							reject(new Error(`Verification ended unexpectedly: ${reason}`));
+							reject(new Error(`Application ended unexpectedly: ${reason}`));
 						}
 					} catch (error) {
-						console.error(`Error in verification end handler for user ${userid}:`, error);
+						console.error(`Error in application end handler for user ${userid}:`, error);
 						reject(error);
 					}
 				});
