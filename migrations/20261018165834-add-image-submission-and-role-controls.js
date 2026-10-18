@@ -68,7 +68,48 @@ module.exports = {
 				},
 				{ transaction },
 			);
+			await queryInterface.addColumn(
+				"applications",
+				"autoRemoveDeniedRoleHours",
+				{
+					type: Sequelize.INTEGER,
+					defaultValue: 24,
+					allowNull: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"applications",
+				"autoKickUnverifiedEnabled",
+				{
+					type: Sequelize.BOOLEAN,
+					defaultValue: false,
+					allowNull: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"applications",
+				"autoKickUnverifiedHours",
+				{
+					type: Sequelize.INTEGER,
+					defaultValue: 48,
+					allowNull: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"applications",
+				"cancelKickOnSubmission",
+				{
+					type: Sequelize.BOOLEAN,
+					defaultValue: false,
+					allowNull: false,
+				},
+				{ transaction },
+			);
 
+			//tempapplications table
 			await queryInterface.addColumn(
 				"tempapplications",
 				"imageSubmission",
@@ -132,6 +173,46 @@ module.exports = {
 				},
 				{ transaction },
 			);
+			await queryInterface.addColumn(
+				"tempapplications",
+				"autoRemoveDeniedRoleHours",
+				{
+					type: Sequelize.INTEGER,
+					defaultValue: 24,
+					allowNull: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"tempapplications",
+				"autoKickUnverifiedEnabled",
+				{
+					type: Sequelize.BOOLEAN,
+					defaultValue: false,
+					allowNull: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"tempapplications",
+				"autoKickUnverifiedHours",
+				{
+					type: Sequelize.INTEGER,
+					defaultValue: 48,
+					allowNull: false,
+				},
+				{ transaction },
+			);
+			await queryInterface.addColumn(
+				"tempapplications",
+				"cancelKickOnSubmission",
+				{
+					type: Sequelize.BOOLEAN,
+					defaultValue: false,
+					allowNull: false,
+				},
+				{ transaction },
+			);
 		});
 	},
 
@@ -143,6 +224,11 @@ module.exports = {
 			await queryInterface.removeColumn("applications", "pendingrole", { transaction });
 			await queryInterface.removeColumn("applications", "deniedremoveroles", { transaction });
 			await queryInterface.removeColumn("applications", "resetDeniedThresholdOnRemove", { transaction });
+			await queryInterface.removeColumn("applications", "autoRemoveDeniedRoleEnabled", { transaction });
+			await queryInterface.removeColumn("applications", "autoRemoveDeniedRoleHours", { transaction });
+			await queryInterface.removeColumn("applications", "autoKickUnverifiedEnabled", { transaction });
+			await queryInterface.removeColumn("applications", "autoKickUnverifiedHours", { transaction });
+			await queryInterface.removeColumn("applications", "cancelKickOnSubmission", { transaction });
 
 			await queryInterface.removeColumn("tempapplications", "imageSubmission", { transaction });
 			await queryInterface.removeColumn("tempapplications", "allowedroles", { transaction });
@@ -150,6 +236,11 @@ module.exports = {
 			await queryInterface.removeColumn("tempapplications", "pendingrole", { transaction });
 			await queryInterface.removeColumn("tempapplications", "deniedremoveroles", { transaction });
 			await queryInterface.removeColumn("tempapplications", "resetDeniedThresholdOnRemove", { transaction });
+			await queryInterface.removeColumn("tempapplications", "autoRemoveDeniedRoleEnabled", { transaction });
+			await queryInterface.removeColumn("tempapplications", "autoRemoveDeniedRoleHours", { transaction });
+			await queryInterface.removeColumn("tempapplications", "autoKickUnverifiedEnabled", { transaction });
+			await queryInterface.removeColumn("tempapplications", "autoKickUnverifiedHours", { transaction });
+			await queryInterface.removeColumn("tempapplications", "cancelKickOnSubmission", { transaction });
 		});
 	},
 };
