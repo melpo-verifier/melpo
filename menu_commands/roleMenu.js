@@ -23,6 +23,10 @@ module.exports = async ({ interaction, client, context }) => {
 		3: "managerrole",
 		4: "questionpingrole",
 		5: "deniedrole",
+		6: "allowedroles",
+		7: "ignoreroles",
+		8: "pendingrole",
+		9: "deniedremoveroles",
 	};
 
 	const targetField = roleFieldMap[selectedRole];

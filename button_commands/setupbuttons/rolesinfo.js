@@ -62,6 +62,22 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 		(tempApp.deniedrole || applicationSetup?.deniedrole)?.length > 0
 			? tempApp.deniedrole || applicationSetup?.deniedrole
 			: null;
+	const allowedroles =
+		(tempApp.allowedroles || applicationSetup?.allowedroles)?.length > 0
+			? tempApp.allowedroles || applicationSetup?.allowedroles
+			: null;
+	const ignoreroles =
+		(tempApp.ignoreroles || applicationSetup?.ignoreroles)?.length > 0
+			? tempApp.ignoreroles || applicationSetup?.ignoreroles
+			: null;
+	const pendingrole =
+		(tempApp.pendingrole || applicationSetup?.pendingrole)?.length > 0
+			? tempApp.pendingrole || applicationSetup?.pendingrole
+			: null;
+	const deniedremoveroles =
+		(tempApp.deniedremoveroles || applicationSetup?.deniedremoveroles)?.length > 0
+			? tempApp.deniedremoveroles || applicationSetup?.deniedremoveroles
+			: null;
 
 	//Note : Static invite token.
 	const generalembed = new EmbedBuilder()
@@ -98,6 +114,22 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 			{
 				name: "Denied Roles `optional`",
 				value: `*Role(s) assigned when a user's application is denied*\n${deniedRole ? deniedRole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+			},
+			{
+				name: "Allowed Roles `optional`",
+				value: `*Whitelist of roles required to start verification*\n${allowedroles ? allowedroles.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+			},
+			{
+				name: "Ignore Roles `optional`",
+				value: `*Blocklist of roles forbidden from starting verification (e.g. pending users)*\n${ignoreroles ? ignoreroles.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+			},
+			{
+				name: "Pending Role `optional`",
+				value: `*Assigned while user is under review*\n${pendingrole ? pendingrole.map((role) => `<@&${role}>`).join(", ") : "None"}`,
+			},
+			{
+				name: "Roles to remove on deny `optional`",
+				value: `*Role(s) to remove from users upon denial*\n${deniedremoveroles ? deniedremoveroles.map((role) => `<@&${role}>`).join(", ") : "None"}`,
 			},
 		);
 
@@ -150,6 +182,30 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 				value: "deniedRole",
 				default: whichdefault === 5,
 			},
+			{
+				label: "Allowed Roles",
+				description: "Whitelist of roles required to start verification",
+				value: "allowedroles",
+				default: whichdefault === 6,
+			},
+			{
+				label: "Ignore Roles",
+				description: "Blocklist of roles forbidden from starting verification (e.g. pending users)",
+				value: "ignoreroles",
+				default: whichdefault === 7,
+			},
+			{
+				label: "Pending Role",
+				description: "Assigned while user is under review",
+				value: "pendingrole",
+				default: whichdefault === 8,
+			},
+			{
+				label: "Roles to remove on deny",
+				description: "Role(s) to remove from users upon denial",
+				value: "deniedremoveroles",
+				default: whichdefault === 9,
+			},
 		);
 
 	const verifiedRoleMenu = new RoleSelectMenuBuilder()
@@ -170,7 +226,15 @@ module.exports = async ({ interaction, whichdefault, context, applicationId, tem
 								? (questionpingrole ?? [])
 								: whichdefault === 5
 									? (deniedRole ?? [])
-									: []
+									: whichdefault === 6
+										? (allowedroles ?? [])
+										: whichdefault === 7
+											? (ignoreroles ?? [])
+											: whichdefault === 8
+												? (pendingrole ?? [])
+												: whichdefault === 9
+													? (deniedremoveroles ?? [])
+													: []
 			).slice(0, 10),
 		);
 

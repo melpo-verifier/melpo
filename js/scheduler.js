@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { PendingActions, Application } = require("../dbObjects.js");
+const { PendingActions, Application, Submissions } = require("../dbObjects.js");
 const { isPremiumServer } = require("./DBFunctions.js");
 
 async function scheduleAction({ guildId, userId, applicationId, actionType, durationMs }) {
@@ -139,6 +139,21 @@ function startActionWorker(manager, intervalMs = 5000) {
 						},
 					},
 				);
+
+				if (action.actionType === "REMOVE_DENIED_ROLE" && application.resetDeniedThresholdOnRemove) {
+					await Submissions.update(
+						{ status: "denied_reset" },
+						{
+							where: {
+								user_id: action.userId,
+								guild_id: action.guildId,
+								app_id: String(application.id),
+								status: "denied",
+							},
+						},
+					).catch((err) => console.error(`[Scheduler] Failed to reset denials for ${action.userId}:`, err));
+					console.log(`[Scheduler] Reset denial threshold/count for ${action.userId} in application ${application.id}`);
+				}
 			} catch (err) {
 				console.error(`[Scheduler] Failed to process action ID ${action.id}:`, err.message);
 			} finally {

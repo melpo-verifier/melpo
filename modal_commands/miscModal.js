@@ -17,7 +17,11 @@ module.exports = async ({ interaction, context }) => {
 	const autoKickUnverifiedEnabled = kickOptions.includes("autoKickUnverifiedEnabled");
 	const cancelKickOnSubmission = kickOptions.includes("cancelKickOnSubmission");
 
-	const autoRemoveDeniedRoleEnabled = Boolean(interaction.fields.getCheckbox?.("autoRemoveDeniedRoleEnabled"));
+	const deniedRoleOptions = interaction.fields.getCheckboxGroup?.("deniedRoleOptions") ?? [];
+	const autoRemoveDeniedRoleEnabled =
+		deniedRoleOptions.includes("autoRemoveDeniedRoleEnabled") ||
+		Boolean(interaction.fields.getCheckbox?.("autoRemoveDeniedRoleEnabled"));
+	const resetDeniedThresholdOnRemove = deniedRoleOptions.includes("resetDeniedThresholdOnRemove");
 
 	const rawKickHours = interaction.fields.getTextInputValue("autoKickUnverifiedHours").trim();
 	const rawRemoveDeniedHours = interaction.fields.getTextInputValue("autoRemoveDeniedRoleHours").trim();
@@ -61,6 +65,7 @@ module.exports = async ({ interaction, context }) => {
 			autoKickUnverifiedHours: parsedKickHours,
 			autoRemoveDeniedRoleEnabled,
 			autoRemoveDeniedRoleHours: parsedRemoveDeniedHours,
+			resetDeniedThresholdOnRemove,
 			maxdenials: parsedMaxDenials,
 		},
 		{ id: tempApplicationId },
