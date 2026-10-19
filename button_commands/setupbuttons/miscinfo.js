@@ -195,20 +195,28 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 		)
 		.addFields(
 			{
-				name: `Use Threads`,
+				name: "Use Threads",
 				value: `${useThreads ? "🟢 `Enabled`" : "🔴 `Disabled`"}\n*When enabled, attaches a thread to applications for organised review and discussion. Answers to questions are sent directly to the thread. **Recommended if you have a log channel setup and/or receive many applications.***`,
 				inline: false,
 			},
 			{
 				name: "Auto-Kick Unverified Members `✨ Premium`",
-				value: `**${autoKickUnverifiedEnabled ? `🟢 \`Enabled\` — \`${autoKickUnverifiedHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically kicks unverified users if they do not verify within the configured time window.*
-				**Cancel Kick on Submission**\n**${cancelKickOnSubmission ? "🟢 `Enabled`" : "🔴 `Disabled`"}**\n***Enabled:** Cancels the auto-kick timer on application submission.\n**Disabled:** Kicks the user regardless of application status.*`,
+				value: `**${autoKickUnverifiedEnabled ? `🟢 \`Enabled\` — \`${autoKickUnverifiedHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically kicks unverified users if they do not verify within the configured time window.*`,
+				inline: false,
+			},
+			{
+				name: "Cancel Kick on Submission `✨ Premium`",
+				value: `**${cancelKickOnSubmission ? "🟢 `Enabled`" : "🔴 `Disabled`"}**\n***Enabled:** Cancels the auto-kick timer on application submission.\n**Disabled:** Kicks the user regardless of application status.*`,
 				inline: false,
 			},
 			{
 				name: "Auto-Remove Denied Role `✨ Premium`",
-				value: `**${autoRemoveDeniedRoleEnabled ? `🟢 \`Enabled\` — \`${autoRemoveDeniedRoleHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically removes the assigned Denied Role after the configured cooldown hours.*
-				**Reset Denial Threshold on Removal**\n**${resetDeniedThresholdOnRemove ? "🟢 `Enabled`" : "🔴 `Disabled`"}**\n***Enabled:** Resets user's denial count back to 0 when the denied role is removed so they must reach the threshold again.\n**Disabled:** Keeps past denial count, meaning they don't have to reach the threshold again.*`,
+				value: `**${autoRemoveDeniedRoleEnabled ? `🟢 \`Enabled\` — \`${autoRemoveDeniedRoleHours} hour(s)\`` : "🔴 `Disabled`"}**\n*Automatically removes the assigned Denied Role after the configured cooldown hours.*`,
+				inline: false,
+			},
+			{
+				name: "Reset Denial Threshold on Removal `✨ Premium`",
+				value: `**${resetDeniedThresholdOnRemove ? "🟢 `Enabled`" : "🔴 `Disabled`"}**\n***Enabled:** Resets user's denial count back to 0 when the denied role is removed so they must reach the threshold again.\n**Disabled:** Keeps past denial count, meaning they don't have to reach the threshold again.*`,
 				inline: false,
 			},
 			{
