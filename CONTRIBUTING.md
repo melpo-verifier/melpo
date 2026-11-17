@@ -6,12 +6,12 @@ Thank you for considering contributing to Melpo Verifier! Here are some guidelin
 
 1. Make sure you have a NodeJS version >= v18 installed (v22 has been used for development of this project)
 1. Download [PostgreSQL 17](https://www.enterprisedb.com/downloads/postgres-postgresql-downloads) and (optionally) [pgAdmin](https://www.pgadmin.org/download/) (included in PostgreSQL downloader)
-2. Fork and clone the repository
-3. Install dependencies: `npm install`
-4. Rename `.env.example` to `.env` and configure your environment
-5. Make your changes
-6. Test your changes locally for any bugs
-7. Submit a pull request
+1. Fork and clone the repository
+1. Install dependencies: `npm install`
+1. Rename `.env.example` to `.env` and configure your environment
+1. Make your changes
+1. Test your changes locally for any bugs
+1. Submit a pull request
 
 ## Code Style
 
