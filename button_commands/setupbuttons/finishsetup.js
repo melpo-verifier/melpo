@@ -58,6 +58,7 @@ module.exports = async ({ interaction, client, context }) => {
 	const finishmessage = tempApp.finishmessage || {};
 	const verifymessage = tempApp.verifymessage || {};
 	const denymessage = tempApp.denymessage || {};
+	const kickmessage = tempApp.kickmessage || {};
 	const verificationwelcomemessage = tempApp.verificationwelcomemessage || {};
 
 	await finalizeCustomizationImage(tempApp, "verifychannelembed", "images/verifychannelembed", interaction.guild.id);
@@ -65,6 +66,7 @@ module.exports = async ({ interaction, client, context }) => {
 	await finalizeCustomizationImage(tempApp, "finishmessage", "images/finishmessage", interaction.guild.id);
 	await finalizeCustomizationImage(tempApp, "verifymessage", "images/verifymessage", interaction.guild.id);
 	await finalizeCustomizationImage(tempApp, "denymessage", "images/denymessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "kickmessage", "images/kickmessage", interaction.guild.id);
 	await finalizeCustomizationImage(
 		tempApp,
 		"verificationwelcomemessage",
@@ -77,6 +79,7 @@ module.exports = async ({ interaction, client, context }) => {
 	cleanConfig(finishmessage);
 	cleanConfig(verifymessage);
 	cleanConfig(denymessage);
+	cleanConfig(kickmessage);
 	cleanConfig(verificationwelcomemessage);
 
 	const imageCategories = [
@@ -85,6 +88,7 @@ module.exports = async ({ interaction, client, context }) => {
 		"finishmessage",
 		"verifymessage",
 		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 	];
 
@@ -113,6 +117,7 @@ module.exports = async ({ interaction, client, context }) => {
 		"finishmessage",
 		"verifymessage",
 		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 		"questionpingrole",
 		"unverifiedrole",
@@ -151,6 +156,7 @@ module.exports = async ({ interaction, client, context }) => {
 		"finishmessage",
 		"verifymessage",
 		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 	];
 

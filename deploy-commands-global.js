@@ -1,7 +1,7 @@
 const { REST, Routes } = require("discord.js");
 const fs = require("node:fs");
 const path = require("node:path");
-const { Instances } = require("./dbObjects.js");
+const { Instances, sequelize } = require("./dbObjects.js");
 require("./util/env_manager.js").config(); //Attempt to read .env if we need to.
 const { decryptData } = require("./js/DBFunctions.js");
 
@@ -9,6 +9,7 @@ const { decryptData } = require("./js/DBFunctions.js");
 const blacklistedCommands = ["addpremium.js"];
 const args = process.argv.slice(2);
 const shouldClear = args.includes("--clear");
+const allInstances = args.includes("--all-instances");
 let botNameArg = null;
 let clientIdArg = null;
 
@@ -31,8 +32,8 @@ for (let i = 0; i < args.length; i += 1) {
 	if (!args[i].startsWith("--") && !botNameArg) botNameArg = args[i];
 }
 
-if (!botNameArg && !clientIdArg) {
-	console.error("Please provide either <BOT_NAME> or --clientId <CLIENT_ID>.");
+if (!allInstances && !botNameArg && !clientIdArg) {
+	console.error("Please provide <BOT_NAME>, --clientId <CLIENT_ID>, or --all-instances.");
 	process.exit(1);
 }
 
@@ -85,19 +86,51 @@ if (!shouldClear) {
 	}
 }
 
+async function deployCommandsForTarget({ token, applicationId }) {
+	const rest = new REST().setToken(token);
+
+	if (shouldClear) console.log(`Started clearing global application (/) commands for ${applicationId}.`);
+	else console.log(`Started refreshing ${commands.length} global application (/) commands for ${applicationId}.`);
+
+	await rest.put(Routes.applicationCommands(applicationId), { body: commands });
+
+	if (shouldClear) console.log(`Successfully cleared global application (/) commands for ${applicationId}.`);
+	else console.log(`Successfully reloaded ${commands.length} global application (/) commands for ${applicationId}.`);
+}
+
 (async () => {
 	try {
+		if (allInstances) {
+			const activeInstances = await Instances.findAll({ where: { active: true } });
+			const whitelabelInstances = activeInstances.filter(
+				(instance) => Boolean(instance.bot_token) && instance.client_id !== process.env.MELPO_ID,
+			);
+
+			if (whitelabelInstances.length === 0) {
+				console.log("No active whitelabel instances with a bot token found.");
+				return;
+			}
+
+			for (const instance of whitelabelInstances) {
+				try {
+					const token = decryptData(instance.bot_token);
+					await deployCommandsForTarget({ token, applicationId: instance.client_id });
+				} catch (error) {
+					console.warn(`[WARNING] Failed to deploy commands for instance ${instance.client_id}:`, error);
+				}
+			}
+			return;
+		}
+
 		const { token, applicationId } = await resolveDeployCredentials();
-		const rest = new REST().setToken(token);
-
-		if (shouldClear) console.log(`Started clearing global application (/) commands for ${applicationId}.`);
-		else console.log(`Started refreshing ${commands.length} global application (/) commands.`);
-
-		await rest.put(Routes.applicationCommands(applicationId), { body: commands });
-
-		if (shouldClear) console.log(`Successfully cleared global application (/) commands for ${applicationId}.`);
-		else console.log(`Successfully reloaded ${commands.length} global application (/) commands.`);
+		await deployCommandsForTarget({ token, applicationId });
 	} catch (error) {
 		console.error(error);
+		process.exitCode = 1;
+	} finally {
+		await sequelize.close().catch(() => {});
 	}
-})().catch(() => {});
+})().catch((error) => {
+	console.error(error);
+	process.exitCode = 1;
+});

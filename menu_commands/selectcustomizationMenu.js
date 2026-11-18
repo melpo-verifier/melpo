@@ -71,6 +71,12 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 					default: chosenvalue === "denymessage",
 				},
 				{
+					label: "Kick Notice",
+					description: "Message user gets when getting kicked",
+					value: "kickmessage",
+					default: chosenvalue === "kickmessage",
+				},
+				{
 					label: "Welcome Message",
 					description: "Welcome message in the server when user gets accepted",
 					value: "verificationwelcomemessage",
@@ -148,6 +154,15 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 			label: "Set Image",
 			style: ButtonStyle.Primary,
 		}),
+		...(chosenvalue === "verifychannelembed"
+			? [
+					new ButtonBuilder({
+						custom_id: `setButton_${chosenvalue}_${tempApplicationId}`,
+						label: "Set Button",
+						style: ButtonStyle.Primary,
+					}),
+				]
+			: []),
 		new ButtonBuilder({
 			custom_id: `removeImage_${chosenvalue}_${tempApplicationId}`,
 			label: "Remove Image",
@@ -228,11 +243,19 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 			.setDescription(
 				`*This message gets sent to a user upon getting denied*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which denied the user)\n-# **{appName}** - application name`,
 			);
+	} else if (chosenvalue === "kickmessage") {
+		infoembed = new EmbedBuilder()
+			.setTitle("Kick Notice")
+			.setDescription(
+				`*This message gets sent to a user upon getting kicked*\n**Placeholder options:**\n-# **{username}** - username\n-# **{modname}** - moderator name (which kicked the user)\n-# **{appName}** - application name`,
+			);
 	} else if (chosenvalue === "verifychannelembed") {
+		const buttonLabel = tempApp[chosenvalue]?.buttonLabel || applicationSetup?.[chosenvalue]?.buttonLabel || "Apply";
+		const buttonStyle = tempApp[chosenvalue]?.buttonStyle || applicationSetup?.[chosenvalue]?.buttonStyle || "success";
 		infoembed = new EmbedBuilder()
 			.setTitle("Application Panel")
 			.setDescription(
-				`*This embed gets sent to the application start channel where users can click to start the application process*`,
+				`*This embed gets sent to the application start channel where users can click to start the application process*\n\n**Panel Button:** \`${buttonLabel}\` (${buttonStyle})`,
 			);
 	}
 

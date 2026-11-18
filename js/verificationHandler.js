@@ -20,6 +20,7 @@ const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
 const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
 const { formatCustomMessage, sendWebhookMessage } = require("./messageHelper.js");
+const def_embeds = require("../templates/application_defaults.js");
 
 function getMessageIds(verification, guildId, applicationId = null) {
 	const guildData = verification?.guildVerifications?.[guildId];
@@ -222,7 +223,13 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
 }
 
 function createAutoActionContainer(container, status, client, reason = null) {
-	const mockInteraction = { isAutoDeny: true, client: client };
+	const mockInteraction = {
+		isAutoAction: true,
+		isAutoDeny: status === VerificationStatus.DENIED,
+		isAutoKick: status === VerificationStatus.KICKED,
+		isAutoVerify: status === VerificationStatus.VERIFIED,
+		client: client,
+	};
 	const mockMessage = { components: [container] };
 
 	return handleV2Edit(mockInteraction, mockMessage, status, reason);
@@ -248,13 +255,27 @@ function handleV2Edit(interaction, message, status, reason = null, memberId = nu
 		const statusText = statusTextMap[status] || "Denied";
 
 		// Assuming interaction is guaranteed here since it's not a 'LEFT' status
-		const actorName = interaction.isAutoDeny ? "Melpo (Auto-Action)" : interaction.user.username;
-		const actorId = interaction.isAutoDeny ? interaction.client.user.id : interaction.user.id;
+		const isAuto = Boolean(
+			interaction.isAutoAction || interaction.isAutoDeny || interaction.isAutoKick || interaction.isAutoVerify,
+		);
+		const actorName = isAuto ? "Melpo (Auto-Action)" : interaction.user.username;
+		const actorId = isAuto ? interaction.client.user.id : interaction.user.id;
 
-		footerText = `-# ${statusText} by ${actorName} (${actorId})`;
-		statusSuffix = reason
-			? `\n**Status:** \`${statusText} by ${actorName}\`: ${reason}`
-			: `\n**Status:** \`${statusText} by ${actorName}\``;
+		if (isAuto) {
+			const autoStatusMap = {
+				[VerificationStatus.VERIFIED]: "Auto-Verified",
+				[VerificationStatus.DENIED]: "Auto-Denied",
+				[VerificationStatus.KICKED]: "Auto-Kicked",
+			};
+			const autoStatus = autoStatusMap[status] || `Auto-${statusText}`;
+			footerText = `-# ${autoStatus} by Melpo (${actorId})`;
+			statusSuffix = reason ? `\n**Status:** \`${autoStatus}\`: ${reason}` : `\n**Status:** \`${autoStatus}\``;
+		} else {
+			footerText = `-# ${statusText} by ${actorName} (${actorId})`;
+			statusSuffix = reason
+				? `\n**Status:** \`${statusText} by ${actorName}\`: ${reason}`
+				: `\n**Status:** \`${statusText} by ${actorName}\``;
+		}
 	}
 
 	const reservedChars = footerText.length + 50;
@@ -380,7 +401,16 @@ function getMentions(content) {
 }
 
 // Send welcome message to channel
-async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, verifiedRoles, application) {
+async function sendWelcomeMessage(
+	interaction,
+	user,
+	welcomeChannel,
+	welcomeMessage,
+	verifiedRoles,
+	application,
+	answers = null,
+	modname = null,
+) {
 	if (!welcomeChannel || !welcomeMessage) return;
 
 	const channel = interaction.guild.channels.cache.get(welcomeChannel);
@@ -396,6 +426,8 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 		verifiedRoles,
 		appName: application.name,
 		application,
+		answers,
+		modname: modname || interaction?.user?.globalName || interaction?.user?.username || "Automated Action",
 	};
 
 	if (!isV2) {
@@ -428,7 +460,7 @@ async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMess
 }
 
 // Send verification DM to user
-async function sendVerifyDM(user, application, interaction, verifiedRoles, reason = null) {
+async function sendVerifyDM(user, application, interaction, verifiedRoles, reason = null, modname = null) {
 	if (!application.verifymessage) return;
 
 	const payload = await formatCustomMessage(application.verifymessage, {
@@ -439,6 +471,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles, reaso
 		appName: application.name,
 		application,
 		reason,
+		modname: modname || interaction?.user?.globalName || interaction?.user?.username || "Automated Action",
 		defaultColor: "#008000",
 	});
 
@@ -455,11 +488,7 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles, reaso
 
 // Send denial DM to user
 async function sendDenyDM(modname, user, application, guildName, reason = null) {
-	const config = application.denymessage || {
-		title: "Application Denied",
-		description: `Your application into **${guildName}** has been denied.`,
-		color: "#EB2121",
-	};
+	const config = application?.denymessage || def_embeds.verify_dm_deny;
 
 	const payload = await formatCustomMessage(config, {
 		user,
@@ -483,14 +512,32 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 }
 
 // Send kick DM to user
-async function sendKickDM(user, guildName, reason = null) {
-	const kickEmbed = new EmbedBuilder()
-		.setColor("#EB2121")
-		.setTitle(`Kicked from ${guildName}`)
-		.setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`.slice(0, 4096));
+async function sendKickDM(modname, user, application, guildName, reason = null) {
+	if (typeof modname !== "string" && typeof user === "string") {
+		// Legacy 3-argument call: sendKickDM(user, guildName, reason)
+		reason = application || null;
+		guildName = user;
+		user = modname;
+		application = null;
+		modname = "Automated Action";
+	}
+
+	const config = application?.kickmessage || def_embeds.verify_dm_kick;
+
+	const payload = await formatCustomMessage(config, {
+		user,
+		modname,
+		guild: { name: guildName },
+		appName: application?.name,
+		reason,
+		application,
+		defaultColor: "#EB2121",
+	});
+
+	if (!payload) return;
 
 	try {
-		await user.send({ embeds: [kickEmbed] });
+		await user.send(payload);
 		return { success: true };
 	} catch (error) {
 		if (error.code === 50007 || error.code === 50278) return { success: false, dmDisabled: true };
@@ -872,7 +919,23 @@ async function verifyUser(interaction, client, application, user, reason = null)
 
 	if (welcomeChannel && welcomeMessage) {
 		try {
-			await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, verifiedRoles, application);
+			const answers = {};
+			if (submissionData?.responses && Array.isArray(submissionData.responses)) {
+				submissionData.responses.forEach((resp, idx) => {
+					answers[idx + 1] = resp.content || "";
+				});
+			}
+			const modname = interaction?.user?.globalName || interaction?.user?.username || null;
+			await sendWelcomeMessage(
+				interaction,
+				user,
+				welcomeChannel,
+				welcomeMessage,
+				verifiedRoles,
+				application,
+				answers,
+				modname,
+			);
 		} catch (error) {
 			await interaction.followUp({
 				content: `Welcome channel error: ${error.message}`,
@@ -1152,7 +1215,7 @@ async function kickUser(interaction, client, application, user, reason = null) {
 		});
 	}
 
-	const dmResult = await sendKickDM(userObj, interaction.guild.name, reason);
+	const dmResult = await sendKickDM(interaction.user.username, userObj, application, interaction.guild.name, reason);
 
 	const auditReason = (
 		reason ? `Kicked by ${interaction.user.username}: ${reason}` : `Kicked by ${interaction.user.username}`

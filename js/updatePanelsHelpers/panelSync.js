@@ -2,7 +2,6 @@ const {
 	EmbedBuilder,
 	ActionRowBuilder,
 	ButtonBuilder,
-	ButtonStyle,
 	StringSelectMenuBuilder,
 	WebhookClient,
 	MessageFlags,
@@ -10,12 +9,12 @@ const {
 } = require("discord.js");
 const { GuildWebhook } = require("../../dbObjects.js");
 const { decryptData } = require("../DBFunctions.js");
-const { buildV2Components } = require("./v2ComponentBuilder.js");
+const { buildV2Components, resolveButtonStyle } = require("./v2ComponentBuilder.js");
 const { messageNeedsUpdate, hasCustomId } = require("./messageComparator.js");
 
 const DEFAULT_EMBED_COLOR = "#3f7ff1";
 
-function buildRowForApplication(app, dependentApps = []) {
+function buildRowForApplication(app, dependentApps = [], panelConfig = null) {
 	if (dependentApps && dependentApps.length > 0) {
 		const options = [
 			{ label: app.name, value: String(app.id) },
@@ -31,8 +30,13 @@ function buildRowForApplication(app, dependentApps = []) {
 		);
 	}
 
+	const config = panelConfig || app?.verifychannelembed || {};
+	let label = "Apply";
+	if (config.buttonLabel && typeof config.buttonLabel === "string") label = config.buttonLabel.slice(0, 80);
+	const style = resolveButtonStyle(config.buttonStyle || "success");
+
 	return new ActionRowBuilder().addComponents(
-		new ButtonBuilder().setCustomId(`verifybutton_${app.id}_main`).setLabel("Apply").setStyle(ButtonStyle.Success),
+		new ButtonBuilder().setCustomId(`verifybutton_${app.id}_main`).setLabel(label).setStyle(style),
 	);
 }
 
@@ -66,7 +70,7 @@ function buildPanelPayload(panelConfig, application, dependentApps) {
 		.setDescription(panelConfig.description ?? null)
 		.setImage(imageUrl);
 
-	const row = buildRowForApplication(application, dependentApps);
+	const row = buildRowForApplication(application, dependentApps, panelConfig);
 
 	return {
 		isV2: false,
