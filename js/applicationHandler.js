@@ -248,6 +248,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 		const dbObjectsPath = require.resolve("../dbObjects.js");
 		const DBFunctionsPath = require.resolve("../js/DBFunctions.js");
 		let resumeState = null;
+		let resumeCreatedAt = null;
 		let sessionId = uuidv4();
 
 		const pendingProgressRecords = await Submissions.findAll({
@@ -266,6 +267,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 
 			if (payload.currentQuestionId) {
 				resumeState = payload;
+				resumeCreatedAt = progressRecord.createdAt ? new Date(progressRecord.createdAt).getTime() : null;
 				sessionId = progressRecord.message_id;
 				break;
 			}
@@ -313,8 +315,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 				.setColor("#3f7ff1");
 
 			await interaction.editReply({ embeds: [startedEmbed], flags: MessageFlags.Ephemeral });
-			const startedAt = resumeState?.startedAt || Date.now();
-			activeVerifications.set(user.id, { sessionId: sessionId, startTime: startedAt });
+			const startedAt = resumeState ? resumeState.startedAt || resumeCreatedAt || null : Date.now();
+			activeVerifications.set(user.id, { sessionId: sessionId, startTime: Date.now() });
 			const isPremium = await isPremiumServer(guildId);
 
 			if (
@@ -632,8 +634,7 @@ async function processVerificationResult(
 
 		user = user || interaction.user;
 
-		const durationMs = Date.now() - (startedAt || Date.now());
-		const durationString = formatDuration(durationMs);
+		const durationString = startedAt ? formatDuration(Date.now() - startedAt) : null;
 		const isAutoAction = reason === "kick" || reason === "deny" || reason === "verify";
 
 		const containerResult = await constructApplicationEmbed(
@@ -988,9 +989,10 @@ async function Verificationfunc(
 		resumeState,
 		isPremium,
 		imageSubmission = true,
-		startedAt = Date.now(),
+		startedAt,
 	},
 ) {
+	const sessionStartedAt = resumeState ? (startedAt ?? resumeState.startedAt ?? null) : (startedAt ?? Date.now());
 	return new Promise((resolve, reject) => {
 		const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
 		const { Submissions } = require(dbObjectsPath || "../dbObjects.js");
@@ -1032,7 +1034,7 @@ async function Verificationfunc(
 				currentMessageId,
 				dmChannelId,
 				submittedForReview,
-				startedAt,
+				startedAt: sessionStartedAt,
 			};
 
 			await Submissions.upsert({
@@ -1664,7 +1666,7 @@ async function Verificationfunc(
 						buttoncollector.stop();
 
 						if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
-							resolve([reason, responses, startedAt, actionReason, actionRoles]);
+							resolve([reason, responses, sessionStartedAt, actionReason, actionRoles]);
 						} else if (reason === "canceled") {
 							await clearProgress();
 							reject(new Error("Application was canceled"));
@@ -1734,6 +1736,8 @@ async function resumeApplication(client) {
 			const dmChannel = await client.channels.fetch(payload.dmChannelId).catch(() => null);
 			if (!dmChannel) continue;
 
+			const resumedStartedAt =
+				payload.startedAt ?? (progressRow.createdAt ? new Date(progressRow.createdAt).getTime() : null);
 			activeVerifications.set(progressRow.user_id, { sessionId: progressRow.message_id, startTime: Date.now() });
 			void (async () => {
 				try {
@@ -1750,6 +1754,7 @@ async function resumeApplication(client) {
 						encryptionKey: process.env.ENCRYPTION_KEY,
 						resumeState: payload,
 						imageSubmission: application.imageSubmission ?? true,
+						startedAt: resumedStartedAt,
 					});
 
 					if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
