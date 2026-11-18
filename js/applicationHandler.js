@@ -749,8 +749,7 @@ async function processVerificationResult(
 				});
 
 				if (!created && channelsent?.id) {
-					addMessageId(verification, guildId, applicationId, channelsent.id);
-					await verification.save();
+					await addMessageId(verification, guildId, applicationId, channelsent.id);
 				}
 			} catch (error) {
 				console.error("Error setting user verification:", error);

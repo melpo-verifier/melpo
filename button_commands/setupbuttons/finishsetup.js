@@ -32,7 +32,16 @@ module.exports = async ({ interaction, client, context }) => {
 	const verifyChannel = tempApp.verifychannel;
 	const verifiedRole = tempApp.verifiedrole;
 
-	if (!(verifyChannel?.length > 0 && reviewChannel?.length > 0 && verifiedRole?.length > 0 && questions?.length > 0)) {
+	if (
+		!(
+			verifyChannel?.length > 0 &&
+			verifyChannel !== "deleted" &&
+			reviewChannel?.length > 0 &&
+			reviewChannel !== "deleted" &&
+			verifiedRole?.length > 0 &&
+			questions?.length > 0
+		)
+	) {
 		return interaction.reply({
 			content: "You need to set up all the *required* channels, roles and questions before finishing the setup.",
 			flags: MessageFlags.Ephemeral,
@@ -160,9 +169,16 @@ module.exports = async ({ interaction, client, context }) => {
 		"verificationwelcomemessage",
 	];
 
+	const nullableChannelFields = new Set(["verifylogs", "verificationwelcomechannel"]);
+
 	for (const field of fields) {
 		const value = tempApp[field];
 		if (value == null) continue; // Skip null/undefined values
+
+		if (nullableChannelFields.has(field) && (value === "deleted" || value === "")) {
+			appData[field] = null;
+			continue;
+		}
 
 		if (Array.isArray(value)) {
 			// Include empty arrays (to allow clearing roles)

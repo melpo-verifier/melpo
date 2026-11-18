@@ -4,10 +4,15 @@ Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on perfo
 const console_hooks = require("./util/console_hooks.js"); // Component : Console class hooking functionality -mat
 const fs = require("node:fs"); // Library : Node js file system module.
 const path = require("node:path"); // Library : Node js path module.
-const { Client, IntentsBitField, Partials, AuditLogEvent, PermissionsBitField, Options } = require("discord.js"); // Library : Discord.js library imports.
+const { Client, IntentsBitField, Partials, PermissionsBitField, Options } = require("discord.js"); // Library : Discord.js library imports.
 require("./util/env_manager.js").config(); // Component : .env parsing (invoking config callback for setup)
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js"); //
-const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js"); // Component : Verification handling wrapper.
+const {
+	processLeaveMessages,
+	cleanupVerificationData,
+	getMessageIds,
+	isBotKickInProgress,
+} = require("./js/verificationHandler.js"); // Component : Verification handling wrapper.
 const {
 	ServerConfig,
 	Verification,
@@ -344,6 +349,7 @@ async function createBot(token) {
 
 	client.on("guildMemberRemove", async (member) => {
 		if (!member?.guild?.id || !member.id) return;
+		if (isBotKickInProgress(member.guild.id, member.id)) return;
 
 		let applications, verification;
 
@@ -351,7 +357,7 @@ async function createBot(token) {
 			[applications, verification] = await Promise.all([
 				Application.findAll({
 					where: { server_id: member.guild.id },
-					attributes: ["id", "reviewchannel", "verifylogs"],
+					attributes: ["id", "reviewchannel", "verifylogs", "branding_enabled", "custom_name", "custom_avatar_url"],
 				}),
 				Verification.findOne({ where: { userId: member.id }, attributes: ["userId", "guildVerifications"] }),
 			]);
@@ -364,23 +370,6 @@ async function createBot(token) {
 
 		const guildData = verification?.guildVerifications?.[member.guild.id];
 		if (!guildData) return;
-
-		let wasKicked = false;
-		const botMember = member.guild.members.cache.get(client.user.id);
-		if (botMember?.permissions.has("ViewAuditLog")) {
-			try {
-				const auditLogs = await member.guild.fetchAuditLogs({ type: AuditLogEvent.MemberKick, limit: 1 });
-
-				const kickLog = auditLogs.entries.first();
-				wasKicked = kickLog?.target?.id === member.id && kickLog.createdTimestamp > Date.now() - 3000;
-
-				if (wasKicked) {
-					return;
-				}
-			} catch {
-				// Ignore audit log errors
-			}
-		}
 
 		for (const app of applications) {
 			const appMessageIds = getMessageIds(verification, member.guild.id, app.id);
