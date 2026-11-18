@@ -670,7 +670,7 @@ async function processVerificationResult(
 					: reason === "deny"
 						? VerificationStatus.DENIED
 						: VerificationStatus.VERIFIED;
-			container = createAutoActionContainer(container, status, client, actionReason);
+			container = createAutoActionContainer(container, status, client);
 		}
 
 		const isActionActive = reason === "completed";
@@ -707,15 +707,16 @@ async function processVerificationResult(
 		let threadName = null;
 		if (useThreads === true) threadName = `${user.globalName ?? user.username}'s ${appName}`;
 
-		if (isAutoAction) {
-			if (application.verifylogs) {
-				const outputChannel = interaction.guild.channels.cache.get(application.verifylogs);
-				if (outputChannel) {
-					channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
-				}
-			}
-		} else {
-			channelsent = await sendWebhookMessage(verifyLogsChannel, application, sendPayload, threadName);
+		let outputChannel = verifyLogsChannel;
+		if (isAutoAction && application.verifylogs) {
+			outputChannel =
+				interaction.guild.channels.cache.get(application.verifylogs) ||
+				(await interaction.guild.channels.fetch(application.verifylogs).catch(() => null)) ||
+				verifyLogsChannel;
+		}
+
+		if (outputChannel) {
+			channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
 		}
 
 		//if reason was kick, deny or verify, close the thread
@@ -1738,6 +1739,7 @@ async function resumeApplication(client) {
 
 			const resumedStartedAt =
 				payload.startedAt ?? (progressRow.createdAt ? new Date(progressRow.createdAt).getTime() : null);
+			const isPremium = await isPremiumServer(progressRow.guild_id);
 			activeVerifications.set(progressRow.user_id, { sessionId: progressRow.message_id, startTime: Date.now() });
 			void (async () => {
 				try {
@@ -1753,6 +1755,7 @@ async function resumeApplication(client) {
 						DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
 						encryptionKey: process.env.ENCRYPTION_KEY,
 						resumeState: payload,
+						isPremium,
 						imageSubmission: application.imageSubmission ?? true,
 						startedAt: resumedStartedAt,
 					});
