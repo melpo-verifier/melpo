@@ -346,7 +346,8 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 						cluster: 0,
 					})
 					.then(async (results) => {
-						const [reason, responses, sessionStartedAt, actionReason, actionRoles] = results[0];
+						const [reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs = true] =
+							results[0];
 						activeVerifications.delete(user.id);
 						await processVerificationResult(
 							user,
@@ -368,6 +369,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 							sessionStartedAt || startedAt,
 							actionReason,
 							actionRoles,
+							shouldNotifyLogs,
 						);
 					})
 					.catch(async (error) => {
@@ -380,22 +382,23 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			} else {
 				//non sharded instances
 				try {
-					const [reason, responses, sessionStartedAt, actionReason, actionRoles] = await Verificationfunc(client, {
-						userid: user.id,
-						dmChannelId: dmChannel.id,
-						botQuestions: parsedQuestions,
-						cancelbutton: cancelbutton,
-						sessionId: sessionId,
-						guildId,
-						configId,
-						dbObjectsPath,
-						DBFunctionsPath,
-						encryptionKey,
-						resumeState,
-						isPremium,
-						imageSubmission: application.imageSubmission ?? true,
-						startedAt,
-					});
+					const [reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs = true] =
+						await Verificationfunc(client, {
+							userid: user.id,
+							dmChannelId: dmChannel.id,
+							botQuestions: parsedQuestions,
+							cancelbutton: cancelbutton,
+							sessionId: sessionId,
+							guildId,
+							configId,
+							dbObjectsPath,
+							DBFunctionsPath,
+							encryptionKey,
+							resumeState,
+							isPremium,
+							imageSubmission: application.imageSubmission ?? true,
+							startedAt,
+						});
 
 					activeVerifications.delete(user.id);
 					await processVerificationResult(
@@ -418,6 +421,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 						sessionStartedAt || startedAt,
 						actionReason,
 						actionRoles,
+						shouldNotifyLogs,
 					);
 				} catch (error) {
 					activeVerifications.delete(user.id);
@@ -627,105 +631,115 @@ async function processVerificationResult(
 	startedAt = null,
 	actionReason = null,
 	actionRoles = [],
+	shouldNotifyLogs = true,
 ) {
 	if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
 		// Process collected responses and send to verification review channel
-		updateVerifications();
+		await updateVerifications().catch((err) => console.error("Failed to update verifications:", err));
 
 		user = user || interaction.user;
 
 		const durationString = startedAt ? formatDuration(Date.now() - startedAt) : null;
 		const isAutoAction = reason === "kick" || reason === "deny" || reason === "verify";
-
-		const containerResult = await constructApplicationEmbed(
-			user,
-			botQuestions,
-			responses,
-			interaction.guild.id,
-			client,
-			pingStaffRoleId,
-			appName,
-			durationString,
-			isAutoAction,
-		);
-
-		//if (!containerResult || !containerResult.container) {
-		if (!containerResult?.container) {
-			//try to send image to user:
-			await dmChannel
-				.send({
-					content:
-						"An error occurred while processing your application. This can happen when you left or have been kicked from the server during your application.",
-				})
-				.catch(() => {});
-			return;
-		}
-
-		let { container, attachment } = containerResult;
-
-		if (isAutoAction) {
-			const status =
-				reason === "kick"
-					? VerificationStatus.KICKED
-					: reason === "deny"
-						? VerificationStatus.DENIED
-						: VerificationStatus.VERIFIED;
-			container = createAutoActionContainer(container, status, client);
-		}
-
-		const isActionActive = reason === "completed";
-
-		//create the buttons
-		const verify = new ActionRowBuilder().addComponents(
-			new ButtonBuilder()
-				.setCustomId(`verify_${applicationId}_${interaction.user.id}`)
-				.setLabel("Accept")
-				.setStyle("Success"),
-			new ButtonBuilder()
-				.setCustomId(`deny_${applicationId}_${interaction.user.id}`)
-				.setLabel("Deny")
-				.setStyle("Danger"),
-			new ButtonBuilder()
-				.setCustomId(`question_${applicationId}_${interaction.user.id}`)
-				.setLabel("Question")
-				.setStyle("Primary"),
-			new ButtonBuilder()
-				.setCustomId(`action_${applicationId}_${interaction.user.id}`)
-				.setLabel("Kick")
-				.setStyle("Secondary"),
-		);
-
+		const shouldPostReviewOrLog = !isAutoAction || shouldNotifyLogs !== false;
 		let channelsent = null;
-		const sendPayload = {
-			flags: [MessageFlags.IsComponentsV2],
-			components: [container, isActionActive ? verify : null].filter(Boolean),
-			allowedMentions: { parse: ["roles"] },
-		};
 
-		if (attachment) sendPayload.files = [attachment];
+		if (shouldPostReviewOrLog) {
+			const containerResult = await constructApplicationEmbed(
+				user,
+				botQuestions,
+				responses,
+				interaction.guild.id,
+				client,
+				pingStaffRoleId,
+				appName,
+				durationString,
+				isAutoAction,
+			);
 
-		let threadName = null;
-		if (useThreads === true) threadName = `${user.globalName ?? user.username}'s ${appName}`;
+			//if (!containerResult || !containerResult.container) {
+			if (!containerResult?.container) {
+				//try to send image to user:
+				await dmChannel
+					.send({
+						content:
+							"An error occurred while processing your application. This can happen when you left or have been kicked from the server during your application.",
+					})
+					.catch(() => {});
+				return;
+			}
 
-		let outputChannel = verifyLogsChannel;
-		if (isAutoAction && application.verifylogs) {
-			outputChannel =
-				interaction.guild.channels.cache.get(application.verifylogs) ||
-				(await interaction.guild.channels.fetch(application.verifylogs).catch(() => null)) ||
-				verifyLogsChannel;
+			let { container, attachment } = containerResult;
+
+			if (isAutoAction) {
+				const status =
+					reason === "kick"
+						? VerificationStatus.KICKED
+						: reason === "deny"
+							? VerificationStatus.DENIED
+							: VerificationStatus.VERIFIED;
+				container = createAutoActionContainer(container, status, client);
+			}
+
+			const isActionActive = reason === "completed";
+
+			//create the buttons
+			const verify = new ActionRowBuilder().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`verify_${applicationId}_${interaction.user.id}`)
+					.setLabel("Accept")
+					.setStyle("Success"),
+				new ButtonBuilder()
+					.setCustomId(`deny_${applicationId}_${interaction.user.id}`)
+					.setLabel("Deny")
+					.setStyle("Danger"),
+				new ButtonBuilder()
+					.setCustomId(`question_${applicationId}_${interaction.user.id}`)
+					.setLabel("Question")
+					.setStyle("Primary"),
+				new ButtonBuilder()
+					.setCustomId(`action_${applicationId}_${interaction.user.id}`)
+					.setLabel("Kick")
+					.setStyle("Secondary"),
+			);
+
+			const sendPayload = {
+				flags: [MessageFlags.IsComponentsV2],
+				components: [container, isActionActive ? verify : null].filter(Boolean),
+				allowedMentions: { parse: ["roles"] },
+			};
+
+			if (attachment) sendPayload.files = [attachment];
+
+			let threadName = null;
+			if (useThreads === true) threadName = `${user.globalName ?? user.username}'s ${appName}`;
+
+			let outputChannel = verifyLogsChannel;
+			if (isAutoAction && application.verifylogs) {
+				outputChannel =
+					interaction.guild.channels.cache.get(application.verifylogs) ||
+					(await interaction.guild.channels.fetch(application.verifylogs).catch(() => null)) ||
+					verifyLogsChannel;
+			}
+
+			if (outputChannel) {
+				channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
+			}
+
+			//if reason was kick, deny or verify, close the thread
+			if (isAutoAction && channelsent?.thread) {
+				await channelsent.thread.setArchived(true, "Archiving due to auto-action");
+			}
 		}
-
-		if (outputChannel) {
-			channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
-		}
-
-		//if reason was kick, deny or verify, close the thread
-		if (isAutoAction && channelsent?.thread) await channelsent.thread.setArchived(true, "Archiving due to auto-action");
 
 		const finalMessageId = channelsent?.id || sessionId;
 		try {
 			const encryptionKey = process.env.ENCRYPTION_KEY;
-			const finalPayload = { responses, submittedForReview: true, reviewMessageId: finalMessageId };
+			const finalPayload = {
+				responses,
+				submittedForReview: true,
+				reviewMessageId: channelsent?.id ?? null,
+			};
 
 			await Submissions.upsert({
 				message_id: finalMessageId,
@@ -742,17 +756,19 @@ async function processVerificationResult(
 		}
 
 		if (reason === "completed") {
-			try {
-				const [verification, created] = await Verification.findOrCreate({
-					where: { userId: user.id },
-					defaults: { guildVerifications: { [guildId]: { [applicationId]: [channelsent?.id] } } },
-				});
+			if (channelsent?.id) {
+				try {
+					const [verification, created] = await Verification.findOrCreate({
+						where: { userId: user.id },
+						defaults: { guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } } },
+					});
 
-				if (!created && channelsent?.id) {
-					await addMessageId(verification, guildId, applicationId, channelsent.id);
+					if (!created) {
+						await addMessageId(verification, guildId, applicationId, channelsent.id);
+					}
+				} catch (error) {
+					console.error("Error setting user verification:", error);
 				}
-			} catch (error) {
-				console.error("Error setting user verification:", error);
 			}
 
 			if (application.pendingrole && Array.isArray(application.pendingrole) && application.pendingrole.length > 0) {
@@ -1088,13 +1104,19 @@ async function Verificationfunc(
 			otherSelected = false,
 		) {
 			if (!isPremium)
-				return { nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex), reason: null, roles: [] };
+				return {
+					nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex),
+					reason: null,
+					roles: [],
+					notifyLogs: true,
+				};
 
 			if (selectedOptionCount > 1 && currentQuestion.multiSelectNextQuestionId)
 				return {
 					nextQuestionId: resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex),
 					reason: currentQuestion.multiSelectReason || null,
 					roles: [],
+					notifyLogs: currentQuestion.multiSelectNotifyLogs !== false,
 				};
 
 			// If Other was selected and question has otherNextQuestionId
@@ -1103,6 +1125,7 @@ async function Verificationfunc(
 					nextQuestionId: resolveNextQuestionId(currentQuestion.otherNextQuestionId, currentQuestionIndex),
 					reason: currentQuestion.otherReason || null,
 					roles: Array.isArray(currentQuestion.otherRoles) ? currentQuestion.otherRoles : [],
+					notifyLogs: currentQuestion.otherNotifyLogs !== false,
 				};
 
 			// If MCQ with a selected option and that option has a nextQuestionId
@@ -1115,6 +1138,7 @@ async function Verificationfunc(
 						nextQuestionId: resolveNextQuestionId(selectedOption.nextQuestionId, currentQuestionIndex),
 						reason,
 						roles: Array.isArray(selectedOption.roles) ? selectedOption.roles : [],
+						notifyLogs: selectedOption.notifyLogs !== false,
 					};
 				}
 			}
@@ -1134,12 +1158,14 @@ async function Verificationfunc(
 										nextQuestionId: resolveNextQuestionId(branch.nextQuestionId, currentQuestionIndex),
 										reason,
 										roles,
+										notifyLogs: branch.notifyLogs !== false,
 									};
 
 								return {
 									nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex),
 									reason,
 									roles,
+									notifyLogs: true,
 								};
 							}
 						} catch (error) {
@@ -1155,12 +1181,14 @@ async function Verificationfunc(
 					nextQuestionId: resolveNextQuestionId(currentQuestion.nextQuestionId, currentQuestionIndex),
 					reason: currentQuestion.reason || null,
 					roles: [],
+					notifyLogs: true,
 				};
 
 			return {
 				nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex),
 				reason: null,
 				roles: [],
+				notifyLogs: true,
 			};
 		}
 
@@ -1298,6 +1326,7 @@ async function Verificationfunc(
 
 				let actionReason = null;
 				let actionRoles = [];
+				let shouldNotifyLogs = true;
 
 				async function submitAnswerAndAdvance(
 					currentQuestion,
@@ -1305,6 +1334,7 @@ async function Verificationfunc(
 					nextQuestionId,
 					branchReason = null,
 					branchRoles = [],
+					branchNotifyLogs = true,
 				) {
 					responses.push({
 						questionId: currentQuestion.id,
@@ -1328,6 +1358,7 @@ async function Verificationfunc(
 					) {
 						actionReason = branchReason;
 						actionRoles = branchRoles || [];
+						shouldNotifyLogs = branchNotifyLogs !== false;
 						await clearProgress();
 						const stopReason = nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId;
 						buttoncollector.stop(stopReason);
@@ -1497,6 +1528,10 @@ async function Verificationfunc(
 										typeof branchResult === "object" && branchResult !== null ? branchResult.reason : null;
 									const branchRoles =
 										typeof branchResult === "object" && branchResult !== null ? branchResult.roles || [] : [];
+									const branchNotifyLogs =
+										typeof branchResult === "object" && branchResult !== null
+											? branchResult.notifyLogs !== false
+											: true;
 
 									const isWrongAnswer = nextQuestionId === "deny" || nextQuestionId === "kick";
 									const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
@@ -1517,6 +1552,7 @@ async function Verificationfunc(
 										nextQuestionId,
 										branchReason,
 										branchRoles,
+										branchNotifyLogs,
 									);
 								}
 							} catch (error) {
@@ -1622,6 +1658,8 @@ async function Verificationfunc(
 									typeof branchResult === "object" && branchResult !== null ? branchResult.reason : null;
 								const branchRoles =
 									typeof branchResult === "object" && branchResult !== null ? branchResult.roles || [] : [];
+								const branchNotifyLogs =
+									typeof branchResult === "object" && branchResult !== null ? branchResult.notifyLogs !== false : true;
 
 								const isWrongAnswer = nextQuestionId === "deny" || nextQuestionId === "kick";
 								const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
@@ -1641,6 +1679,7 @@ async function Verificationfunc(
 									nextQuestionId,
 									branchReason,
 									branchRoles,
+									branchNotifyLogs,
 								);
 							} catch (error) {
 								console.error(`Error handling text message for user ${userid}:`, error);
@@ -1666,7 +1705,7 @@ async function Verificationfunc(
 						buttoncollector.stop();
 
 						if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
-							resolve([reason, responses, sessionStartedAt, actionReason, actionRoles]);
+							resolve([reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs]);
 						} else if (reason === "canceled") {
 							await clearProgress();
 							reject(new Error("Application was canceled"));
@@ -1742,87 +1781,134 @@ async function resumeApplication(client) {
 			activeVerifications.set(progressRow.user_id, { sessionId: progressRow.message_id, startTime: Date.now() });
 			void (async () => {
 				try {
-					const [reason, responses, sessionStartedAt, actionReason, actionRoles] = await Verificationfunc(client, {
-						userid: progressRow.user_id,
-						dmChannelId: payload.dmChannelId,
-						botQuestions: payload.questionObjects,
-						cancelbutton,
-						sessionId: progressRow.message_id,
-						guildId: progressRow.guild_id,
-						configId: progressRow.app_id,
-						dbObjectsPath: require.resolve("../dbObjects.js"),
-						DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
-						encryptionKey: process.env.ENCRYPTION_KEY,
-						resumeState: payload,
-						isPremium,
-						imageSubmission: application.imageSubmission ?? true,
-						startedAt: resumedStartedAt,
-					});
+					const [reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs = true] =
+						await Verificationfunc(client, {
+							userid: progressRow.user_id,
+							dmChannelId: payload.dmChannelId,
+							botQuestions: payload.questionObjects,
+							cancelbutton,
+							sessionId: progressRow.message_id,
+							guildId: progressRow.guild_id,
+							configId: progressRow.app_id,
+							dbObjectsPath: require.resolve("../dbObjects.js"),
+							DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
+							encryptionKey: process.env.ENCRYPTION_KEY,
+							resumeState: payload,
+							isPremium,
+							imageSubmission: application.imageSubmission ?? true,
+							startedAt: resumedStartedAt,
+						});
 
 					if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
-						await client.cluster.broadcastEval(
-							async (c, context) => {
-								const guild = c.guilds.cache.get(context.guildId);
-								if (!guild) return false;
+						if (client.cluster) {
+							await client.cluster.broadcastEval(
+								async (c, context) => {
+									const guild = c.guilds.cache.get(context.guildId);
+									if (!guild) return false;
 
-								const targetUser = await c.users.fetch(context.userId).catch(() => null);
-								if (!targetUser) return false;
+									const targetUser = await c.users.fetch(context.userId).catch(() => null);
+									if (!targetUser) return false;
 
-								const { processVerificationResult } = require(context.appHandlerPath);
-								const { getApplicationByIdWithFallback } = require(context.tempConfigPath);
+									const { processVerificationResult } = require(context.appHandlerPath);
+									const { getApplicationByIdWithFallback } = require(context.tempConfigPath);
 
-								const { application } = await getApplicationByIdWithFallback(context.appId, context.guildId);
-								if (!application) return false;
+									const { application } = await getApplicationByIdWithFallback(context.appId, context.guildId);
+									if (!application) return false;
 
-								const verifyLogsChan = await guild.channels.fetch(application.reviewchannel);
-								const dmChan =
-									(await c.channels.fetch(context.dmChannelId).catch(() => null)) ??
-									(await targetUser.createDM().catch(() => null));
+									const verifyLogsChan = application.reviewchannel
+										? await guild.channels.fetch(application.reviewchannel).catch(() => null)
+										: null;
+									const dmChan =
+										(await c.channels.fetch(context.dmChannelId).catch(() => null)) ??
+										(await targetUser.createDM().catch(() => null));
 
-								const pseudoInteraction = { guild, user: targetUser, channel: verifyLogsChan };
+									const pseudoInteraction = { guild, user: targetUser, channel: verifyLogsChan };
 
-								await processVerificationResult(
-									targetUser,
-									context.reason,
-									context.responses,
-									pseudoInteraction,
-									context.botQuestions,
-									dmChan,
-									application.pingrole,
-									context.guildId,
-									verifyLogsChan,
-									application.finishmessage,
-									c,
-									application.usethreads,
-									application.name,
-									context.appId,
-									context.sessionId,
-									application,
-									context.sessionStartedAt,
-									context.actionReason,
-									context.actionRoles,
-								);
+									await processVerificationResult(
+										targetUser,
+										context.reason,
+										context.responses,
+										pseudoInteraction,
+										context.botQuestions,
+										dmChan,
+										application.pingrole,
+										context.guildId,
+										verifyLogsChan,
+										application.finishmessage,
+										c,
+										application.usethreads,
+										application.name,
+										context.appId,
+										context.sessionId,
+										application,
+										context.sessionStartedAt,
+										context.actionReason,
+										context.actionRoles,
+										context.shouldNotifyLogs,
+									);
 
-								return true;
-							},
-							{
-								context: {
-									guildId: progressRow.guild_id,
-									userId: progressRow.user_id,
-									reason,
-									responses,
-									botQuestions: payload.questionObjects,
-									dmChannelId: payload.dmChannelId,
-									appId: progressRow.app_id,
-									sessionId: progressRow.message_id,
-									appHandlerPath: __filename,
-									tempConfigPath: require.resolve("./tempconfigfuncs.js"),
-									sessionStartedAt,
-									actionReason,
-									actionRoles,
+									return true;
 								},
-							},
-						);
+								{
+									context: {
+										guildId: progressRow.guild_id,
+										userId: progressRow.user_id,
+										reason,
+										responses,
+										botQuestions: payload.questionObjects,
+										dmChannelId: payload.dmChannelId,
+										appId: progressRow.app_id,
+										sessionId: progressRow.message_id,
+										appHandlerPath: __filename,
+										tempConfigPath: require.resolve("./tempconfigfuncs.js"),
+										sessionStartedAt,
+										actionReason,
+										actionRoles,
+										shouldNotifyLogs,
+									},
+								},
+							);
+						} else {
+							const guild = client.guilds.cache.get(progressRow.guild_id);
+							if (guild) {
+								const { application: latestApp } = await getApplicationByIdWithFallback(
+									progressRow.app_id,
+									progressRow.guild_id,
+								);
+								const resolvedApp = latestApp || application;
+								if (resolvedApp) {
+									const verifyLogsChan = resolvedApp.reviewchannel
+										? guild.channels.cache.get(resolvedApp.reviewchannel) ||
+											(await guild.channels.fetch(resolvedApp.reviewchannel).catch(() => null))
+										: null;
+									const dmChan = dmChannel ?? (await user.createDM().catch(() => null));
+									const pseudoInteraction = { guild, user, channel: verifyLogsChan };
+
+									await processVerificationResult(
+										user,
+										reason,
+										responses,
+										pseudoInteraction,
+										payload.questionObjects,
+										dmChan,
+										resolvedApp.pingrole,
+										progressRow.guild_id,
+										verifyLogsChan,
+										resolvedApp.finishmessage,
+										client,
+										resolvedApp.usethreads,
+										resolvedApp.name,
+										progressRow.app_id,
+										progressRow.message_id,
+										resolvedApp,
+										sessionStartedAt,
+										actionReason,
+										actionRoles,
+										shouldNotifyLogs,
+									);
+								}
+							}
+						}
 					}
 				} catch (error) {
 					console.error(`Failed to resume application progress ${progressRow.message_id}:`, error);

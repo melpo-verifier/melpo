@@ -60,6 +60,14 @@ module.exports = async ({ interaction, client, context }) => {
 		});
 	}
 
+	const reviewChannelObj = interaction.guild.channels.cache.get(reviewChannel);
+	if (!reviewChannelObj) {
+		return interaction.reply({
+			content: "The review channel has been deleted. Please set up the review channel again.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
 	await interaction.deferUpdate();
 
 	const verifychannelembed = tempApp.verifychannelembed || {};
@@ -173,12 +181,11 @@ module.exports = async ({ interaction, client, context }) => {
 
 	for (const field of fields) {
 		const value = tempApp[field];
-		if (value == null) continue; // Skip null/undefined values
-
-		if (nullableChannelFields.has(field) && (value === "deleted" || value === "")) {
+		if (nullableChannelFields.has(field) && (value == null || value === "deleted" || value === "")) {
 			appData[field] = null;
 			continue;
 		}
+		if (value == null) continue; // Skip null/undefined values
 
 		if (Array.isArray(value)) {
 			// Include empty arrays (to allow clearing roles)

@@ -639,8 +639,11 @@ function buildV2ContainerForResend(sourceMessage, interaction, status, reason, u
 }
 
 async function updateCurrentReviewMessage({ interaction, application, status, reason }) {
+	const reviewChannel = application?.reviewchannel
+		? interaction?.guild?.channels?.cache.get(application.reviewchannel)
+		: null;
 	const separateLogChannel =
-		application?.verifylogs && application.verifylogs !== application.reviewchannel
+		reviewChannel && application?.verifylogs && application.verifylogs !== application.reviewchannel
 			? interaction?.guild?.channels?.cache.get(application.verifylogs)
 			: null;
 	if (!interaction?.message?.flags?.has(MessageFlags.IsComponentsV2) || separateLogChannel) {
@@ -694,11 +697,11 @@ async function processLogMessages({
 	if (!messageids || messageids.length === 0) return;
 
 	const guild = interaction ? interaction.guild : user.guild;
-	const reviewChannel = guild.channels.cache.get(application.reviewchannel);
+	const reviewChannel = application?.reviewchannel ? guild.channels.cache.get(application.reviewchannel) : null;
 	if (!reviewChannel) return;
 
 	const logChannel =
-		application.verifylogs && application.verifylogs !== application.reviewchannel
+		application?.verifylogs && application.verifylogs !== application.reviewchannel
 			? guild.channels.cache.get(application.verifylogs)
 			: null;
 	const hasSeparateLogChannel = Boolean(logChannel);
@@ -1194,6 +1197,24 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		reason,
 	});
 
+	if (!interaction.isChatInputCommand()) {
+		if (interaction.message?.id) {
+			await Submissions.update(
+				{ status: "denied" },
+				{ where: { message_id: interaction.message.id, status: "completed" } },
+			).catch((e) => {
+				console.error("Error updating submission status:", e);
+			});
+		}
+	} else if (messageids && messageids.length > 0) {
+		await Submissions.update(
+			{ status: "denied" },
+			{ where: { message_id: { [Op.in]: messageids }, status: "completed" } },
+		).catch((e) => {
+			console.error("Error updating submission status:", e);
+		});
+	}
+
 	// Cleanup verification data
 	if (messageids && messageids.length > 0)
 		await cleanupVerificationData(verification, interaction.guild.id, user.id, application.id);
@@ -1202,14 +1223,6 @@ async function denyUser(interaction, client, application, user, reason = null) {
 	const dmResult = await sendDenyDM(interaction.user.username, user, application, interaction.guild.name, reason);
 
 	if (!interaction.isChatInputCommand()) {
-		//mark submission as denied (only possible on button denial, not command denial)
-		await Submissions.update(
-			{ status: "denied" },
-			{ where: { message_id: interaction.message.id, status: "completed" } },
-		).catch((e) => {
-			console.error("Error updating submission status:", e);
-		});
-
 		if (dmResult.dmDisabled) {
 			await interaction.followUp({
 				content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
