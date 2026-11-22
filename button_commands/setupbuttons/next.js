@@ -26,7 +26,10 @@ module.exports = async ({ interaction, context }) => {
 	if (error) return interaction.editReply({ content: `Error: ${error}`, components: [] });
 
 	if (nextnumber === 0) {
-		const channel = await interaction.guild.channels.fetch(temporarySetup.verifychannel).catch(() => null);
+		const channel =
+			temporarySetup.verifychannel && temporarySetup.verifychannel !== "deleted"
+				? await interaction.guild.channels.fetch(temporarySetup.verifychannel).catch(() => null)
+				: null;
 		if (channel) {
 			const botMember = await interaction.guild.members.fetchMe();
 			const botPermissions = channel.permissionsFor(botMember);
@@ -71,7 +74,10 @@ module.exports = async ({ interaction, context }) => {
 			components: [selectmenu, updatedActionRow],
 		});
 	} else if (nextnumber === 1) {
-		const channel = await interaction.guild.channels.fetch(temporarySetup.reviewchannel).catch(() => null);
+		const channel =
+			temporarySetup.reviewchannel && temporarySetup.reviewchannel !== "deleted"
+				? await interaction.guild.channels.fetch(temporarySetup.reviewchannel).catch(() => null)
+				: null;
 		if (channel) {
 			const botMember = await interaction.guild.members.fetchMe();
 			const botPermissions = channel.permissionsFor(botMember);

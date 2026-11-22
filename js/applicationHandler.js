@@ -21,6 +21,8 @@ const {
 	addMessageId,
 	sendDenyDM,
 	sendKickDM,
+	sendVerifyDM,
+	sendWelcomeMessage,
 	applyRoles,
 	createAutoActionContainer,
 	VerificationStatus,
@@ -246,6 +248,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 		const dbObjectsPath = require.resolve("../dbObjects.js");
 		const DBFunctionsPath = require.resolve("../js/DBFunctions.js");
 		let resumeState = null;
+		let resumeCreatedAt = null;
 		let sessionId = uuidv4();
 
 		const pendingProgressRecords = await Submissions.findAll({
@@ -264,6 +267,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 
 			if (payload.currentQuestionId) {
 				resumeState = payload;
+				resumeCreatedAt = progressRecord.createdAt ? new Date(progressRecord.createdAt).getTime() : null;
 				sessionId = progressRecord.message_id;
 				break;
 			}
@@ -311,6 +315,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 				.setColor("#3f7ff1");
 
 			await interaction.editReply({ embeds: [startedEmbed], flags: MessageFlags.Ephemeral });
+			const startedAt = resumeState ? resumeState.startedAt || resumeCreatedAt || null : Date.now();
 			activeVerifications.set(user.id, { sessionId: sessionId, startTime: Date.now() });
 			const isPremium = await isPremiumServer(guildId);
 
@@ -336,11 +341,13 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 							resumeState,
 							isPremium,
 							imageSubmission: application.imageSubmission ?? true,
+							startedAt,
 						},
 						cluster: 0,
 					})
 					.then(async (results) => {
-						const [reason, responses] = results[0];
+						const [reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs = true] =
+							results[0];
 						activeVerifications.delete(user.id);
 						await processVerificationResult(
 							user,
@@ -359,6 +366,10 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 							applicationId,
 							sessionId,
 							application,
+							sessionStartedAt || startedAt,
+							actionReason,
+							actionRoles,
+							shouldNotifyLogs,
 						);
 					})
 					.catch(async (error) => {
@@ -371,21 +382,23 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			} else {
 				//non sharded instances
 				try {
-					const [reason, responses] = await Verificationfunc(client, {
-						userid: user.id,
-						dmChannelId: dmChannel.id,
-						botQuestions: parsedQuestions,
-						cancelbutton: cancelbutton,
-						sessionId: sessionId,
-						guildId,
-						configId,
-						dbObjectsPath,
-						DBFunctionsPath,
-						encryptionKey,
-						resumeState,
-						isPremium,
-						imageSubmission: application.imageSubmission ?? true,
-					});
+					const [reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs = true] =
+						await Verificationfunc(client, {
+							userid: user.id,
+							dmChannelId: dmChannel.id,
+							botQuestions: parsedQuestions,
+							cancelbutton: cancelbutton,
+							sessionId: sessionId,
+							guildId,
+							configId,
+							dbObjectsPath,
+							DBFunctionsPath,
+							encryptionKey,
+							resumeState,
+							isPremium,
+							imageSubmission: application.imageSubmission ?? true,
+							startedAt,
+						});
 
 					activeVerifications.delete(user.id);
 					await processVerificationResult(
@@ -405,6 +418,10 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 						applicationId,
 						sessionId,
 						application,
+						sessionStartedAt || startedAt,
+						actionReason,
+						actionRoles,
+						shouldNotifyLogs,
 					);
 				} catch (error) {
 					activeVerifications.delete(user.id);
@@ -431,7 +448,33 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 	}
 }
 
-async function constructApplicationEmbed(user, questions, answers, serverId, client, pingStaffRoleId, appName) {
+function formatDuration(durationMs) {
+	if (!durationMs || durationMs < 0) return "0s";
+	const totalSeconds = Math.floor(durationMs / 1000);
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+
+	if (hours > 0) {
+		return `${hours}h ${minutes}m ${seconds}s`;
+	}
+	if (minutes > 0) {
+		return `${minutes}m ${seconds}s`;
+	}
+	return `${seconds}s`;
+}
+
+async function constructApplicationEmbed(
+	user,
+	questions,
+	answers,
+	serverId,
+	client,
+	pingStaffRoleId,
+	appName,
+	durationString = null,
+	isAutoAction = false,
+) {
 	const guild = client.guilds.cache.get(serverId);
 	if (!guild) return { container: null, wasTruncated: false, fullText: null };
 
@@ -457,6 +500,7 @@ async function constructApplicationEmbed(user, questions, answers, serverId, cli
 		.concat(`**Username:** \`${user.username}\` <@${user.id}>\n**User ID:** \`${user.id}\`\n`)
 		.concat(`**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n`)
 		.concat(`**Joined server:** <t:${Math.floor(guildmember?.joinedTimestamp / 1000)}:R>`)
+		.concat(durationString ? `\n**Duration:** \`${durationString}\`` : "")
 		//Observation : `null` has `null` uses is a pattern occasionally seen, will need more profiling - Mat
 		//Note : Speculation is DB null edge case potentially.
 		.concat(
@@ -468,7 +512,8 @@ async function constructApplicationEmbed(user, questions, answers, serverId, cli
 					} (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)`
 				: "",
 		);
-	const container = new ContainerBuilder({ accent_color: 4161521 })
+	const accentColor = isAutoAction ? 0xeb2121 : 4161521;
+	const container = new ContainerBuilder({ accent_color: accentColor })
 		.addSectionComponents(
 			new SectionBuilder()
 				.addTextDisplayComponents(new TextDisplayBuilder({ content: headerText }))
@@ -583,117 +628,147 @@ async function processVerificationResult(
 	applicationId,
 	sessionId,
 	application,
+	startedAt = null,
+	actionReason = null,
+	actionRoles = [],
+	shouldNotifyLogs = true,
 ) {
-	if (reason === "completed" || reason === "kick" || reason === "deny") {
+	if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
 		// Process collected responses and send to verification review channel
-		updateVerifications();
+		await updateVerifications().catch((err) => console.error("Failed to update verifications:", err));
 
 		user = user || interaction.user;
 
-		const containerResult = await constructApplicationEmbed(
-			user,
-			botQuestions,
-			responses,
-			interaction.guild.id,
-			client,
-			pingStaffRoleId,
-			appName,
-		);
+		const durationString = startedAt ? formatDuration(Date.now() - startedAt) : null;
+		const isAutoAction = reason === "kick" || reason === "deny" || reason === "verify";
+		const shouldPostReviewOrLog = !isAutoAction || shouldNotifyLogs !== false;
+		let channelsent = null;
 
-		//if (!containerResult || !containerResult.container) {
-		if (!containerResult?.container) {
-			//try to send image to user:
-			await dmChannel
-				.send({
-					content:
-						"An error occurred while processing your application. This can happen when you left or have been kicked from the server during your application.",
-				})
-				.catch(() => {});
-			return;
+		if (shouldPostReviewOrLog) {
+			const containerResult = await constructApplicationEmbed(
+				user,
+				botQuestions,
+				responses,
+				interaction.guild.id,
+				client,
+				pingStaffRoleId,
+				appName,
+				durationString,
+				isAutoAction,
+			);
+
+			//if (!containerResult || !containerResult.container) {
+			if (!containerResult?.container) {
+				//try to send image to user:
+				await dmChannel
+					.send({
+						content:
+							"An error occurred while processing your application. This can happen when you left or have been kicked from the server during your application.",
+					})
+					.catch(() => {});
+				return;
+			}
+
+			let { container, attachment } = containerResult;
+
+			if (isAutoAction) {
+				const status =
+					reason === "kick"
+						? VerificationStatus.KICKED
+						: reason === "deny"
+							? VerificationStatus.DENIED
+							: VerificationStatus.VERIFIED;
+				container = createAutoActionContainer(container, status, client);
+			}
+
+			const isActionActive = reason === "completed";
+
+			//create the buttons
+			const verify = new ActionRowBuilder().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`verify_${applicationId}_${interaction.user.id}`)
+					.setLabel("Accept")
+					.setStyle("Success"),
+				new ButtonBuilder()
+					.setCustomId(`deny_${applicationId}_${interaction.user.id}`)
+					.setLabel("Deny")
+					.setStyle("Danger"),
+				new ButtonBuilder()
+					.setCustomId(`question_${applicationId}_${interaction.user.id}`)
+					.setLabel("Question")
+					.setStyle("Primary"),
+				new ButtonBuilder()
+					.setCustomId(`action_${applicationId}_${interaction.user.id}`)
+					.setLabel("Kick")
+					.setStyle("Secondary"),
+			);
+
+			const sendPayload = {
+				flags: [MessageFlags.IsComponentsV2],
+				components: [container, isActionActive ? verify : null].filter(Boolean),
+				allowedMentions: { parse: ["roles"] },
+			};
+
+			if (attachment) sendPayload.files = [attachment];
+
+			let threadName = null;
+			if (useThreads === true) threadName = `${user.globalName ?? user.username}'s ${appName}`;
+
+			let outputChannel = verifyLogsChannel;
+			if (isAutoAction && application.verifylogs) {
+				outputChannel =
+					interaction.guild.channels.cache.get(application.verifylogs) ||
+					(await interaction.guild.channels.fetch(application.verifylogs).catch(() => null)) ||
+					verifyLogsChannel;
+			}
+
+			if (outputChannel) {
+				channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
+			}
+
+			//if reason was kick, deny or verify, close the thread
+			if (isAutoAction && channelsent?.thread) {
+				await channelsent.thread.setArchived(true, "Archiving due to auto-action");
+			}
 		}
 
-		let { container, attachment } = containerResult;
-
-		if (reason === "kick" || reason === "deny") {
-			const status = reason === "kick" ? VerificationStatus.KICKED : VerificationStatus.DENIED;
-			container = createAutoActionContainer(container, status, client, "Automated application response");
-		}
-
-		const isActionActive = reason === "completed";
-
-		//create the buttons
-		const verify = new ActionRowBuilder().addComponents(
-			new ButtonBuilder()
-				.setCustomId(`verify_${applicationId}_${interaction.user.id}`)
-				.setLabel("Accept")
-				.setStyle("Success"),
-			new ButtonBuilder()
-				.setCustomId(`deny_${applicationId}_${interaction.user.id}`)
-				.setLabel("Deny")
-				.setStyle("Danger"),
-			new ButtonBuilder()
-				.setCustomId(`question_${applicationId}_${interaction.user.id}`)
-				.setLabel("Question")
-				.setStyle("Primary"),
-			new ButtonBuilder()
-				.setCustomId(`action_${applicationId}_${interaction.user.id}`)
-				.setLabel("Kick")
-				.setStyle("Secondary"),
-		);
-
-		let channelsent;
-		const sendPayload = {
-			flags: [MessageFlags.IsComponentsV2],
-			components: [container, isActionActive ? verify : null].filter(Boolean),
-			allowedMentions: { parse: ["roles"] },
-		};
-
-		if (attachment) sendPayload.files = [attachment];
-
-		let threadName = null;
-		if (useThreads === true) threadName = `${user.globalName ?? user.username}'s ${appName}`;
-
-		let outputChannel = verifyLogsChannel;
-		if ((reason === "kick" || reason === "deny") && application.verifylogs)
-			outputChannel = interaction.guild.channels.cache.get(application.verifylogs) || verifyLogsChannel;
-
-		channelsent = await sendWebhookMessage(outputChannel, application, sendPayload, threadName);
-
-		//if reason was kick or deny, close the thread
-		if ((reason === "kick" || reason === "deny") && channelsent?.thread)
-			await channelsent.thread.setArchived(true, "Archiving due to auto-action");
-
+		const finalMessageId = channelsent?.id || sessionId;
 		try {
 			const encryptionKey = process.env.ENCRYPTION_KEY;
-			const finalPayload = { responses, submittedForReview: true, reviewMessageId: channelsent.id };
+			const finalPayload = {
+				responses,
+				submittedForReview: true,
+				reviewMessageId: channelsent?.id ?? null,
+			};
 
 			await Submissions.upsert({
-				message_id: channelsent.id,
+				message_id: finalMessageId,
 				user_id: user.id,
 				guild_id: guildId,
 				app_id: String(applicationId),
-				status: reason === "deny" ? "denied" : reason === "kick" ? "kicked" : reason,
+				status: reason === "deny" ? "denied" : reason === "kick" ? "kicked" : reason === "verify" ? "verified" : reason,
 				data: encryptData(finalPayload, encryptionKey),
 			});
 
-			if (sessionId && sessionId !== channelsent.id) await Submissions.destroy({ where: { message_id: sessionId } });
+			if (sessionId && sessionId !== finalMessageId) await Submissions.destroy({ where: { message_id: sessionId } });
 		} catch (progressError) {
 			console.error("Error saving final application progress:", progressError);
 		}
 
 		if (reason === "completed") {
-			try {
-				const [verification, created] = await Verification.findOrCreate({
-					where: { userId: user.id },
-					defaults: { guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } } },
-				});
+			if (channelsent?.id) {
+				try {
+					const [verification, created] = await Verification.findOrCreate({
+						where: { userId: user.id },
+						defaults: { guildVerifications: { [guildId]: { [applicationId]: [channelsent.id] } } },
+					});
 
-				if (!created) {
-					addMessageId(verification, guildId, applicationId, channelsent.id);
-					await verification.save();
+					if (!created) {
+						await addMessageId(verification, guildId, applicationId, channelsent.id);
+					}
+				} catch (error) {
+					console.error("Error setting user verification:", error);
 				}
-			} catch (error) {
-				console.error("Error setting user verification:", error);
 			}
 
 			if (application.pendingrole && Array.isArray(application.pendingrole) && application.pendingrole.length > 0) {
@@ -737,8 +812,124 @@ async function processVerificationResult(
 				member = { user, id: user.id, displayAvatarURL: user.displayAvatarURL.bind(user) };
 			}
 
-			if (reason === "deny") {
-				const rolesToApply = [];
+			if (reason === "verify") {
+				const branchRoles = new Set();
+				if (await isPremiumServer(interaction.guild.id)) {
+					const questionsMap = new Map(botQuestions.filter((q) => q?.id).map((q) => [q.id, q]));
+					for (const resp of responses) {
+						const question = questionsMap.get(resp.questionId);
+						if (!question) continue;
+						if (resp.mcqIndex?.length > 0) {
+							resp.mcqIndex.forEach((idx) => {
+								const opt = question.mcq?.[idx];
+								if (opt?.roles && opt.nextQuestionId !== "kick" && opt.nextQuestionId !== "deny") {
+									opt.roles.forEach((r) => void branchRoles.add(r));
+								}
+							});
+						}
+						if (
+							resp.otherSelected &&
+							Array.isArray(question.otherRoles) &&
+							question.otherNextQuestionId !== "kick" &&
+							question.otherNextQuestionId !== "deny"
+						) {
+							question.otherRoles.forEach((r) => void branchRoles.add(r));
+						}
+						if (question.regexBranches && resp.content) {
+							for (const regex of question.regexBranches) {
+								try {
+									const reg = new RegExp(regex.pattern, "i");
+									if (
+										reg.test(resp.content) &&
+										regex.roles &&
+										regex.nextQuestionId !== "kick" &&
+										regex.nextQuestionId !== "deny"
+									) {
+										regex.roles.forEach((r) => void branchRoles.add(r));
+									}
+								} catch {}
+							}
+						}
+					}
+
+					await cancelPendingActions({
+						guildId: interaction.guild.id,
+						userId: user.id,
+						applicationId: applicationId,
+						actionType: "UNVERIFIED_KICK",
+					}).catch((err) => console.error(`Failed to cancel pending kick for user ${user.id}:`, err));
+				}
+
+				const verifiedRoles = application.verifiedrole || [];
+				const unverifiedRoles = application.unverifiedrole || [];
+				const pendingRoles = application.pendingrole || [];
+				const rolesToRemove = [...new Set([...unverifiedRoles, ...pendingRoles])];
+				const rolesToApply = [...new Set([...verifiedRoles, ...branchRoles])];
+
+				if (member?.roles) {
+					try {
+						await applyRoles(member, rolesToApply, rolesToRemove, interaction);
+					} catch (e) {
+						console.error("Failed to apply roles due to auto-verify", e);
+					}
+				}
+
+				if (application.verificationwelcomechannel && application.verificationwelcomemessage) {
+					const answers = {};
+					if (Array.isArray(responses)) {
+						responses.forEach((resp, idx) => {
+							answers[idx + 1] = resp.content || "";
+						});
+					}
+					await sendWelcomeMessage(
+						interaction,
+						user,
+						application.verificationwelcomechannel,
+						application.verificationwelcomemessage,
+						verifiedRoles,
+						application,
+						answers,
+						"Automated Action",
+					).catch((err) => console.error("Welcome message error on auto-verify:", err));
+				}
+
+				await sendVerifyDM(user, application, interaction, verifiedRoles, actionReason, "Automated Action");
+			} else if (reason === "deny") {
+				const branchDenialRoles = new Set(actionRoles || []);
+				if (branchDenialRoles.size === 0 && responses.length > 0) {
+					const lastResp = responses[responses.length - 1];
+					const question = botQuestions.find((q) => q?.id === lastResp?.questionId);
+					if (question) {
+						if (
+							lastResp.otherSelected &&
+							question.otherNextQuestionId === "deny" &&
+							Array.isArray(question.otherRoles)
+						) {
+							question.otherRoles.forEach((r) => void branchDenialRoles.add(r));
+						}
+						if (lastResp.mcqIndex?.length > 0 && Array.isArray(question.mcq)) {
+							lastResp.mcqIndex.forEach((idx) => {
+								const opt = question.mcq[idx];
+								if (opt?.nextQuestionId === "deny" && Array.isArray(opt.roles)) {
+									opt.roles.forEach((r) => void branchDenialRoles.add(r));
+								}
+							});
+						}
+						if (question.regexBranches && lastResp.content) {
+							for (const regex of question.regexBranches) {
+								try {
+									const reg = new RegExp(regex.pattern, "i");
+									if (reg.test(lastResp.content) && regex.nextQuestionId === "deny" && Array.isArray(regex.roles)) {
+										regex.roles.forEach((r) => void branchDenialRoles.add(r));
+									}
+								} catch {}
+							}
+						}
+					}
+				}
+
+				const rolesToApply = [...branchDenialRoles];
+				let shouldAssignDeniedRole = true;
 				if (
 					application.maxdenials &&
 					application.deniedrole?.length > 0 &&
@@ -753,15 +944,21 @@ async function processVerificationResult(
 						},
 					});
 
-					if (denyCount >= application.maxdenials) rolesToApply.push(...application.deniedrole);
-				} else if (application.deniedrole?.length > 0) {
+					shouldAssignDeniedRole = denyCount >= application.maxdenials;
+				}
+				if (shouldAssignDeniedRole && Array.isArray(application.deniedrole) && application.deniedrole.length > 0) {
 					rolesToApply.push(...application.deniedrole);
 				}
 
-				if (rolesToApply.length > 0 && member.roles) {
+				const pendingRoles = application.pendingrole || [];
+				const deniedRemoveRoles = application.deniedremoveroles || [];
+				const rolesToRemove = [...new Set([...pendingRoles, ...deniedRemoveRoles])];
+
+				if (member?.roles) {
 					try {
-						await applyRoles(member, rolesToApply, null, interaction);
+						await applyRoles(member, rolesToApply, rolesToRemove, interaction);
 						if (
+							shouldAssignDeniedRole &&
 							application.autoRemoveDeniedRoleEnabled &&
 							application.autoRemoveDeniedRoleHours > 0 &&
 							(await isPremiumServer(interaction.guild.id))
@@ -778,15 +975,16 @@ async function processVerificationResult(
 						console.error("Failed to apply denied role due to auto-action", e);
 					}
 				}
-			}
 
-			if (reason === "kick") {
-				const denyReason = "Automated application kick based on response.";
-				await sendKickDM(user, interaction.guild.name, denyReason);
-				if (member.kickable) await member.kick("Auto-kicked during application").catch(() => {});
-			} else {
-				const denyReason = "Automated application denial based on response.";
-				await sendDenyDM("Melpo (Auto-Action)", user, application, interaction.guild.name, denyReason);
+				await sendDenyDM("Automated Action", user, application, interaction.guild.name, actionReason);
+			} else if (reason === "kick") {
+				await sendKickDM("Automated Action", user, application, interaction.guild.name, actionReason);
+				if (member.kickable) {
+					const auditReason = (
+						actionReason ? `Auto-kicked during application: ${actionReason}` : "Auto-kicked during application"
+					).slice(0, 512);
+					await member.kick(auditReason).catch(() => {});
+				}
 			}
 		}
 	}
@@ -807,8 +1005,10 @@ async function Verificationfunc(
 		resumeState,
 		isPremium,
 		imageSubmission = true,
+		startedAt,
 	},
 ) {
+	const sessionStartedAt = resumeState ? (startedAt ?? resumeState.startedAt ?? null) : (startedAt ?? Date.now());
 	return new Promise((resolve, reject) => {
 		const { ButtonBuilder, ActionRowBuilder, EmbedBuilder, StringSelectMenuBuilder } = require("discord.js");
 		const { Submissions } = require(dbObjectsPath || "../dbObjects.js");
@@ -850,6 +1050,7 @@ async function Verificationfunc(
 				currentMessageId,
 				dmChannelId,
 				submittedForReview,
+				startedAt: sessionStartedAt,
 			};
 
 			await Submissions.upsert({
@@ -880,7 +1081,13 @@ async function Verificationfunc(
 		}
 
 		function resolveNextQuestionId(nextQuestionId, currentQuestionIndex) {
-			if (nextQuestionId === "end" || nextQuestionId === "kick" || nextQuestionId === "deny") return nextQuestionId;
+			if (
+				nextQuestionId === "end" ||
+				nextQuestionId === "kick" ||
+				nextQuestionId === "deny" ||
+				nextQuestionId === "verify"
+			)
+				return nextQuestionId;
 			if (nextQuestionId === undefined || nextQuestionId === null || nextQuestionId === "")
 				return getSequentialNextQuestionId(currentQuestionIndex);
 
@@ -896,23 +1103,44 @@ async function Verificationfunc(
 			selectedOptionCount = 0,
 			otherSelected = false,
 		) {
-			// If MCQ with multiple selections, use multiSelectNextQuestionId.
-			if (!isPremium) return getSequentialNextQuestionId(currentQuestionIndex);
+			if (!isPremium)
+				return {
+					nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex),
+					reason: null,
+					roles: [],
+					notifyLogs: true,
+				};
 
 			if (selectedOptionCount > 1 && currentQuestion.multiSelectNextQuestionId)
-				return resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex);
+				return {
+					nextQuestionId: resolveNextQuestionId(currentQuestion.multiSelectNextQuestionId, currentQuestionIndex),
+					reason: currentQuestion.multiSelectReason || null,
+					roles: [],
+					notifyLogs: currentQuestion.multiSelectNotifyLogs !== false,
+				};
 
-			// If Other was the sole selection and question has otherNextQuestionId
-			if (selectedOptionCount === 1 && otherSelected && currentQuestion.otherNextQuestionId)
-				return resolveNextQuestionId(currentQuestion.otherNextQuestionId, currentQuestionIndex);
+			// If Other was selected and question has otherNextQuestionId
+			if (otherSelected && currentQuestion.otherNextQuestionId)
+				return {
+					nextQuestionId: resolveNextQuestionId(currentQuestion.otherNextQuestionId, currentQuestionIndex),
+					reason: currentQuestion.otherReason || null,
+					roles: Array.isArray(currentQuestion.otherRoles) ? currentQuestion.otherRoles : [],
+					notifyLogs: currentQuestion.otherNotifyLogs !== false,
+				};
 
 			// If MCQ with a selected option and that option has a nextQuestionId
 			if (selectedOptionIndex !== null && currentQuestion.mcq && currentQuestion.mcq.length > 0) {
 				const selectedOption = currentQuestion.mcq[selectedOptionIndex];
 
-				//if (selectedOption && selectedOption.nextQuestionId)
-				if (selectedOption?.nextQuestionId)
-					return resolveNextQuestionId(selectedOption.nextQuestionId, currentQuestionIndex);
+				if (selectedOption?.nextQuestionId) {
+					const reason = selectedOption.reason || selectedOption.branch?.reason || null;
+					return {
+						nextQuestionId: resolveNextQuestionId(selectedOption.nextQuestionId, currentQuestionIndex),
+						reason,
+						roles: Array.isArray(selectedOption.roles) ? selectedOption.roles : [],
+						notifyLogs: selectedOption.notifyLogs !== false,
+					};
+				}
 			}
 
 			// Check regex branches
@@ -923,9 +1151,22 @@ async function Verificationfunc(
 							const regex = new RegExp(branch.pattern, "i"); // case-insensitive
 
 							if (regex.test(answerText)) {
-								if (branch.nextQuestionId) return resolveNextQuestionId(branch.nextQuestionId, currentQuestionIndex);
+								const reason = branch.reason || null;
+								const roles = Array.isArray(branch.roles) ? branch.roles : [];
+								if (branch.nextQuestionId)
+									return {
+										nextQuestionId: resolveNextQuestionId(branch.nextQuestionId, currentQuestionIndex),
+										reason,
+										roles,
+										notifyLogs: branch.notifyLogs !== false,
+									};
 
-								return getSequentialNextQuestionId(currentQuestionIndex);
+								return {
+									nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex),
+									reason,
+									roles,
+									notifyLogs: true,
+								};
 							}
 						} catch (error) {
 							console.error(`Invalid regex pattern "${branch.pattern}":`, error);
@@ -935,10 +1176,20 @@ async function Verificationfunc(
 			}
 
 			// Default, use nextQuestionId, otherwise just follow order.
-			if (Object.hasOwn(currentQuestion, "nextQuestionId"))
-				return resolveNextQuestionId(currentQuestion.nextQuestionId, currentQuestionIndex);
+			if (Object.hasOwn(currentQuestion, "nextQuestionId") && currentQuestion.nextQuestionId !== null)
+				return {
+					nextQuestionId: resolveNextQuestionId(currentQuestion.nextQuestionId, currentQuestionIndex),
+					reason: currentQuestion.reason || null,
+					roles: [],
+					notifyLogs: true,
+				};
 
-			return getSequentialNextQuestionId(currentQuestionIndex);
+			return {
+				nextQuestionId: getSequentialNextQuestionId(currentQuestionIndex),
+				reason: null,
+				roles: [],
+				notifyLogs: true,
+			};
 		}
 
 		function createQuestionEmbed(question, responselength) {
@@ -1073,13 +1324,25 @@ async function Verificationfunc(
 					time: 3600000,
 				});
 
-				async function submitAnswerAndAdvance(currentQuestion, inputData, nextQuestionId) {
+				let actionReason = null;
+				let actionRoles = [];
+				let shouldNotifyLogs = true;
+
+				async function submitAnswerAndAdvance(
+					currentQuestion,
+					inputData,
+					nextQuestionId,
+					branchReason = null,
+					branchRoles = [],
+					branchNotifyLogs = true,
+				) {
 					responses.push({
 						questionId: currentQuestion.id,
 						questionContent: currentQuestion.content,
 						content: inputData.content,
 						...(inputData.mcqIndex && { mcqIndex: inputData.mcqIndex }),
 						...(inputData.attachments && { attachments: inputData.attachments }),
+						...(inputData.otherSelected && { otherSelected: true }),
 					});
 
 					collector.resetTimer();
@@ -1090,8 +1353,12 @@ async function Verificationfunc(
 						nextQuestionId === null ||
 						nextQuestionId === "end" ||
 						nextQuestionId === "kick" ||
-						nextQuestionId === "deny"
+						nextQuestionId === "deny" ||
+						nextQuestionId === "verify"
 					) {
+						actionReason = branchReason;
+						actionRoles = branchRoles || [];
+						shouldNotifyLogs = branchNotifyLogs !== false;
 						await clearProgress();
 						const stopReason = nextQuestionId === "end" || nextQuestionId === null ? "completed" : nextQuestionId;
 						buttoncollector.stop(stopReason);
@@ -1244,14 +1511,8 @@ async function Verificationfunc(
 										answercontent = String(answercontent.substring(0, 1020 - questionLength)).concat("...");
 									}
 
-									const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
-										.setColor("#008000")
-										.addFields({ name: `Answer`, value: answercontent });
-
-									await activeQuestionMessage.edit({ embeds: [answerEmbed], components: [] });
-
 									// Determine next question based on branching
-									const nextQuestionId = getNextQuestionId(
+									const branchResult = getNextQuestionId(
 										currentQuestion,
 										currentQuestionIndex,
 										isPremium,
@@ -1259,6 +1520,25 @@ async function Verificationfunc(
 										fieldValue,
 										i.isStringSelectMenu() ? selectedOptions.length : 1,
 									);
+									const nextQuestionId =
+										typeof branchResult === "object" && branchResult !== null
+											? branchResult.nextQuestionId
+											: branchResult;
+									const branchReason =
+										typeof branchResult === "object" && branchResult !== null ? branchResult.reason : null;
+									const branchRoles =
+										typeof branchResult === "object" && branchResult !== null ? branchResult.roles || [] : [];
+									const branchNotifyLogs =
+										typeof branchResult === "object" && branchResult !== null
+											? branchResult.notifyLogs !== false
+											: true;
+
+									const isWrongAnswer = nextQuestionId === "deny" || nextQuestionId === "kick";
+									const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
+										.setColor(isWrongAnswer ? "#eb2121" : "#008000")
+										.addFields({ name: `Answer`, value: answercontent });
+
+									await activeQuestionMessage.edit({ embeds: [answerEmbed], components: [] });
 
 									await submitAnswerAndAdvance(
 										currentQuestion,
@@ -1270,6 +1550,9 @@ async function Verificationfunc(
 													: [selectedOptionIndex],
 										},
 										nextQuestionId,
+										branchReason,
+										branchRoles,
+										branchNotifyLogs,
 									);
 								}
 							} catch (error) {
@@ -1357,14 +1640,8 @@ async function Verificationfunc(
 									await collected.author.send("Note: Your answer was shortened to fit Discord's limits.");
 								}
 
-								const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
-									.setColor("#008000")
-									.addFields({ name: `Answer`, value: answercontent });
-
-								await activeQuestionMessage.edit({ embeds: [answerEmbed], components: [] });
-
 								// Determine next question based on regex branching or default
-								const nextQuestionId = getNextQuestionId(
+								const branchResult = getNextQuestionId(
 									currentQuestion,
 									currentQuestionIndex,
 									isPremium,
@@ -1373,6 +1650,23 @@ async function Verificationfunc(
 									selectedCount,
 									otherSelected,
 								);
+								const nextQuestionId =
+									typeof branchResult === "object" && branchResult !== null
+										? branchResult.nextQuestionId
+										: branchResult;
+								const branchReason =
+									typeof branchResult === "object" && branchResult !== null ? branchResult.reason : null;
+								const branchRoles =
+									typeof branchResult === "object" && branchResult !== null ? branchResult.roles || [] : [];
+								const branchNotifyLogs =
+									typeof branchResult === "object" && branchResult !== null ? branchResult.notifyLogs !== false : true;
+
+								const isWrongAnswer = nextQuestionId === "deny" || nextQuestionId === "kick";
+								const answerEmbed = new EmbedBuilder(activeQuestionMessage.embeds[0])
+									.setColor(isWrongAnswer ? "#eb2121" : "#008000")
+									.addFields({ name: `Answer`, value: answercontent });
+
+								await activeQuestionMessage.edit({ embeds: [answerEmbed], components: [] });
 
 								await submitAnswerAndAdvance(
 									currentQuestion,
@@ -1383,6 +1677,9 @@ async function Verificationfunc(
 										attachments: collected.attachments?.map((attachment) => attachment.url),
 									},
 									nextQuestionId,
+									branchReason,
+									branchRoles,
+									branchNotifyLogs,
 								);
 							} catch (error) {
 								console.error(`Error handling text message for user ${userid}:`, error);
@@ -1407,8 +1704,8 @@ async function Verificationfunc(
 					try {
 						buttoncollector.stop();
 
-						if (reason === "completed" || reason === "kick" || reason === "deny") {
-							resolve([reason, responses]);
+						if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
+							resolve([reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs]);
 						} else if (reason === "canceled") {
 							await clearProgress();
 							reject(new Error("Application was canceled"));
@@ -1478,82 +1775,140 @@ async function resumeApplication(client) {
 			const dmChannel = await client.channels.fetch(payload.dmChannelId).catch(() => null);
 			if (!dmChannel) continue;
 
+			const resumedStartedAt =
+				payload.startedAt ?? (progressRow.createdAt ? new Date(progressRow.createdAt).getTime() : null);
+			const isPremium = await isPremiumServer(progressRow.guild_id);
 			activeVerifications.set(progressRow.user_id, { sessionId: progressRow.message_id, startTime: Date.now() });
 			void (async () => {
 				try {
-					const [reason, responses] = await Verificationfunc(client, {
-						userid: progressRow.user_id,
-						dmChannelId: payload.dmChannelId,
-						botQuestions: payload.questionObjects,
-						cancelbutton,
-						sessionId: progressRow.message_id,
-						guildId: progressRow.guild_id,
-						configId: progressRow.app_id,
-						dbObjectsPath: require.resolve("../dbObjects.js"),
-						DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
-						encryptionKey: process.env.ENCRYPTION_KEY,
-						resumeState: payload,
-						imageSubmission: application.imageSubmission ?? true,
-					});
+					const [reason, responses, sessionStartedAt, actionReason, actionRoles, shouldNotifyLogs = true] =
+						await Verificationfunc(client, {
+							userid: progressRow.user_id,
+							dmChannelId: payload.dmChannelId,
+							botQuestions: payload.questionObjects,
+							cancelbutton,
+							sessionId: progressRow.message_id,
+							guildId: progressRow.guild_id,
+							configId: progressRow.app_id,
+							dbObjectsPath: require.resolve("../dbObjects.js"),
+							DBFunctionsPath: require.resolve("../js/DBFunctions.js"),
+							encryptionKey: process.env.ENCRYPTION_KEY,
+							resumeState: payload,
+							isPremium,
+							imageSubmission: application.imageSubmission ?? true,
+							startedAt: resumedStartedAt,
+						});
 
-					if (reason === "completed" || reason === "kick" || reason === "deny") {
-						await client.cluster.broadcastEval(
-							async (c, context) => {
-								const guild = c.guilds.cache.get(context.guildId);
-								if (!guild) return false;
+					if (reason === "completed" || reason === "kick" || reason === "deny" || reason === "verify") {
+						if (client.cluster) {
+							await client.cluster.broadcastEval(
+								async (c, context) => {
+									const guild = c.guilds.cache.get(context.guildId);
+									if (!guild) return false;
 
-								const targetUser = await c.users.fetch(context.userId).catch(() => null);
-								if (!targetUser) return false;
+									const targetUser = await c.users.fetch(context.userId).catch(() => null);
+									if (!targetUser) return false;
 
-								const { processVerificationResult } = require(context.appHandlerPath);
-								const { getApplicationByIdWithFallback } = require(context.tempConfigPath);
+									const { processVerificationResult } = require(context.appHandlerPath);
+									const { getApplicationByIdWithFallback } = require(context.tempConfigPath);
 
-								const { application } = await getApplicationByIdWithFallback(context.appId, context.guildId);
-								if (!application) return false;
+									const { application } = await getApplicationByIdWithFallback(context.appId, context.guildId);
+									if (!application) return false;
 
-								const verifyLogsChan = await guild.channels.fetch(application.reviewchannel);
-								const dmChan =
-									(await c.channels.fetch(context.dmChannelId).catch(() => null)) ??
-									(await targetUser.createDM().catch(() => null));
+									const verifyLogsChan = application.reviewchannel
+										? await guild.channels.fetch(application.reviewchannel).catch(() => null)
+										: null;
+									const dmChan =
+										(await c.channels.fetch(context.dmChannelId).catch(() => null)) ??
+										(await targetUser.createDM().catch(() => null));
 
-								const pseudoInteraction = { guild, user: targetUser, channel: verifyLogsChan };
+									const pseudoInteraction = { guild, user: targetUser, channel: verifyLogsChan };
 
-								await processVerificationResult(
-									targetUser,
-									context.reason,
-									context.responses,
-									pseudoInteraction,
-									context.botQuestions,
-									dmChan,
-									application.pingrole,
-									context.guildId,
-									verifyLogsChan,
-									application.finishmessage,
-									c,
-									application.usethreads,
-									application.name,
-									context.appId,
-									context.sessionId,
-									application,
-								);
+									await processVerificationResult(
+										targetUser,
+										context.reason,
+										context.responses,
+										pseudoInteraction,
+										context.botQuestions,
+										dmChan,
+										application.pingrole,
+										context.guildId,
+										verifyLogsChan,
+										application.finishmessage,
+										c,
+										application.usethreads,
+										application.name,
+										context.appId,
+										context.sessionId,
+										application,
+										context.sessionStartedAt,
+										context.actionReason,
+										context.actionRoles,
+										context.shouldNotifyLogs,
+									);
 
-								return true;
-							},
-							{
-								context: {
-									guildId: progressRow.guild_id,
-									userId: progressRow.user_id,
-									reason,
-									responses,
-									botQuestions: payload.questionObjects,
-									dmChannelId: payload.dmChannelId,
-									appId: progressRow.app_id,
-									sessionId: progressRow.message_id,
-									appHandlerPath: __filename,
-									tempConfigPath: require.resolve("./tempconfigfuncs.js"),
+									return true;
 								},
-							},
-						);
+								{
+									context: {
+										guildId: progressRow.guild_id,
+										userId: progressRow.user_id,
+										reason,
+										responses,
+										botQuestions: payload.questionObjects,
+										dmChannelId: payload.dmChannelId,
+										appId: progressRow.app_id,
+										sessionId: progressRow.message_id,
+										appHandlerPath: __filename,
+										tempConfigPath: require.resolve("./tempconfigfuncs.js"),
+										sessionStartedAt,
+										actionReason,
+										actionRoles,
+										shouldNotifyLogs,
+									},
+								},
+							);
+						} else {
+							const guild = client.guilds.cache.get(progressRow.guild_id);
+							if (guild) {
+								const { application: latestApp } = await getApplicationByIdWithFallback(
+									progressRow.app_id,
+									progressRow.guild_id,
+								);
+								const resolvedApp = latestApp || application;
+								if (resolvedApp) {
+									const verifyLogsChan = resolvedApp.reviewchannel
+										? guild.channels.cache.get(resolvedApp.reviewchannel) ||
+											(await guild.channels.fetch(resolvedApp.reviewchannel).catch(() => null))
+										: null;
+									const dmChan = dmChannel ?? (await user.createDM().catch(() => null));
+									const pseudoInteraction = { guild, user, channel: verifyLogsChan };
+
+									await processVerificationResult(
+										user,
+										reason,
+										responses,
+										pseudoInteraction,
+										payload.questionObjects,
+										dmChan,
+										resolvedApp.pingrole,
+										progressRow.guild_id,
+										verifyLogsChan,
+										resolvedApp.finishmessage,
+										client,
+										resolvedApp.usethreads,
+										resolvedApp.name,
+										progressRow.app_id,
+										progressRow.message_id,
+										resolvedApp,
+										sessionStartedAt,
+										actionReason,
+										actionRoles,
+										shouldNotifyLogs,
+									);
+								}
+							}
+						}
 					}
 				} catch (error) {
 					console.error(`Failed to resume application progress ${progressRow.message_id}:`, error);

@@ -178,12 +178,29 @@ async function formatCustomMessage(config, context = {}) {
 		}
 
 		if (context.reason && !reasonMatched) {
-			const reasonBlock = { type: "text", content: `**Reason:** ${context.reason}` };
+			const reasonText = `\n\n**Reason:** ${context.reason}`;
 			const container = clonedBlocks.find((b) => b.type === "container");
-			if (container && Array.isArray(container.blocks)) {
-				container.blocks.push(reasonBlock);
-			} else {
-				clonedBlocks.push(reasonBlock);
+			let appended = false;
+			const targetBlocks = container && Array.isArray(container.blocks) ? container.blocks : clonedBlocks;
+			for (let i = targetBlocks.length - 1; i >= 0; i--) {
+				if (targetBlocks[i].type === "text" && typeof targetBlocks[i].content === "string") {
+					targetBlocks[i].content += reasonText;
+					appended = true;
+					break;
+				}
+				if (targetBlocks[i].type === "section" && typeof targetBlocks[i].content === "string") {
+					targetBlocks[i].content += reasonText;
+					appended = true;
+					break;
+				}
+			}
+			if (!appended) {
+				const reasonBlock = { type: "text", content: `**Reason:** ${context.reason}` };
+				if (container && Array.isArray(container.blocks)) {
+					container.blocks.push(reasonBlock);
+				} else {
+					clonedBlocks.push(reasonBlock);
+				}
 			}
 		}
 
@@ -222,7 +239,7 @@ async function formatCustomMessage(config, context = {}) {
 	let description = config.description ? await interpolateString(config.description, context) : null;
 
 	if (context.reason && !hasExplicitReasonPlaceholder) {
-		description = description ? `${description}\n**Reason:** ${context.reason}` : `**Reason:** ${context.reason}`;
+		description = description ? `${description}\n\n**Reason:** ${context.reason}` : `**Reason:** ${context.reason}`;
 	}
 
 	const rawFooter =
@@ -307,4 +324,5 @@ async function sendWebhookMessage(channel, application, payload, threadName) {
 module.exports = {
 	sendWebhookMessage,
 	formatCustomMessage,
+	interpolateString,
 };

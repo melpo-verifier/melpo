@@ -7,43 +7,72 @@ on:
       - dev
 
 jobs:
-  deploy:
+  deploy-beta:
+    name: Deploy Beta
+    if: github.ref_name == 'dev'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Deploy Beta via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.BETA_VPS_HOST }}
+          username: ${{ secrets.BETA_VPS_USERNAME }}
+          key: ${{ secrets.BETA_VPS_SSH_KEY }}
+          script: |
+            set -e
+
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            echo "Deploying Beta..."
+            cd /home/debian/melpo
+
+            git pull origin dev
+            npm ci --omit=dev
+
+            echo "Running Sequelize migrations..."
+            npx sequelize-cli db:migrate
+
+            echo "Deploying commands for Beta..."
+            node deploy-commands-global.js Melpo
+
+            echo "Deploying staff commands for dev server..."
+            node deploy-commands-support.js
+
+            pm2 restart melpo-beta --update-env
+
+  deploy-prod:
+    name: Deploy Production
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Production via SSH
         uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            set -e
+
+            # Load Node / NVM into shell environment
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-            if [ "${{ github.ref_name }}" = "dev" ]; then
-              echo "Deploying Beta..."
-              cd /home/melpo/melpo-beta
-              git pull origin dev
-              npm ci --omit=dev
+            cd /home/melpo/melpo
+            git pull origin main
+            npm ci --omit=dev
 
-              echo "Deploying commands for Beta..."
-              node deploy-commands-global.js Melpo
+            echo "Running Sequelize migrations..."
+            npx sequelize-cli db:migrate
 
-              echo "Deploying staff commands for dev server..."
-              node deploy-commands-support.js
+            echo "Deploying commands for Production..."
+            node deploy-commands-global.js Melpo
 
-              pm2 restart melpo-beta --update-env
+            echo "Deploying commands for Whitelabel instances..."
+            node deploy-commands-global.js --all-instances
 
-            elif [ "${{ github.ref_name }}" = "main" ]; then
-              echo "Deploying Production..."
-              cd /home/melpo/melpo
-              git pull origin main
-              npm ci --omit=dev
-              echo "Deploying commands for Production..."
-              node deploy-commands-global.js Melpo
+            echo "Deploying staff commands for Support server..."
+            node deploy-commands-support.js
 
-              echo "Deploying staff commands for Support server..."
-              node deploy-commands-support.js
-
-              pm2 restart melpo /bot_.*/ --update-env
-            fi
+            pm2 restart melpo /bot_.*/ --update-env

@@ -35,6 +35,7 @@ module.exports = (sequelize, DataTypes) => {
 			startmessage: { type: DataTypes.JSONB, defaultValue: def_embeds.verify_dm_start, allowNull: false },
 			finishmessage: { type: DataTypes.JSONB, defaultValue: def_embeds.verify_dm_finish, allowNull: false },
 			denymessage: { type: DataTypes.JSONB, defaultValue: def_embeds.verify_dm_deny, allowNull: false },
+			kickmessage: { type: DataTypes.JSONB, defaultValue: def_embeds.verify_dm_kick, allowNull: false },
 			usethreads: { type: DataTypes.BOOLEAN, defaultValue: false },
 			autoRemoveDeniedRoleEnabled: { type: DataTypes.BOOLEAN, defaultValue: false, allowNull: false },
 			autoRemoveDeniedRoleHours: { type: DataTypes.INTEGER, defaultValue: 24, allowNull: false },

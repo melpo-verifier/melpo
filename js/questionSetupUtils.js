@@ -23,12 +23,21 @@ function normalizeQuestions(questions) {
 					: String(normalizedQuestion.content ?? "");
 			normalizedQuestion.mcq = normalizeMcqOptions(normalizedQuestion.mcq);
 			normalizedQuestion.regexBranches = Array.isArray(normalizedQuestion.regexBranches)
-				? normalizedQuestion.regexBranches
+				? normalizedQuestion.regexBranches.map((branch) => ({
+						...branch,
+						pattern: branch.pattern ?? "",
+						nextQuestionId: branch.nextQuestionId ?? null,
+						roles: Array.isArray(branch.roles) ? branch.roles : [],
+						reason: branch.reason ?? null,
+					}))
 				: [];
 			normalizedQuestion.nextQuestionId = normalizedQuestion.nextQuestionId ?? null;
+			normalizedQuestion.reason = normalizedQuestion.reason ?? null;
 			normalizedQuestion.multiSelectNextQuestionId = normalizedQuestion.multiSelectNextQuestionId ?? null;
+			normalizedQuestion.multiSelectReason = normalizedQuestion.multiSelectReason ?? null;
 			normalizedQuestion.otherNextQuestionId = normalizedQuestion.otherNextQuestionId ?? null;
 			normalizedQuestion.otherRoles = Array.isArray(normalizedQuestion.otherRoles) ? normalizedQuestion.otherRoles : [];
+			normalizedQuestion.otherReason = normalizedQuestion.otherReason ?? null;
 
 			const hasExplicitMin =
 				normalizedQuestion.minSelections !== undefined && normalizedQuestion.minSelections !== null;
@@ -56,6 +65,7 @@ function normalizeQuestions(questions) {
 			}
 
 			normalizedQuestion.allowOther = Boolean(normalizedQuestion.allowOther);
+			normalizedQuestion.allowMultipleSelections = normalizedQuestion.maxSelections > 1;
 
 			return normalizedQuestion;
 		})
@@ -66,9 +76,10 @@ function normalizeMcqOptions(mcq) {
 	if (!Array.isArray(mcq)) return [];
 
 	return mcq.map((option) => {
-		if (typeof option === "string") return { id: randomUUID(), label: option, roles: [], nextQuestionId: null };
+		if (typeof option === "string")
+			return { id: randomUUID(), label: option, roles: [], nextQuestionId: null, reason: null };
 		if (!option || typeof option !== "object")
-			return { id: randomUUID(), label: String(option ?? ""), roles: [], nextQuestionId: null };
+			return { id: randomUUID(), label: String(option ?? ""), roles: [], nextQuestionId: null, reason: null };
 
 		const normalizedOption = { ...option };
 
@@ -78,6 +89,7 @@ function normalizeMcqOptions(mcq) {
 		normalizedOption.roles = Array.isArray(normalizedOption.roles) ? normalizedOption.roles : [];
 
 		if (!Object.hasOwn(normalizedOption, "nextQuestionId")) normalizedOption.nextQuestionId = null;
+		normalizedOption.reason = normalizedOption.reason ?? null;
 		return normalizedOption;
 	});
 }
@@ -91,7 +103,7 @@ function normalizeMcqInput(mcqInput, existingMcq = []) {
 		const existingOption = normalizeMcqOptions(existingMcq)[index];
 		if (existingOption) return { ...existingOption, label };
 
-		return { id: randomUUID(), label, roles: [], nextQuestionId: null };
+		return { id: randomUUID(), label, roles: [], nextQuestionId: null, reason: null };
 	});
 }
 
@@ -145,10 +157,13 @@ function buildQuestionFromForm({
 		allowMultipleSelections: parsedMax > 1,
 		regexBranches: Array.isArray(baseQuestion.regexBranches) ? baseQuestion.regexBranches : [],
 		nextQuestionId: baseQuestion.nextQuestionId ?? null,
+		reason: baseQuestion.reason ?? null,
 		multiSelectNextQuestionId: baseQuestion.multiSelectNextQuestionId ?? null,
+		multiSelectReason: baseQuestion.multiSelectReason ?? null,
 		otherNextQuestionId: baseQuestion.otherNextQuestionId ?? null,
 		otherRoles: Array.isArray(baseQuestion.otherRoles) ? baseQuestion.otherRoles : [],
+		otherReason: baseQuestion.otherReason ?? null,
 	};
 }
 
-module.exports = { buildQuestionFromForm, normalizeQuestions };
+module.exports = { buildQuestionFromForm, normalizeQuestions, normalizeMcqOptions };

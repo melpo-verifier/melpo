@@ -19,6 +19,8 @@ var def_embeds = {
 		title: "How to apply",
 		description: `After clicking the "Apply" button below the bot will DM you some questions in order for you to access the server. You'll have to fill out the complete form in order for the moderators to see your application. \n\nClick the "Apply" button below to start the application`,
 		color: "#3f7ff1",
+		buttonLabel: "Apply",
+		buttonStyle: "success",
 	},
 	verify_dm_accepted: {
 		title: `Application accepted`,
@@ -28,6 +30,11 @@ var def_embeds = {
 	verify_dm_deny: {
 		title: `Application Denied`,
 		description: "Your application for **{appName}** in **${interaction.guild.name}** has been denied by {modname}!",
+		color: "#EB2121",
+	},
+	verify_dm_kick: {
+		title: `Kicked from Server`,
+		description: "You've been kicked from **${interaction.guild.name}** by {modname}!",
 		color: "#EB2121",
 	},
 	verify_dm_start: {

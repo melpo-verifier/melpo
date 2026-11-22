@@ -53,6 +53,11 @@ module.exports = async ({ interaction, context, applicationId, tempApplicationId
 			description: "Message user gets when getting denied",
 		},
 		{
+			key: "kickmessage",
+			label: "Kick Notice",
+			description: "Message user gets when getting kicked",
+		},
+		{
 			key: "verificationwelcomemessage",
 			label: "Welcome Message",
 			description: "Welcome message in the server when user gets accepted",

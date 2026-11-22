@@ -32,7 +32,16 @@ module.exports = async ({ interaction, client, context }) => {
 	const verifyChannel = tempApp.verifychannel;
 	const verifiedRole = tempApp.verifiedrole;
 
-	if (!(verifyChannel?.length > 0 && reviewChannel?.length > 0 && verifiedRole?.length > 0 && questions?.length > 0)) {
+	if (
+		!(
+			verifyChannel?.length > 0 &&
+			verifyChannel !== "deleted" &&
+			reviewChannel?.length > 0 &&
+			reviewChannel !== "deleted" &&
+			verifiedRole?.length > 0 &&
+			questions?.length > 0
+		)
+	) {
 		return interaction.reply({
 			content: "You need to set up all the *required* channels, roles and questions before finishing the setup.",
 			flags: MessageFlags.Ephemeral,
@@ -51,6 +60,14 @@ module.exports = async ({ interaction, client, context }) => {
 		});
 	}
 
+	const reviewChannelObj = interaction.guild.channels.cache.get(reviewChannel);
+	if (!reviewChannelObj) {
+		return interaction.reply({
+			content: "The review channel has been deleted. Please set up the review channel again.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
 	await interaction.deferUpdate();
 
 	const verifychannelembed = tempApp.verifychannelembed || {};
@@ -58,6 +75,7 @@ module.exports = async ({ interaction, client, context }) => {
 	const finishmessage = tempApp.finishmessage || {};
 	const verifymessage = tempApp.verifymessage || {};
 	const denymessage = tempApp.denymessage || {};
+	const kickmessage = tempApp.kickmessage || {};
 	const verificationwelcomemessage = tempApp.verificationwelcomemessage || {};
 
 	await finalizeCustomizationImage(tempApp, "verifychannelembed", "images/verifychannelembed", interaction.guild.id);
@@ -65,6 +83,7 @@ module.exports = async ({ interaction, client, context }) => {
 	await finalizeCustomizationImage(tempApp, "finishmessage", "images/finishmessage", interaction.guild.id);
 	await finalizeCustomizationImage(tempApp, "verifymessage", "images/verifymessage", interaction.guild.id);
 	await finalizeCustomizationImage(tempApp, "denymessage", "images/denymessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "kickmessage", "images/kickmessage", interaction.guild.id);
 	await finalizeCustomizationImage(
 		tempApp,
 		"verificationwelcomemessage",
@@ -77,6 +96,7 @@ module.exports = async ({ interaction, client, context }) => {
 	cleanConfig(finishmessage);
 	cleanConfig(verifymessage);
 	cleanConfig(denymessage);
+	cleanConfig(kickmessage);
 	cleanConfig(verificationwelcomemessage);
 
 	const imageCategories = [
@@ -85,6 +105,7 @@ module.exports = async ({ interaction, client, context }) => {
 		"finishmessage",
 		"verifymessage",
 		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 	];
 
@@ -113,6 +134,7 @@ module.exports = async ({ interaction, client, context }) => {
 		"finishmessage",
 		"verifymessage",
 		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 		"questionpingrole",
 		"unverifiedrole",
@@ -151,11 +173,18 @@ module.exports = async ({ interaction, client, context }) => {
 		"finishmessage",
 		"verifymessage",
 		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 	];
 
+	const nullableChannelFields = new Set(["verifylogs", "verificationwelcomechannel"]);
+
 	for (const field of fields) {
 		const value = tempApp[field];
+		if (nullableChannelFields.has(field) && (value == null || value === "deleted" || value === "")) {
+			appData[field] = null;
+			continue;
+		}
 		if (value == null) continue; // Skip null/undefined values
 
 		if (Array.isArray(value)) {
