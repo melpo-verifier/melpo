@@ -3,7 +3,7 @@ const { getTempApplicationById } = require("../js/tempconfigfuncs.js");
 const rolesinfo = require("../button_commands/setupbuttons/rolesinfo.js");
 
 module.exports = async ({ interaction, client, context }) => {
-	const selectedRole = parseInt(context[0], 10);
+	const selectedRole = context[0];
 	const tempApplicationId = parseInt(context[1], 10);
 
 	const { tempApp, error } = await getTempApplicationById(tempApplicationId, interaction.guild.id);
@@ -16,23 +16,9 @@ module.exports = async ({ interaction, client, context }) => {
 
 	const roles = interaction.values;
 
-	const roleFieldMap = {
-		0: "verifiedrole",
-		1: "unverifiedrole",
-		2: "pingrole",
-		3: "managerrole",
-		4: "questionpingrole",
-		5: "deniedrole",
-		6: "allowedroles",
-		7: "ignoreroles",
-		8: "pendingrole",
-		9: "deniedremoveroles",
-	};
-
-	const targetField = roleFieldMap[selectedRole];
-	if (targetField) {
-		tempApp[targetField] = roles;
-		tempApp.changed(targetField, true);
+	if (selectedRole) {
+		tempApp[selectedRole] = roles;
+		tempApp.changed(selectedRole, true);
 		await tempApp.save();
 	}
 
