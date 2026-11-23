@@ -224,7 +224,7 @@ async function handleApplicationStart({ interaction, client, applicationId }) {
 			});
 		}
 
-		const botMember = interaction.guild.members.me ?? (await interaction.guild.members.fetchMe());
+		const botMember = await interaction.guild.members.fetchMe();
 		const botPermissions = verifyLogsChannel.permissionsFor(botMember);
 		//if (
 		//	!botPermissions ||
@@ -501,10 +501,8 @@ async function constructApplicationEmbed(
 		.concat(`**Account created:** <t:${Math.floor(user.createdAt / 1000)}:R>\n`)
 		.concat(`**Joined server:** <t:${Math.floor(guildmember?.joinedTimestamp / 1000)}:R>`)
 		.concat(durationString ? `\n**Duration:** \`${durationString}\`` : "")
-		//Observation : `null` has `null` uses is a pattern occasionally seen, will need more profiling - Mat
-		//Note : Speculation is DB null edge case potentially.
 		.concat(
-			invitetracker
+			invitetracker?.id
 				? `\n**Invited by:** ${
 						invitetracker.id === "vanity" || invitetracker.id === "Unknown"
 							? `\`${invitetracker.id}\``

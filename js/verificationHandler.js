@@ -144,7 +144,7 @@ function isInReviewChannel(interaction, reviewChannelId) {
 // Validate roles exist and bot can manage them
 async function validateRoles(interaction, verifiedRoles, unverifiedRoles, requireAssignRoles = true) {
 	const errors = [];
-	const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
+	const botMember = await interaction.guild.members.fetchMe();
 
 	if (!botMember?.permissions.has("ManageRoles")) {
 		errors.push("I don't have the `Manage Roles` permission in this server.");
@@ -713,7 +713,7 @@ async function processLogMessages({
 
 	if (hasSeparateLogChannel) {
 		if (interaction) {
-			const botMember = guild.members.me ?? (await logChannel.guild.members.fetchMe());
+			const botMember = await logChannel.guild.members.fetchMe();
 			const botPermissions = logChannel.permissionsFor(botMember);
 
 			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
@@ -903,12 +903,20 @@ function createNoApplicationEmbed(user, interaction, invitetracker, status) {
 	const actionText = status === VerificationStatus.VERIFIED ? "Accepted" : "Denied";
 	const color = StatusColors[status];
 
+	const invitedByText = invitetracker?.id
+		? `\n**Invited by:** ${
+				invitetracker.id === "vanity" || invitetracker.id === "Unknown"
+					? `\`${invitetracker.id}\``
+					: `<@${invitetracker.id}>`
+			} (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)`
+		: "";
+
 	return new EmbedBuilder()
 		.setColor(color)
 		.setTitle(`${user.user.displayName} (${statusText})`)
 		.setThumbnail(user.displayAvatarURL({ size: 2048, format: "png" }))
 		.setDescription(
-			`[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.username}\` ${user} \n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+			`[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.username}\` ${user} \n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitedByText}`,
 		)
 		.setFooter({ text: `${actionText} by ${interaction.user.username}` });
 }
@@ -1249,7 +1257,7 @@ async function kickUser(interaction, client, application, user, reason = null) {
 		});
 	}
 
-	const botMember = interaction.guild.members.me || interaction.guild.members.cache.get(client.user.id);
+	const botMember = await interaction.guild.members.fetchMe().catch(() => null);
 	if (!botMember?.permissions.has(PermissionsBitField.Flags.KickMembers)) {
 		return await interaction.followUp({
 			content: "I don't have permission to kick members",

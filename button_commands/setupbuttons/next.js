@@ -133,7 +133,7 @@ module.exports = async ({ interaction, context }) => {
 		const invalidRoles = [];
 		const noPermissionRoles = [];
 
-		const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
+		const botMember = await interaction.guild.members.fetchMe();
 
 		if (!botMember?.permissions.has("ManageRoles")) {
 			return interaction.followUp({

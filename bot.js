@@ -55,7 +55,7 @@ async function createBot(token) {
 	);
 	*/
 	const clientOptions = {
-		partials: [Partials.Message, Partials.Channel, Partials.GuildMember],
+		partials: [Partials.Channel, Partials.GuildMember],
 		intents: [
 			IntentsBitField.Flags.Guilds,
 			IntentsBitField.Flags.GuildMembers,
@@ -92,6 +92,7 @@ async function createBot(token) {
 			GuildEmojiManager: 0,
 			GuildStickerManager: 0,
 			GuildBanManager: 0,
+			GuildInviteManager: 0,
 			ThreadMemberManager: 0,
 			StageInstanceManager: 0,
 			GuildScheduledEventManager: 0,
@@ -169,7 +170,7 @@ async function createBot(token) {
 		});
 	}
 
-	new InviteManager(client);
+	client.inviteManager = new InviteManager(client);
 
 	// const memoryManager = new MemoryManager(client);
 	// memoryManager.start();
@@ -336,7 +337,7 @@ async function createBot(token) {
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
 
 		try {
-			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
+			const botMember = await member.guild.members.fetchMe().catch(() => null);
 			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
 			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
@@ -415,12 +416,14 @@ async function createBot(token) {
 
 	process.on("SIGTERM", () => {
 		console.log("Received SIGTERM, shutting down gracefully...");
+		client?.inviteManager?.destroy();
 		client?.destroy();
 		process.exit(0);
 	});
 
 	process.on("SIGINT", () => {
 		console.log("Received SIGINT, shutting down gracefully...");
+		client?.inviteManager?.destroy();
 		client?.destroy();
 		process.exit(0);
 	});

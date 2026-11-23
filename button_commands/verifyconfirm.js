@@ -14,7 +14,7 @@ module.exports = async ({ interaction, client, userid, context, applicationId })
 		});
 	}
 
-	const botMember = interaction.guild.members.me;
+	const botMember = await interaction.guild.members.fetchMe();
 	if (!botMember?.permissions.has("ManageRoles")) {
 		return await interaction.followUp({
 			content: "I don't have the **Manage Roles** permission. Please grant it and try again.",

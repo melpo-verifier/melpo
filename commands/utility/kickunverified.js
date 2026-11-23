@@ -104,7 +104,7 @@ module.exports = {
 			return await interaction.editReply({ embeds: [premiumEmbed], components: [linkButtons] });
 		}
 
-		const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
+		const botMember = await interaction.guild.members.fetchMe();
 		if (!botMember.permissions.has(PermissionFlagsBits.KickMembers)) {
 			return await interaction.editReply({
 				content: "I do not have the `Kick Members` permission in this server.",
