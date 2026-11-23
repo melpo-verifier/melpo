@@ -146,8 +146,9 @@ class ErrorHandler {
 		});
 
 		if (error instanceof RateLimitError) {
+			const resetMs = error.rateLimitInfo.timeToReset ?? error.rateLimitInfo.retryAfter ?? error.rateLimitInfo.timeout;
 			console.warn(`Rate limit hit: ${error.rateLimitInfo.route}`);
-			console.warn(`Reset after: ${error.rateLimitInfo.timeout}ms`);
+			console.warn(`Reset after: ${resetMs}ms`);
 			return errorId;
 		}
 

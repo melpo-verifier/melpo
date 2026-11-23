@@ -91,7 +91,8 @@ module.exports = {
 		}
 
 		// Check bot permissions
-		if (!interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+		const botMember = await interaction.guild.members.fetchMe();
+		if (!botMember.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
 			return interaction.reply({
 				content: "I do not have the required permissions to manage roles",
 				flags: MessageFlags.Ephemeral,

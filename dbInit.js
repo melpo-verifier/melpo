@@ -10,6 +10,7 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, proces
 
 require("./models/ServerConfig.js")(sequelize, Sequelize.DataTypes);
 require("./models/invitetracker.js")(sequelize, Sequelize.DataTypes);
+require("./models/GuildInviteSnapshot.js")(sequelize, Sequelize.DataTypes);
 require("./models/Verification.js")(sequelize, Sequelize.DataTypes);
 require("./models/questionid.js")(sequelize, Sequelize.DataTypes);
 require("./models/opt-out.js")(sequelize, Sequelize.DataTypes);

@@ -10,6 +10,7 @@ const sequelize = new Sequelize(process.env.DB_NAME, process.env.DB_USER, proces
 
 const ServerConfig = require("./models/ServerConfig.js")(sequelize, Sequelize.DataTypes);
 const InviteTracker = require("./models/invitetracker.js")(sequelize, Sequelize.DataTypes);
+const GuildInviteSnapshot = require("./models/GuildInviteSnapshot.js")(sequelize, Sequelize.DataTypes);
 const Verification = require("./models/Verification.js")(sequelize, Sequelize.DataTypes);
 const QuestionId = require("./models/questionid.js")(sequelize, Sequelize.DataTypes);
 const OptOut = require("./models/opt-out.js")(sequelize, Sequelize.DataTypes);
@@ -33,6 +34,7 @@ module.exports = {
 	sequelize,
 	ServerConfig,
 	InviteTracker,
+	GuildInviteSnapshot,
 	Verification,
 	QuestionId,
 	OptOut,

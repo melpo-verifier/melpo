@@ -149,7 +149,7 @@ module.exports = {
 		}
 
 		description += "\n### Role Hierarchy\n";
-		const botRole = interaction.guild.members.me.roles.highest;
+		const botRole = botMember.roles.highest;
 
 		description += `**Bot's Highest Role:** ${botRole} (Position: ${botRole.position})\n`;
 

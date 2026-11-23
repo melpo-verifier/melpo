@@ -78,7 +78,7 @@ function startActionWorker(manager, intervalMs = 5000) {
 						if (!member) return;
 
 						async function validateRoles(guild, roleIds) {
-							const botMember = guild.members.me || (await guild.members.fetchMe());
+							const botMember = await guild.members.fetchMe().catch(() => null);
 							if (!botMember?.permissions.has("ManageRoles")) return [];
 
 							const hasUncachedRoles = roleIds.some((id) => !guild.roles.cache.has(id));

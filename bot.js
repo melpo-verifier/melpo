@@ -4,7 +4,7 @@ Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on perfo
 const console_hooks = require("./util/console_hooks.js"); // Component : Console class hooking functionality -mat
 const fs = require("node:fs"); // Library : Node js file system module.
 const path = require("node:path"); // Library : Node js path module.
-const { Client, IntentsBitField, Partials, PermissionsBitField, Options } = require("discord.js"); // Library : Discord.js library imports.
+const { Client, IntentsBitField, Partials, PermissionsBitField, Options, Sweepers } = require("discord.js"); // Library : Discord.js library imports.
 require("./util/env_manager.js").config(); // Component : .env parsing (invoking config callback for setup)
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js"); //
 const {
@@ -36,6 +36,10 @@ if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	createBot(process.env.MELPO_TOKEN).catch(() => {}); //Pass token directly from environment block - mat
 }
 
+const SEVEN_DAYS_MS = 60 * 60 * 24 * 7 * 1000;
+const isRecentBotMessage = (message) =>
+	message.author?.id === message.client.user?.id && message.createdTimestamp > Date.now() - SEVEN_DAYS_MS;
+
 async function createBot(token) {
 	/*
 	const myIntents = new IntentsBitField();
@@ -51,14 +55,12 @@ async function createBot(token) {
 	);
 	*/
 	const clientOptions = {
-		partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User],
+		partials: [Partials.Channel, Partials.GuildMember],
 		intents: [
 			IntentsBitField.Flags.Guilds,
 			IntentsBitField.Flags.GuildMembers,
-			IntentsBitField.Flags.GuildModeration,
 			IntentsBitField.Flags.GuildInvites,
 			IntentsBitField.Flags.GuildMessages,
-			IntentsBitField.Flags.GuildMessageReactions,
 			IntentsBitField.Flags.DirectMessages,
 			IntentsBitField.Flags.MessageContent,
 		],
@@ -66,23 +68,40 @@ async function createBot(token) {
 		sweepers: {
 			messages: {
 				interval: 3600,
-				lifetime: 7200,
+				filter: Sweepers.filterByLifetime({
+					lifetime: 7200,
+					excludeFromSweep: isRecentBotMessage,
+				}),
 			},
 		},
 		makeCache: Options.cacheWithLimits({
 			MessageManager: {
-				maxSize: 50,
-				keepOverLimit: (message) =>
-					message.author?.id === client.user.id && message.createdTimestamp > Date.now() - 60 * 60 * 24 * 7,
+				maxSize: 20,
+				keepOverLimit: isRecentBotMessage,
 			},
 			UserManager: {
 				maxSize: 5000,
-				keepOverLimit: (user) => user.id === client.user.id,
+				keepOverLimit: (user) => user.id === user.client.user.id,
 			},
 			GuildMemberManager: {
-				maxSize: 1000,
+				maxSize: 250,
+				keepOverLimit: (member) => member.id === member.client.user.id,
 			},
-			RoleManager: Infinity,
+			DMMessageManager: 15,
+			VoiceStateManager: 0,
+			GuildEmojiManager: 0,
+			GuildStickerManager: 0,
+			GuildBanManager: 0,
+			GuildInviteManager: 0,
+			ThreadMemberManager: 0,
+			StageInstanceManager: 0,
+			GuildScheduledEventManager: 0,
+			AutoModerationRuleManager: 0,
+			ApplicationEmojiManager: 0,
+			PresenceManager: 0,
+			ReactionManager: 0,
+			ReactionUserManager: 0,
+			GuildSoundboardSoundManager: 0,
 		}),
 	};
 
@@ -151,7 +170,7 @@ async function createBot(token) {
 		});
 	}
 
-	new InviteManager(client);
+	client.inviteManager = new InviteManager(client);
 
 	// const memoryManager = new MemoryManager(client);
 	// memoryManager.start();
@@ -318,7 +337,7 @@ async function createBot(token) {
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
 
 		try {
-			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
+			const botMember = await member.guild.members.fetchMe().catch(() => null);
 			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
 			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
@@ -397,12 +416,14 @@ async function createBot(token) {
 
 	process.on("SIGTERM", () => {
 		console.log("Received SIGTERM, shutting down gracefully...");
+		client?.inviteManager?.destroy();
 		client?.destroy();
 		process.exit(0);
 	});
 
 	process.on("SIGINT", () => {
 		console.log("Received SIGINT, shutting down gracefully...");
+		client?.inviteManager?.destroy();
 		client?.destroy();
 		process.exit(0);
 	});
