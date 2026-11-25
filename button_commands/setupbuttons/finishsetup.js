@@ -1,8 +1,9 @@
-const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder } = require("discord.js");
+const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, PermissionsBitField } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const { deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
 const { promoteCustomizationImage, purgeOldImages, isR2ImageResource } = require("../../js/customizationImages.js");
 const { syncApplicationPanels } = require("../../js/updatePanels.js");
+const { validateRoles } = require("../../js/verificationHandler.js");
 
 module.exports = async ({ interaction, client, context }) => {
 	const tempApplicationId = context[0] === "firsttime" ? parseInt(context[1], 10) : parseInt(context[0], 10);
@@ -66,6 +67,46 @@ module.exports = async ({ interaction, client, context }) => {
 			content: "The review channel has been deleted. Please set up the review channel again.",
 			flags: MessageFlags.Ephemeral,
 		});
+	}
+
+	// Validate setup
+	if (isEditMode) {
+		const botMember = await interaction.guild.members.fetchMe();
+		const channelChecks = [
+			["application start channel", verifyChannel],
+			["review channel", reviewChannel],
+			["application logs channel", tempApp.verifylogs],
+			["welcome channel", tempApp.verificationwelcomechannel],
+		];
+
+		for (const [label, channelId] of channelChecks) {
+			if (!channelId || channelId === "deleted") continue;
+
+			const channel = interaction.guild.channels.cache.get(channelId);
+			if (!channel) {
+				return interaction.reply({
+					content: `The ${label} (<#${channelId}>) no longer exists. Please select it again before saving.`,
+					flags: MessageFlags.Ephemeral,
+				});
+			}
+
+			const botPermissions = channel.permissionsFor(botMember);
+			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
+				return interaction.reply({
+					content: `I don't have the required permissions in the ${label} <#${channelId}>. Please make sure I have these channel-specific permissions:\n- View Channel\n- Send Messages`,
+					flags: MessageFlags.Ephemeral,
+				});
+			}
+		}
+
+		const roleErrors = await validateRoles(
+			interaction,
+			[...(verifiedRole || []), ...(tempApp.deniedrole || [])],
+			[...(tempApp.unverifiedrole || []), ...(tempApp.pendingrole || []), ...(tempApp.deniedremoveroles || [])],
+		);
+		if (roleErrors.length > 0) {
+			return interaction.reply({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
+		}
 	}
 
 	await interaction.deferUpdate();

@@ -1,5 +1,6 @@
 const { Events } = require("discord.js");
-const { Instances } = require("../dbObjects");
+const { Op } = require("sequelize");
+const { Instances, ServerConfig } = require("../dbObjects");
 const cron = require("node-cron");
 const { resumeApplication } = require("../js/applicationHandler.js");
 //const { status } = require("express/lib/response.js");
@@ -14,9 +15,15 @@ module.exports = {
 		//only run if not a sharded bot
 		if (!process.argv.includes("sharded")) {
 			console.log("custom bot, writing assosiated guild ids to database...");
-			const guildids = client.guilds.cache?.map((guild) => guild.id);
+			const guildids = client.guilds.cache?.map((guild) => guild.id) || [];
 			console.log(`Found ${guildids.length} guilds.`);
 			await Instances.upsert({ client_id: client.user.id, guilds: guildids });
+			if (guildids.length > 0) {
+				await ServerConfig.update(
+					{ left_at: null },
+					{ where: { server_id: { [Op.in]: guildids }, left_at: { [Op.ne]: null } } },
+				);
+			}
 		} else {
 			client.cluster.triggerReady();
 		}

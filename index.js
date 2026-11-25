@@ -4,7 +4,20 @@ Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on perfo
 const console_hooks = require("./util/console_hooks.js"); // Console class hooking functionality -mat
 const { ClusterManager } = require("discord-hybrid-sharding"); // Discord sharding parts.
 const cron = require("node-cron"); // Scheduled task wrapper.
-const { InviteTracker, TempConfig, QuestionId, Verification, Instances } = require("./dbObjects.js"); // Common database objects.
+const {
+	InviteTracker,
+	TempConfig,
+	QuestionId,
+	Verification,
+	Instances,
+	ServerConfig,
+	TempApplication,
+	Application,
+	GuildWebhook,
+	GuildInviteSnapshot,
+	PendingActions,
+	sequelize,
+} = require("./dbObjects.js"); // Common database objects.
 const { Op } = require("sequelize"); // Database access library.
 const Sentry = require("@sentry/node");
 const { startActionWorker } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
@@ -143,6 +156,41 @@ async function cleanupEmptyVerifications() {
 	}
 }
 
+async function cleanupLeftServers() {
+	try {
+		const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+		const leftConfigs = await ServerConfig.findAll({ where: { left_at: { [Op.lt]: fourteenDaysAgo } } });
+		let deleted = 0;
+
+		for (const config of leftConfigs) {
+			const guildId = config.server_id;
+			try {
+				if (await Instances.findOne({ where: { guilds: { [Op.contains]: [guildId] } } })) {
+					await config.update({ left_at: null });
+					continue;
+				}
+
+				await sequelize.transaction(async (t) => {
+					await TempApplication.destroy({ where: { server_id: guildId }, transaction: t });
+					await Application.destroy({ where: { server_id: guildId }, transaction: t });
+					await TempConfig.destroy({ where: { server_id: guildId }, transaction: t });
+					await GuildWebhook.destroy({ where: { guild_id: guildId }, transaction: t });
+					await GuildInviteSnapshot.destroy({ where: { guild_id: guildId }, transaction: t });
+					await PendingActions.destroy({ where: { guildId }, transaction: t });
+					await config.destroy({ transaction: t });
+				});
+				deleted++;
+			} catch (guildError) {
+				console.error(`Failed to cleanup left server ${guildId}:`, guildError);
+			}
+		}
+
+		console.log(`Cleaned up ${deleted} server configurations of servers Melpo left`);
+	} catch (error) {
+		console.error("Failed to cleanup left servers:", error);
+	}
+}
+
 //async function checkImageExists(imagePath) {
 //	if (!imagePath) return false;
 //	if (isRemoteImage(imagePath)) return true;
@@ -206,7 +254,13 @@ async function cleanupEmptyVerifications() {
 
 async function runAllCleanupTasks() {
 	console.log("Running cleanup tasks...");
-	await Promise.all([cleanupOldInvites(), cleanupTempConfig(), cleanupQuestionIds(), cleanupEmptyVerifications()]);
+	await Promise.all([
+		cleanupOldInvites(),
+		cleanupTempConfig(),
+		cleanupQuestionIds(),
+		cleanupEmptyVerifications(),
+		cleanupLeftServers(),
+	]);
 	console.log("All cleanup tasks completed.");
 }
 
@@ -225,8 +279,6 @@ const manager = new ClusterManager("./bot.js", {
 	shardArgs: ["sharded"],
 });
 
-let clustersReady = 0;
-
 manager.on("clusterCreate", (cluster) => {
 	console.log(`Launched cluster ${cluster.id}`);
 
@@ -238,30 +290,8 @@ manager.on("clusterCreate", (cluster) => {
 
 	cluster.on("reconnecting", () => console.log(`[${new Date().toISOString()}] Cluster ${cluster.id} reconnecting`));
 
-	cluster.on("ready", async () => {
-		clustersReady++;
-		console.log(`Cluster ${cluster.id} ready (${clustersReady}/${manager.totalClusters})`);
-
-		if (clustersReady === manager.totalClusters) {
-			setTimeout(initializeAPI, 5000);
-
-			setTimeout(async () => {
-				console.log("All clusters are ready. Collecting guild IDs...");
-				try {
-					const allGuildIds = await manager.broadcastEval(async (client) =>
-						client.guilds.cache.map((guild) => guild.id),
-					);
-					const uniqueGuildIds = [...new Set(allGuildIds.flat())];
-					console.log(`Collected ${uniqueGuildIds.length} unique guild IDs from all clusters.`);
-
-					await Instances.upsert({ client_id: process.env.MELPO_ID, guilds: uniqueGuildIds });
-
-					console.log("Guild IDs successfully saved to the database.");
-				} catch (error) {
-					console.error("Failed to collect guild IDs from clusters:", error);
-				}
-			}, 5000);
-		}
+	cluster.on("ready", () => {
+		console.log(`Cluster ${cluster.id} ready`);
 	});
 });
 
@@ -270,6 +300,28 @@ manager
 	.spawn()
 	.then(() => {
 		startActionWorker(manager, 5000); // Start the action worker with a 5-second interval
+		setTimeout(initializeAPI, 5000);
+
+		setTimeout(async () => {
+			console.log("All clusters are ready. Collecting guild IDs...");
+			try {
+				const allGuildIds = await manager.broadcastEval((client) => client.guilds.cache.map((guild) => guild.id));
+				const uniqueGuildIds = [...new Set(allGuildIds.flat())];
+				console.log(`Collected ${uniqueGuildIds.length} unique guild IDs from all clusters.`);
+
+				await Instances.upsert({ client_id: process.env.MELPO_ID, guilds: uniqueGuildIds });
+				if (uniqueGuildIds.length > 0) {
+					await ServerConfig.update(
+						{ left_at: null },
+						{ where: { server_id: { [Op.in]: uniqueGuildIds }, left_at: { [Op.ne]: null } } },
+					);
+				}
+
+				console.log("Guild IDs successfully saved to the database.");
+			} catch (error) {
+				console.error("Failed to collect guild IDs from clusters:", error);
+			}
+		}, 5000);
 	})
 	.catch((reason) => console.error("Failed to spawn cluster manager.\n %O", reason));
 global.shardManager = manager;

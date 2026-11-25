@@ -745,7 +745,7 @@ async function processVerificationResult(
 				guild_id: guildId,
 				app_id: String(applicationId),
 				status: reason === "deny" ? "denied" : reason === "kick" ? "kicked" : reason === "verify" ? "verified" : reason,
-				data: encryptData(finalPayload, encryptionKey),
+				data: encryptData(reason === "deny" ? {} : finalPayload, encryptionKey),
 			});
 
 			if (sessionId && sessionId !== finalMessageId) await Submissions.destroy({ where: { message_id: sessionId } });
