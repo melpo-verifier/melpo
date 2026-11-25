@@ -26,20 +26,10 @@ module.exports = async ({ interaction, applicationId, context }) => {
 		}
 	}
 
-	// Check if there's an existing container components message
-	const hasComponents = interaction.message.flags.has(MessageFlags.IsComponentsV2);
-
-	// Get either the container components or the original embed
-	const originalComponents = hasComponents ? interaction.message.components : [];
-	const originalEmbed = hasComponents ? null : interaction.message.embeds[0];
+	const originalComponents = interaction.message.components;
 
 	// Check if verification already in progress
-	if (
-		(hasComponents &&
-			originalComponents.some((c) => c.components?.some((cc) => cc.customId?.includes("actionconfirm")))) ||
-		(!hasComponents && originalEmbed?.fields?.some((f) => f.name.includes("Are you sure")))
-	)
-		return;
+	if (originalComponents.some((c) => c.components?.some((cc) => cc.customId?.includes("actionconfirm")))) return;
 
 	const applicantId = context?.[1] || "";
 
@@ -58,13 +48,11 @@ module.exports = async ({ interaction, applicationId, context }) => {
 			.setStyle("Secondary"),
 	);
 
-	if (hasComponents) {
-		const { container, files } = relinkAttachments(interaction.message);
-		const editPayload = {
-			flags: [MessageFlags.IsComponentsV2],
-			components: [container, verifyRow],
-		};
-		if (files) editPayload.files = files;
-		await interaction.editReply(editPayload);
-	}
+	const { container, files } = relinkAttachments(interaction.message);
+	const editPayload = {
+		flags: [MessageFlags.IsComponentsV2],
+		components: [container, verifyRow],
+	};
+	if (files) editPayload.files = files;
+	await interaction.editReply(editPayload);
 };

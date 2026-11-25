@@ -20,6 +20,7 @@ const {
 	Application,
 	Blacklist,
 	PremiumSubscription,
+	sequelize,
 } = require("./dbObjects.js"); // Component : Common database objects.
 const InviteManager = require("./js/dinvite.js"); // Component : Discord invites
 const ErrorHandler = require("./js/ErrorHandling.js"); // Component : Error handling functionality(report to developer etc).
@@ -27,6 +28,7 @@ const RateLimitError = require("./js/RateLimitHandling.js"); // Component : Rate
 const CommandLoader = require("./js/CommandLoader.js"); // Component : Command loader.
 // const MemoryManager = require("./js/MemoryManager.js"); //
 const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Library : Discord sharding parts.
+const { Op } = require("sequelize");
 const Sentry = require("@sentry/node");
 const { isPremiumServer } = require("./js/DBFunctions.js");
 const { scheduleAction } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
@@ -278,27 +280,41 @@ async function createBot(token) {
 		await updateBotJoins();
 
 		try {
-			const status = await Instances.findOne({ where: { client_id: client.user.id } });
-			const guilds = status?.guilds || [];
-			if (!guilds.includes(guild.id)) {
-				guilds.push(guild.id);
-				await Instances.update({ guilds }, { where: { client_id: client.user.id } });
-			}
+			await ServerConfig.update({ left_at: null }, { where: { server_id: guild.id } });
+			await Instances.findOrCreate({
+				where: { client_id: client.user.id },
+				defaults: { guilds: [] },
+			});
+			await Instances.update(
+				{ guilds: sequelize.fn("array_append", sequelize.col("guilds"), guild.id) },
+				{
+					where: {
+						client_id: client.user.id,
+						[Op.or]: [{ guilds: null }, { [Op.not]: { guilds: { [Op.contains]: [guild.id] } } }],
+					},
+				},
+			);
 		} catch (error) {
 			console.error("Failed to update guild list on guildCreate:", error);
 		}
 	});
 
 	client.on("guildDelete", async (guild) => {
-		if (!guild.name || !guild.memberCount) return; //console.log("Received partial guild data:", guild);
+		if (guild.available === false || !guild.name || !guild.memberCount) return; //console.log("Received partial guild data:", guild);
 
 		await updateBotLeaves();
 
 		try {
-			const status = await Instances.findOne({ where: { client_id: client.user.id } });
-			const guilds = status?.guilds || [];
-			const updatedGuilds = guilds.filter((id) => id !== guild.id);
-			await Instances.update({ guilds: updatedGuilds }, { where: { client_id: client.user.id } });
+			await Instances.update(
+				{ guilds: sequelize.fn("array_remove", sequelize.col("guilds"), guild.id) },
+				{ where: { client_id: client.user.id } },
+			);
+
+			// Mark bot as left
+			const remaining = await Instances.findOne({ where: { guilds: { [Op.contains]: [guild.id] } } });
+			if (!remaining) {
+				await ServerConfig.update({ left_at: new Date() }, { where: { server_id: guild.id, left_at: null } });
+			}
 		} catch (error) {
 			console.error("Failed to update guild list on guildDelete:", error);
 		}
@@ -376,7 +392,15 @@ async function createBot(token) {
 			[applications, verification] = await Promise.all([
 				Application.findAll({
 					where: { server_id: member.guild.id },
-					attributes: ["id", "reviewchannel", "verifylogs", "branding_enabled", "custom_name", "custom_avatar_url"],
+					attributes: [
+						"id",
+						"reviewchannel",
+						"verifylogs",
+						"usethreads",
+						"branding_enabled",
+						"custom_name",
+						"custom_avatar_url",
+					],
 				}),
 				Verification.findOne({ where: { userId: member.id }, attributes: ["userId", "guildVerifications"] }),
 			]);

@@ -39,22 +39,6 @@ async function interpolateString(text, context = {}) {
 			result = result.replace(/\{q([0-9]+)\}/gi, (_match, qNum) => {
 				return context.answers[qNum] ?? context.answers[Number.parseInt(qNum, 10)] ?? "";
 			});
-		} else if (interaction?.message?.flags?.has(MessageFlags.IsComponentsV2)) {
-			const matches = result.match(/\{q[0-9]+\}/gi);
-			if (matches) {
-				for (const match of matches) {
-					const questionNumber = Number.parseInt(match.slice(2, -1), 10);
-					const component = interaction.message.components[0]?.components?.find((c) =>
-						c.data?.content?.startsWith(`**${questionNumber}.**`),
-					);
-					if (component?.content) {
-						const answer = component.content.split("_ _")[1]?.trim() || "";
-						result = result.replace(new RegExp(match, "gi"), answer);
-					} else {
-						result = result.replace(new RegExp(match, "gi"), "");
-					}
-				}
-			}
 		} else {
 			result = result.replace(/\{q[0-9]+\}/gi, "");
 		}

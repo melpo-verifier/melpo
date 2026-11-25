@@ -25,17 +25,9 @@ module.exports = async ({ interaction, applicationId, context }) => {
 		}
 	}
 
-	const hasComponents = interaction.message.flags.has(MessageFlags.IsComponentsV2);
+	const originalComponents = interaction.message.components;
 
-	const originalComponents = hasComponents ? interaction.message.components : [];
-	const originalEmbed = hasComponents ? null : interaction.message.embeds[0];
-
-	if (
-		(hasComponents &&
-			originalComponents.some((c) => c.components?.some((cc) => cc.customId?.includes("denyconfirm")))) ||
-		(!hasComponents && originalEmbed?.fields?.some((f) => f.name.includes("Are you sure")))
-	)
-		return;
+	if (originalComponents.some((c) => c.components?.some((cc) => cc.customId?.includes("denyconfirm")))) return;
 
 	const applicantId = context?.[1] || "";
 
@@ -54,13 +46,11 @@ module.exports = async ({ interaction, applicationId, context }) => {
 			.setStyle("Secondary"),
 	);
 
-	if (hasComponents) {
-		const { container, files } = relinkAttachments(interaction.message);
-		const editPayload = {
-			flags: [MessageFlags.IsComponentsV2],
-			components: [container, verifyRow],
-		};
-		if (files) editPayload.files = files;
-		await interaction.editReply(editPayload);
-	}
+	const { container, files } = relinkAttachments(interaction.message);
+	const editPayload = {
+		flags: [MessageFlags.IsComponentsV2],
+		components: [container, verifyRow],
+	};
+	if (files) editPayload.files = files;
+	await interaction.editReply(editPayload);
 };

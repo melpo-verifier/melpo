@@ -15,7 +15,7 @@ const {
 } = require("discord.js");
 const { Verification, InviteTracker, Submissions, GuildWebhook, Application } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
-const { decryptData } = require("./DBFunctions.js");
+const { decryptData, encryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
 const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
@@ -129,17 +129,6 @@ function isInReviewChannel(interaction, reviewChannelId) {
 
 	return false;
 }
-
-// !!! NOT USED
-// function createDisabledButtons() {
-// 	return new ActionRowBuilder().addComponents(
-// 		new ButtonBuilder().setCustomId("verify").setLabel("Accept").setStyle("Success").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("deny").setLabel("Deny").setStyle("Danger").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("reasondeny").setLabel("Deny with reason").setStyle("Danger").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("question").setLabel("Question").setStyle("Primary").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("action").setLabel("Kick").setStyle("Secondary").setDisabled(true),
-// 	);
-// }
 
 // Validate roles exist and bot can manage them
 async function validateRoles(interaction, verifiedRoles, unverifiedRoles, requireAssignRoles = true) {
@@ -340,60 +329,6 @@ function handleV2Edit(interaction, message, status, reason = null, memberId = nu
 
 	editedContainer.addTextDisplayComponents(new TextDisplayBuilder({ content: footerText }));
 	return editedContainer;
-}
-
-// Process text placeholders for welcome messages
-async function processText(text, user, interaction, verifiedRoles, appName = null) {
-	if (!text) return null;
-
-	if (text.toLowerCase().includes("{q") && interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
-		const regex = /\{q[0-9]\}/gi;
-		const matches = text.match(regex);
-
-		if (matches) {
-			matches.forEach((match) => {
-				const questionNumber = parseInt(match.slice(2, -1), 10);
-				const component = interaction.message.components[0]?.components?.find((c) =>
-					c.data?.content?.startsWith(`**${questionNumber}.**`),
-				);
-
-				//if (component && component.content) {
-				if (component?.content) {
-					const answer = component.content.split("_ _")[1]?.trim() || "";
-					text = text.replace(new RegExp(match, "gi"), answer);
-				} else {
-					text = text.replace(new RegExp(match, "gi"), "");
-				}
-			});
-		}
-	} else if (text.toLowerCase().includes("{q")) {
-		text = text.replace(/{q[0-9]}/gi, "");
-	}
-
-	// Replace user placeholders
-	text = text.replace(/{username}/gi, user.user.globalName ?? user.user.username);
-	text = text.replace(/{usermention}/gi, `<@${user.id}>`);
-	text = text.replace(/{members}/gi, interaction.guild.memberCount);
-
-	// Count verified members
-	if (text.toLowerCase().includes("{verifiedmembers}")) {
-		const verifiedMembers = await interaction.guild.members
-			.fetch()
-			.then((members) => {
-				return members.filter((member) => verifiedRoles.some((role) => member.roles.cache.has(role))).size;
-			})
-			.catch((error) => {
-				console.error(error);
-				return 0;
-			});
-		text = text.replace(/{verifiedmembers}/gi, verifiedMembers);
-	}
-
-	text = text.replace(/{modname}/gi, interaction.user.globalName ?? interaction.user.username);
-	text = text.replace(/\${interaction.guild.name}/gi, interaction.guild.name);
-	text = text.replace(/{appName}/gi, appName);
-
-	return text?.trim() ? text : null;
 }
 
 // Get mentions from content for pinging
@@ -736,7 +671,8 @@ async function processLogMessages({
 				if (files) sendPayload.files = files;
 
 				let threadEmbed;
-				if (message.thread) threadEmbed = await createThreadSummary(message.thread, client, status);
+				if (application.usethreads && message.thread)
+					threadEmbed = await createThreadSummary(message.thread, client, status);
 
 				let sentMessage;
 				if (webhookClient) {
@@ -751,17 +687,19 @@ async function processLogMessages({
 					sentMessage = await rateLimitedOperation(sendOp);
 				}
 
-				const messageToThread = webhookClient ? await logChannel.messages.fetch(sentMessage.id) : sentMessage;
-				const threadOp = async () => messageToThread.startThread({ name: threadName });
-				const threadchannel = await rateLimitedOperation(threadOp);
+				if (application.usethreads) {
+					const messageToThread = webhookClient ? await logChannel.messages.fetch(sentMessage.id) : sentMessage;
+					const threadOp = async () => messageToThread.startThread({ name: threadName });
+					const threadchannel = await rateLimitedOperation(threadOp);
 
-				if (threadEmbed) {
-					const embedOp = async () => threadchannel.send({ embeds: [threadEmbed] });
-					await rateLimitedOperation(embedOp);
+					if (threadEmbed) {
+						const embedOp = async () => threadchannel.send({ embeds: [threadEmbed] });
+						await rateLimitedOperation(embedOp);
+					}
+
+					const archiveOp = async () => threadchannel.setArchived(true);
+					await rateLimitedOperation(archiveOp);
 				}
-
-				const archiveOp = async () => threadchannel.setArchived(true);
-				await rateLimitedOperation(archiveOp);
 
 				if (message.thread) {
 					const deleteThreadOp = async () => message.thread.delete();
@@ -1067,11 +1005,7 @@ async function verifyUser(interaction, client, application, user, reason = null)
 	if (welcomeChannel && welcomeMessage) {
 		try {
 			const answers = {};
-			if (submissionData?.responses && Array.isArray(submissionData.responses)) {
-				submissionData.responses.forEach((resp, idx) => {
-					answers[idx + 1] = resp.content || "";
-				});
-			}
+			for (const [i, response] of (submissionData?.responses ?? []).entries()) answers[i + 1] = response.content || "";
 			const modname = interaction?.user?.globalName || interaction?.user?.username || null;
 			await sendWelcomeMessage(
 				interaction,
@@ -1205,23 +1139,20 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		reason,
 	});
 
-	if (!interaction.isChatInputCommand()) {
-		if (interaction.message?.id) {
-			await Submissions.update(
-				{ status: "denied" },
-				{ where: { message_id: interaction.message.id, status: "completed" } },
-			).catch((e) => {
-				console.error("Error updating submission status:", e);
-			});
-		}
-	} else if (messageids && messageids.length > 0) {
-		await Submissions.update(
-			{ status: "denied" },
-			{ where: { message_id: { [Op.in]: messageids }, status: "completed" } },
-		).catch((e) => {
-			console.error("Error updating submission status:", e);
-		});
-	}
+	// Mark the submission as denied and strip its answers; the row stays for denial history / maxdenials.
+	await Submissions.update(
+		{ status: VerificationStatus.DENIED, data: encryptData({}) },
+		{
+			where: {
+				user_id: user.id,
+				guild_id: interaction.guild.id,
+				app_id: String(application.id),
+				status: "completed",
+			},
+		},
+	).catch((e) => {
+		console.error("Error updating submission status:", e);
+	});
 
 	// Cleanup verification data
 	if (messageids && messageids.length > 0)
@@ -1295,7 +1226,15 @@ async function kickUser(interaction, client, application, user, reason = null) {
 
 		const allApplications = await Application.findAll({
 			where: { server_id: interaction.guild.id },
-			attributes: ["id", "reviewchannel", "verifylogs", "branding_enabled", "custom_name", "custom_avatar_url"],
+			attributes: [
+				"id",
+				"reviewchannel",
+				"verifylogs",
+				"usethreads",
+				"branding_enabled",
+				"custom_name",
+				"custom_avatar_url",
+			],
 		});
 
 		for (const app of allApplications) {
@@ -1377,7 +1316,6 @@ module.exports = {
 	createAutoActionContainer,
 	handleV2Edit,
 	relinkAttachments,
-	processText,
 	getMentions,
 	getMessageIds,
 	addMessageId,

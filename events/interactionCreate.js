@@ -3,6 +3,7 @@ const { updateCommandUsage, updateComponentUsage } = require("../js/tempconfigfu
 const ErrorHandler = require("../js/ErrorHandling.js");
 
 const interactionCache = new Map();
+const inFlightConfirms = new Set();
 const CACHE_TTL = 5000;
 const MAX_CACHE_SIZE = 1000;
 const checkDuplicatesFor = ["verifyconfirm", "denyconfirm", "actionconfirm"];
@@ -29,17 +30,34 @@ module.exports = {
 			}
 
 			const [command, ...context] = interaction.customId?.split("_") || [];
+			const isConfirmCommand = checkDuplicatesFor.includes(command);
 			const cacheKey = `${interaction.user.id}-${command}-${interaction.customId}`;
+			const inFlightKey = interaction.message?.id ? `${command}:${interaction.message.id}` : interaction.customId;
 
-			if (checkDuplicatesFor.includes(command)) {
+			if (isConfirmCommand) {
+				if (inFlightConfirms.has(inFlightKey)) {
+					if (!interaction.deferred && !interaction.replied) {
+						return interaction
+							.reply({
+								content: "⏳ This action is already being processed. Please wait.",
+								flags: MessageFlags.Ephemeral,
+							})
+							.catch(() => {});
+					}
+					return;
+				}
+
 				const cached = interactionCache.get(cacheKey);
 				if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-					return interaction
-						.reply({
-							content: "⏳ Please wait 5 seconds before trying again.",
-							flags: MessageFlags.Ephemeral,
-						})
-						.catch(() => {});
+					if (!interaction.deferred && !interaction.replied) {
+						return interaction
+							.reply({
+								content: "⏳ Please wait 5 seconds before trying again.",
+								flags: MessageFlags.Ephemeral,
+							})
+							.catch(() => {});
+					}
+					return;
 				}
 
 				if (interactionCache.size >= MAX_CACHE_SIZE) {
@@ -48,42 +66,47 @@ module.exports = {
 				}
 
 				interactionCache.set(cacheKey, { timestamp: Date.now(), processed: true });
+				inFlightConfirms.add(inFlightKey);
 			}
 
-			const userid = await extractUserId(interaction, context, command);
-			let applicationId = null;
-			let tempApplicationId = null;
+			try {
+				const userid = await extractUserId(interaction, context, command);
+				let applicationId = null;
+				let tempApplicationId = null;
 
-			if (context.length > 0 && context[0] && context[0].length < 17) {
-				const parsed = parseInt(context[0], 10);
-				if (!Number.isNaN(parsed)) {
-					if (
-						command.includes("info") ||
-						command === "next" ||
-						command === "cancelsetup" ||
-						command === "finishsetup" ||
-						command === "toggleusethreads" ||
-						command === "setverifyfilter"
-					) {
-						tempApplicationId = parsed;
-					} else {
-						applicationId = parsed;
+				if (context.length > 0 && context[0] && context[0].length < 17) {
+					const parsed = parseInt(context[0], 10);
+					if (!Number.isNaN(parsed)) {
+						if (
+							command.includes("info") ||
+							command === "next" ||
+							command === "cancelsetup" ||
+							command === "finishsetup" ||
+							command === "toggleusethreads" ||
+							command === "setverifyfilter"
+						) {
+							tempApplicationId = parsed;
+						} else {
+							applicationId = parsed;
+						}
 					}
 				}
-			}
 
-			const data = { interaction, client, context, userid, applicationId, tempApplicationId };
-			if (interaction.customId) console.log(`Interaction handled: ${interaction.customId}`);
+				const data = { interaction, client, context, userid, applicationId, tempApplicationId };
+				if (interaction.customId) console.log(`Interaction handled: ${interaction.customId}`);
 
-			if (interaction.isButton()) await handleInteraction(command, data, client, interaction, "buttonCommands", true);
-			else if (isSelectMenu(interaction)) await handleInteraction(command, data, client, interaction, "menus", true);
-			else if (interaction.isModalSubmit())
-				await handleInteraction(command, data, client, interaction, "modals", false);
+				if (interaction.isButton()) await handleInteraction(command, data, client, interaction, "buttonCommands", true);
+				else if (isSelectMenu(interaction)) await handleInteraction(command, data, client, interaction, "menus", true);
+				else if (interaction.isModalSubmit())
+					await handleInteraction(command, data, client, interaction, "modals", false);
 
-			// Update usage stats
-			if (!interaction.customId?.includes("cancelverification") && interaction.customId) {
-				// console.timeEnd(`Interaction handled: ${interaction.customId}`);
-				updateComponentUsage(command).catch((err) => console.error("Failed to update component usage:", err));
+				// Update usage stats
+				if (!interaction.customId?.includes("cancelverification") && interaction.customId) {
+					// console.timeEnd(`Interaction handled: ${interaction.customId}`);
+					updateComponentUsage(command).catch((err) => console.error("Failed to update component usage:", err));
+				}
+			} finally {
+				if (isConfirmCommand) inFlightConfirms.delete(inFlightKey);
 			}
 		} catch (error) {
 			console.error(`Error processing interaction ${interaction.customId}:`, error);
@@ -173,16 +196,6 @@ async function extractUserId(interaction, context, command) {
 		}
 	}
 
-	if (interaction.message?.embeds[0]?.footer) {
-		const footerText = interaction.message.embeds[0].footer.text;
-
-		if (footerText.startsWith("DM | ")) return footerText.slice(5);
-		if (footerText.startsWith("DMTimeout | ")) return footerText.slice(12);
-		if (footerText.startsWith("Denied | ")) return footerText.slice(9);
-
-		return footerText;
-	}
-
 	if (interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
 		if (
 			interaction.customId.includes("question_") ||
@@ -205,9 +218,6 @@ async function extractUserId(interaction, context, command) {
 
 			if (userIdMatch?.[1]) return userIdMatch[1];
 		}
-
-		const footerText = interaction.message.embeds?.[0]?.footer?.text;
-		if (footerText && /^\d{17,20}$/.test(footerText)) return footerText;
 	}
 
 	return null;
