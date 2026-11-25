@@ -282,8 +282,8 @@ const manager = new ClusterManager("./bot.js", {
 manager.on("clusterCreate", (cluster) => {
 	console.log(`Launched cluster ${cluster.id}`);
 
-	cluster.on("death", (process) => {
-		console.log(`[${new Date().toISOString()}] Cluster ${cluster.id} died with code ${process?.exitCode}`);
+	cluster.on("death", (_cluster, proc) => {
+		console.log(`[${new Date().toISOString()}] Cluster ${cluster.id} died with code ${proc?.exitCode}`);
 	});
 
 	cluster.on("disconnect", () => console.log(`[${new Date().toISOString()}] Cluster ${cluster.id} disconnected`));

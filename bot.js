@@ -33,14 +33,17 @@ const Sentry = require("@sentry/node");
 const { isPremiumServer } = require("./js/DBFunctions.js");
 const { scheduleAction } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
 
-if (process.argv.length > 2 && process.argv[2] === "sharded") {
-	console.log("sharded arrived!");
-	createBot(process.env.MELPO_TOKEN).catch(() => {}); //Pass token directly from environment block - mat
-}
-
 const SEVEN_DAYS_MS = 60 * 60 * 24 * 7 * 1000;
 const isRecentBotMessage = (message) =>
 	message.author?.id === message.client.user?.id && message.createdTimestamp > Date.now() - SEVEN_DAYS_MS;
+
+if (process.argv.length > 2 && process.argv[2] === "sharded") {
+	console.log("sharded arrived!");
+	createBot(process.env.MELPO_TOKEN).catch((error) => {
+		console.error("Failed to start sharded bot:", error);
+		process.exit(1);
+	}); //Pass token directly from environment block - mat
+}
 
 async function createBot(token) {
 	/*
