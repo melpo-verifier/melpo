@@ -13,12 +13,20 @@ const {
 	AttachmentBuilder,
 	WebhookClient,
 } = require("discord.js");
-const { Verification, InviteTracker, Submissions, GuildWebhook } = require("../dbObjects.js");
+const { Verification, InviteTracker, Submissions, GuildWebhook, Application } = require("../dbObjects.js");
 const { resolveImage } = require("./imageUtils.js");
-const { decryptData } = require("./DBFunctions.js");
+const { decryptData, encryptData } = require("./DBFunctions.js");
 const { Op } = require("sequelize");
 const { getSubmission, getLatestSubmissionByUser, isPremiumServer } = require("../js/DBFunctions.js");
 const { cancelPendingActions, scheduleAction } = require("../js/scheduler.js");
+const { formatCustomMessage, sendWebhookMessage } = require("./messageHelper.js");
+const def_embeds = require("../templates/application_defaults.js");
+
+const activeKickLocks = new Set();
+
+function isBotKickInProgress(guildId, userId) {
+	return activeKickLocks.has(`${guildId}:${userId}`);
+}
 
 function getMessageIds(verification, guildId, applicationId = null) {
 	const guildData = verification?.guildVerifications?.[guildId];
@@ -101,7 +109,7 @@ async function checkManagerPermission(interaction, application) {
 		if (!hasManagerRole) {
 			return {
 				allowed: false,
-				message: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+				message: `You do not have permission to manage applications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
 			};
 		}
 	}
@@ -122,21 +130,10 @@ function isInReviewChannel(interaction, reviewChannelId) {
 	return false;
 }
 
-// !!! NOT USED
-// function createDisabledButtons() {
-// 	return new ActionRowBuilder().addComponents(
-// 		new ButtonBuilder().setCustomId("verify").setLabel("Accept").setStyle("Success").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("deny").setLabel("Deny").setStyle("Danger").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("reasondeny").setLabel("Deny with reason").setStyle("Danger").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("question").setLabel("Question").setStyle("Primary").setDisabled(true),
-// 		new ButtonBuilder().setCustomId("action").setLabel("Kick").setStyle("Secondary").setDisabled(true),
-// 	);
-// }
-
 // Validate roles exist and bot can manage them
-async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
+async function validateRoles(interaction, verifiedRoles, unverifiedRoles, requireAssignRoles = true) {
 	const errors = [];
-	const botMember = interaction.guild.members.me || (await interaction.guild.members.fetchMe());
+	const botMember = await interaction.guild.members.fetchMe();
 
 	if (!botMember?.permissions.has("ManageRoles")) {
 		errors.push("I don't have the `Manage Roles` permission in this server.");
@@ -174,9 +171,9 @@ async function validateRoles(interaction, verifiedRoles, unverifiedRoles) {
 		}
 	}
 
-	if (!verifiedRoles || verifiedRoles.length === 0) {
-		errors.push("No verified role set up. Please set up a verified role using the `/setup` command.");
-	} else {
+	if (requireAssignRoles && (!verifiedRoles || verifiedRoles.length === 0)) {
+		errors.push("No accepted role set up. Please set up an accepted role using the `/setup` command.");
+	} else if (verifiedRoles && verifiedRoles.length > 0) {
 		checkRoles(verifiedRoles, "assign");
 	}
 
@@ -221,7 +218,13 @@ async function applyRoles(user, verifiedRoles, unverifiedRoles, interaction) {
 }
 
 function createAutoActionContainer(container, status, client, reason = null) {
-	const mockInteraction = { isAutoDeny: true, client: client };
+	const mockInteraction = {
+		isAutoAction: true,
+		isAutoDeny: status === VerificationStatus.DENIED,
+		isAutoKick: status === VerificationStatus.KICKED,
+		isAutoVerify: status === VerificationStatus.VERIFIED,
+		client: client,
+	};
 	const mockMessage = { components: [container] };
 
 	return handleV2Edit(mockInteraction, mockMessage, status, reason);
@@ -240,20 +243,34 @@ function handleV2Edit(interaction, message, status, reason = null, memberId = nu
 		statusSuffix = `\n**Status:** \`Left Server\``;
 	} else {
 		const statusTextMap = {
-			[VerificationStatus.VERIFIED]: "Verified",
+			[VerificationStatus.VERIFIED]: "Accepted",
 			[VerificationStatus.DENIED]: "Denied",
 			[VerificationStatus.KICKED]: "Kicked",
 		};
 		const statusText = statusTextMap[status] || "Denied";
 
 		// Assuming interaction is guaranteed here since it's not a 'LEFT' status
-		const actorName = interaction.isAutoDeny ? "Melpo (Auto-Action)" : interaction.user.username;
-		const actorId = interaction.isAutoDeny ? interaction.client.user.id : interaction.user.id;
+		const isAuto = Boolean(
+			interaction.isAutoAction || interaction.isAutoDeny || interaction.isAutoKick || interaction.isAutoVerify,
+		);
+		const actorName = isAuto ? "Melpo (Auto-Action)" : interaction.user.username;
+		const actorId = isAuto ? interaction.client.user.id : interaction.user.id;
 
-		footerText = `-# ${statusText} by ${actorName} (${actorId})`;
-		statusSuffix = reason
-			? `\n**Status:** \`${statusText} by ${actorName}\`: ${reason}`
-			: `\n**Status:** \`${statusText} by ${actorName}\``;
+		if (isAuto) {
+			const autoStatusMap = {
+				[VerificationStatus.VERIFIED]: "Auto-Verified",
+				[VerificationStatus.DENIED]: "Auto-Denied",
+				[VerificationStatus.KICKED]: "Auto-Kicked",
+			};
+			const autoStatus = autoStatusMap[status] || `Auto-${statusText}`;
+			footerText = `-# ${autoStatus} by Melpo (${actorId})`;
+			statusSuffix = reason ? `\n**Status:** \`${autoStatus}\`: ${reason}` : `\n**Status:** \`${autoStatus}\``;
+		} else {
+			footerText = `-# ${statusText} by ${actorName} (${actorId})`;
+			statusSuffix = reason
+				? `\n**Status:** \`${statusText} by ${actorName}\`: ${reason}`
+				: `\n**Status:** \`${statusText} by ${actorName}\``;
+		}
 	}
 
 	const reservedChars = footerText.length + 50;
@@ -314,60 +331,6 @@ function handleV2Edit(interaction, message, status, reason = null, memberId = nu
 	return editedContainer;
 }
 
-// Process text placeholders for welcome messages
-async function processText(text, user, interaction, verifiedRoles, appName = null) {
-	if (!text) return null;
-
-	if (text.toLowerCase().includes("{q") && interaction.message?.flags?.has(MessageFlags.IsComponentsV2)) {
-		const regex = /\{q[0-9]\}/gi;
-		const matches = text.match(regex);
-
-		if (matches) {
-			matches.forEach((match) => {
-				const questionNumber = parseInt(match.slice(2, -1), 10);
-				const component = interaction.message.components[0]?.components?.find((c) =>
-					c.data?.content?.startsWith(`**${questionNumber}.**`),
-				);
-
-				//if (component && component.content) {
-				if (component?.content) {
-					const answer = component.content.split("_ _")[1]?.trim() || "";
-					text = text.replace(new RegExp(match, "gi"), answer);
-				} else {
-					text = text.replace(new RegExp(match, "gi"), "");
-				}
-			});
-		}
-	} else if (text.toLowerCase().includes("{q")) {
-		text = text.replace(/{q[0-9]}/gi, "");
-	}
-
-	// Replace user placeholders
-	text = text.replace(/{username}/gi, user.user.globalName ?? user.user.username);
-	text = text.replace(/{usermention}/gi, `<@${user.id}>`);
-	text = text.replace(/{members}/gi, interaction.guild.memberCount);
-
-	// Count verified members
-	if (text.toLowerCase().includes("{verifiedmembers}")) {
-		const verifiedMembers = await interaction.guild.members
-			.fetch()
-			.then((members) => {
-				return members.filter((member) => verifiedRoles.some((role) => member.roles.cache.has(role))).size;
-			})
-			.catch((error) => {
-				console.error(error);
-				return 0;
-			});
-		text = text.replace(/{verifiedmembers}/gi, verifiedMembers);
-	}
-
-	text = text.replace(/{modname}/gi, interaction.user.globalName ?? interaction.user.username);
-	text = text.replace(/\${interaction.guild.name}/gi, interaction.guild.name);
-	text = text.replace(/{appName}/gi, appName);
-
-	return text?.trim() ? text : null;
-}
-
 // Get mentions from content for pinging
 function getMentions(content) {
 	if (!content) return "";
@@ -379,97 +342,84 @@ function getMentions(content) {
 }
 
 // Send welcome message to channel
-async function sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, verifiedRoles, application) {
+async function sendWelcomeMessage(
+	interaction,
+	user,
+	welcomeChannel,
+	welcomeMessage,
+	verifiedRoles,
+	application,
+	answers = null,
+	modname = null,
+) {
 	if (!welcomeChannel || !welcomeMessage) return;
 
 	const channel = interaction.guild.channels.cache.get(welcomeChannel);
 	if (!channel) throw new Error(`Welcome channel ${welcomeChannel} not found`);
 
-	if (welcomeMessage.text) {
-		const finalText = await processText(welcomeMessage.text, user, interaction, verifiedRoles);
-		const textImage = resolveImage(welcomeMessage.image);
-		const finalmessage = { content: finalText };
+	const isV2 = welcomeMessage.format === "v2" || Array.isArray(welcomeMessage.blocks);
 
-		if (textImage.embedUrl) finalmessage.embeds = [new EmbedBuilder().setImage(textImage.embedUrl)];
-		await channel.send(finalmessage);
-	} else {
-		const finalTitle = welcomeMessage.title
-			? await processText(welcomeMessage.title, user, interaction, verifiedRoles)
-			: null;
-		const finalDescription = welcomeMessage.description
-			? await processText(welcomeMessage.description, user, interaction, verifiedRoles)
-			: null;
-		const messageContent = getMentions(finalDescription);
+	const contextOptions = {
+		user,
+		member: interaction.guild.members.cache.get(user.id),
+		interaction,
+		guild: interaction.guild,
+		verifiedRoles,
+		appName: application.name,
+		application,
+		answers,
+		modname: modname || interaction?.user?.globalName || interaction?.user?.username || "Automated Action",
+	};
 
+	if (!isV2) {
+		const avatarURL =
+			user.user?.displayAvatarURL?.({ dynamic: true, size: 128 }) ||
+			user.displayAvatarURL?.({ dynamic: true, size: 128 });
 		const imageAsset = resolveImage(welcomeMessage.image);
-
-		const welcomeEmbed = new EmbedBuilder()
-			.setTitle(finalTitle?.trim() ? finalTitle.slice(0, 256) : null)
-			.setDescription(finalDescription.slice(0, 4096))
-			.setColor(welcomeMessage.color ?? "#3f7ff1")
-			.setImage(imageAsset.embedUrl);
-
-		if (imageAsset.embedUrl) {
-			welcomeEmbed.setAuthor({
-				name: user.user.globalName ?? user.user.username,
-				iconURL: user.user.displayAvatarURL({ dynamic: true, size: 128 }),
-			});
+		if (imageAsset?.embedUrl) {
+			contextOptions.author = {
+				name: user.user?.globalName ?? user.user?.username ?? user.globalName ?? user.username,
+				iconURL: avatarURL,
+			};
 		} else {
-			welcomeEmbed.setThumbnail(user.user.displayAvatarURL({ dynamic: true, size: 512 }));
+			contextOptions.thumbnail =
+				user.user?.displayAvatarURL?.({ dynamic: true, size: 512 }) ||
+				user.displayAvatarURL?.({ dynamic: true, size: 512 });
 		}
-
-		if (application.branding_enabled === true) {
-			const webhook = await GuildWebhook.findOne({ where: { channel_id: channel.id } });
-			if (webhook) {
-				try {
-					const webhookData = decryptData(String(webhook.encrypted_token));
-					if (!webhookData?.id || !webhookData.token)
-						throw new Error(`Invalid webhook data for channel ${webhook.channel_id}`);
-
-					const client = new WebhookClient({ id: webhookData.id, token: webhookData.token });
-					const name = application.custom_name || "Melpo Verifier";
-					const avatarURL = application.custom_avatar_url || null;
-					await client.send({
-						username: name,
-						avatarURL: avatarURL,
-						content: messageContent || null,
-						embeds: [welcomeEmbed],
-					});
-					return;
-				} catch (error) {
-					interaction
-						.followUp({
-							content: `Welcome channel webhook error: ${error.message}`,
-							flags: MessageFlags.Ephemeral,
-						})
-						.catch(() => {});
-					console.error("Error sending welcome webhook:", error.message);
-				}
-			}
-		}
-
-		await channel.send({ content: messageContent || null, embeds: [welcomeEmbed] });
 	}
+
+	const payload = await formatCustomMessage(welcomeMessage, contextOptions);
+	if (!payload) return;
+
+	if (!isV2 && !payload.content && welcomeMessage.description) {
+		const finalDesc = payload.embeds?.[0]?.data?.description;
+		const messageContent = getMentions(finalDesc);
+		if (messageContent) payload.content = messageContent;
+	}
+
+	await sendWebhookMessage(channel, application, payload);
 }
 
 // Send verification DM to user
-async function sendVerifyDM(user, application, interaction, verifiedRoles) {
+async function sendVerifyDM(user, application, interaction, verifiedRoles, reason = null, modname = null) {
 	if (!application.verifymessage) return;
 
-	const { title, description, color, image } = application.verifymessage;
+	const payload = await formatCustomMessage(application.verifymessage, {
+		user,
+		interaction,
+		guild: interaction.guild,
+		verifiedRoles,
+		appName: application.name,
+		application,
+		reason,
+		modname: modname || interaction?.user?.globalName || interaction?.user?.username || "Automated Action",
+		defaultColor: "#008000",
+	});
 
-	const finalTitle = await processText(title, user, interaction, verifiedRoles, application.name);
-	const finalDescription = await processText(description, user, interaction, verifiedRoles, application.name);
-	const dmImage = resolveImage(image);
-
-	const finalEmbed = new EmbedBuilder()
-		.setTitle(finalTitle?.trim() ? finalTitle.slice(0, 256) : null)
-		.setDescription(finalDescription)
-		.setColor(color ?? null)
-		.setImage(dmImage.embedUrl);
+	if (!payload) return;
 
 	try {
-		await user.send({ embeds: [finalEmbed] });
+		await user.send(payload);
 		return { success: true };
 	} catch (error) {
 		if (error.code === 50007 || error.code === 50278) return { success: false, dmDisabled: true };
@@ -479,23 +429,22 @@ async function sendVerifyDM(user, application, interaction, verifiedRoles) {
 
 // Send denial DM to user
 async function sendDenyDM(modname, user, application, guildName, reason = null) {
-	const description = application.denymessage?.description
-		? application.denymessage.description
-				.replace(/{modname}/gi, modname)
-				.replace(/\${interaction.guild.name}/gi, guildName)
-				.replace(/{appName}/gi, application.name)
-		: `Your application into **${guildName}** has been denied.`;
+	const config = application?.denymessage || def_embeds.verify_dm_deny;
 
-	const dmImage = resolveImage(application.denymessage.image);
+	const payload = await formatCustomMessage(config, {
+		user,
+		modname,
+		guild: { name: guildName },
+		appName: application.name,
+		reason,
+		application,
+		defaultColor: "#EB2121",
+	});
 
-	const denyEmbed = new EmbedBuilder()
-		.setColor(application.denymessage?.color || "#EB2121")
-		.setTitle(application.denymessage?.title?.slice(0, 256) || "Application Denied")
-		.setDescription(`${description}${reason ? `\n**Reason:** ${reason}` : ""}`.slice(0, 4096))
-		.setImage(dmImage.embedUrl);
+	if (!payload) return;
 
 	try {
-		await user.send({ embeds: [denyEmbed] });
+		await user.send(payload);
 		return { success: true };
 	} catch (error) {
 		if (error.code === 50007 || error.code === 50278) return { success: false, dmDisabled: true };
@@ -504,14 +453,32 @@ async function sendDenyDM(modname, user, application, guildName, reason = null) 
 }
 
 // Send kick DM to user
-async function sendKickDM(user, guildName, reason = null) {
-	const kickEmbed = new EmbedBuilder()
-		.setColor("#EB2121")
-		.setTitle(`Kicked from ${guildName}`)
-		.setDescription(`You've been kicked from ${guildName}${reason ? `\n**Reason:** ${reason}` : ""}`.slice(0, 4096));
+async function sendKickDM(modname, user, application, guildName, reason = null) {
+	if (typeof modname !== "string" && typeof user === "string") {
+		// Legacy 3-argument call: sendKickDM(user, guildName, reason)
+		reason = application || null;
+		guildName = user;
+		user = modname;
+		application = null;
+		modname = "Automated Action";
+	}
+
+	const config = application?.kickmessage || def_embeds.verify_dm_kick;
+
+	const payload = await formatCustomMessage(config, {
+		user,
+		modname,
+		guild: { name: guildName },
+		appName: application?.name,
+		reason,
+		application,
+		defaultColor: "#EB2121",
+	});
+
+	if (!payload) return;
 
 	try {
-		await user.send({ embeds: [kickEmbed] });
+		await user.send(payload);
 		return { success: true };
 	} catch (error) {
 		if (error.code === 50007 || error.code === 50278) return { success: false, dmDisabled: true };
@@ -560,18 +527,28 @@ function wait(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function getWebhookClientForChannel(application, channelId) {
-	if (!application.branding_enabled) return null;
+async function getWebhookClientForChannel(application, channelId, { requireBrandingEnabled = true } = {}) {
+	if (requireBrandingEnabled && !application?.branding_enabled) return null;
 
 	const webhookRecord = await GuildWebhook.findOne({ where: { channel_id: channelId } });
 	if (!webhookRecord) return null;
 
 	try {
 		const webhookData = decryptData(String(webhookRecord.encrypted_token));
+		if (!webhookData?.id || !webhookData?.token) return null;
 		return new WebhookClient({ id: webhookData.id, token: webhookData.token });
 	} catch (e) {
 		console.error("Failed to decrypt webhook token:", e);
 		return null;
+	}
+}
+
+async function withWebhookClient(application, channelId, options, callback) {
+	const webhookClient = await getWebhookClientForChannel(application, channelId, options);
+	try {
+		return await callback(webhookClient);
+	} finally {
+		webhookClient?.destroy?.();
 	}
 }
 
@@ -596,6 +573,53 @@ function buildV2ContainerForResend(sourceMessage, interaction, status, reason, u
 	return { editedContainer, files };
 }
 
+async function updateCurrentReviewMessage({ interaction, application, status, reason }) {
+	const reviewChannel = application?.reviewchannel
+		? interaction?.guild?.channels?.cache.get(application.reviewchannel)
+		: null;
+	const separateLogChannel =
+		reviewChannel && application?.verifylogs && application.verifylogs !== application.reviewchannel
+			? interaction?.guild?.channels?.cache.get(application.verifylogs)
+			: null;
+	if (!interaction?.message?.flags?.has(MessageFlags.IsComponentsV2) || separateLogChannel) {
+		return;
+	}
+
+	const { editedContainer, files } = buildV2ContainerForResend(interaction.message, interaction, status, reason, null);
+	const editPayload = {
+		flags: [MessageFlags.IsComponentsV2],
+		components: [editedContainer],
+	};
+	if (files) editPayload.files = files;
+
+	try {
+		await interaction.editReply(editPayload);
+	} catch (editError) {
+		if (!interaction.message.webhookId) throw editError;
+
+		const channelId = interaction.channelId ?? interaction.channel?.id ?? application?.reviewchannel;
+		const editedViaWebhook = await withWebhookClient(
+			application,
+			channelId,
+			{ requireBrandingEnabled: false },
+			async (webhookClient) => {
+				if (!webhookClient || (webhookClient.id && webhookClient.id !== interaction.message.webhookId)) {
+					return false;
+				}
+				await webhookClient.editMessage(interaction.message.id, {
+					...editPayload,
+					withComponents: true,
+				});
+				return true;
+			},
+		);
+
+		if (!editedViaWebhook) throw editError;
+	}
+
+	if (interaction.message.thread) await interaction.message.thread.setArchived(true);
+}
+
 async function processLogMessages({
 	interaction = null,
 	client,
@@ -608,26 +632,28 @@ async function processLogMessages({
 	if (!messageids || messageids.length === 0) return;
 
 	const guild = interaction ? interaction.guild : user.guild;
-	const reviewChannel = guild.channels.cache.get(application.reviewchannel);
+	const reviewChannel = application?.reviewchannel ? guild.channels.cache.get(application.reviewchannel) : null;
 	if (!reviewChannel) return;
 
-	const hasSeparateLogChannel = Boolean(application.verifylogs) && application.reviewchannel !== application.verifylogs;
+	const logChannel =
+		application?.verifylogs && application.verifylogs !== application.reviewchannel
+			? guild.channels.cache.get(application.verifylogs)
+			: null;
+	const hasSeparateLogChannel = Boolean(logChannel);
 
-	const newestId = messageids[messageids.length - 1];
+	const validIds = messageids.filter((id) => /^\d+$/.test(String(id)));
+	const newestId = validIds[validIds.length - 1];
 	const beforeId = newestId ? (BigInt(newestId) + 1n).toString() : undefined;
 	const fetchedMessages = await reviewChannel.messages.fetch({ limit: 100, before: beforeId });
 
 	if (hasSeparateLogChannel) {
-		const logChannel = guild.channels.cache.get(application.verifylogs);
-		if (!logChannel) return;
-
 		if (interaction) {
-			const botMember = guild.members.me ?? (await logChannel.guild.members.fetchMe());
+			const botMember = await logChannel.guild.members.fetchMe();
 			const botPermissions = logChannel.permissionsFor(botMember);
 
 			if (!botPermissions?.has([PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ViewChannel])) {
 				return await interaction.channel.send({
-					content: `<@${user.id}>, I don't have permissions to send messages in the verification review channel!`,
+					content: `<@${user.id}>, I don't have permissions to send messages in the application logs channel!`,
 				});
 			}
 		}
@@ -636,127 +662,140 @@ async function processLogMessages({
 		const webhookClient = interaction ? await getWebhookClientForChannel(application, logChannel.id) : null;
 		const threadName = `${user.user?.username || (interaction ? user.username : user.id)}'s log`;
 
-		const sendCopyForMessage = async (message) => {
-			if (!message.flags?.has(MessageFlags.IsComponentsV2)) return;
+		try {
+			const sendCopyForMessage = async (message) => {
+				if (!message.flags?.has(MessageFlags.IsComponentsV2)) return;
 
-			const { editedContainer, files } = buildV2ContainerForResend(message, interaction, status, reason, user.id);
-			const sendPayload = { flags: [MessageFlags.IsComponentsV2], components: [editedContainer] };
-			if (files) sendPayload.files = files;
+				const { editedContainer, files } = buildV2ContainerForResend(message, interaction, status, reason, user.id);
+				const sendPayload = { flags: [MessageFlags.IsComponentsV2], components: [editedContainer] };
+				if (files) sendPayload.files = files;
 
-			let threadEmbed;
-			if (message.thread) threadEmbed = await createThreadSummary(message.thread, client, status);
+				let threadEmbed;
+				if (application.usethreads && message.thread)
+					threadEmbed = await createThreadSummary(message.thread, client, status);
 
-			let sentMessage;
-			if (webhookClient) {
-				sentMessage = await webhookClient.send({
-					...sendPayload,
-					username: application.custom_name || client.user.username,
-					avatarURL: application.custom_avatar_url || client.user.displayAvatarURL(),
-				});
+				let sentMessage;
+				if (webhookClient) {
+					sentMessage = await webhookClient.send({
+						...sendPayload,
+						withComponents: true,
+						username: application.custom_name || client.user.username,
+						avatarURL: application.custom_avatar_url || client.user.displayAvatarURL(),
+					});
+				} else {
+					const sendOp = async () => logChannel.send(sendPayload);
+					sentMessage = await rateLimitedOperation(sendOp);
+				}
+
+				if (application.usethreads) {
+					const messageToThread = webhookClient ? await logChannel.messages.fetch(sentMessage.id) : sentMessage;
+					const threadOp = async () => messageToThread.startThread({ name: threadName });
+					const threadchannel = await rateLimitedOperation(threadOp);
+
+					if (threadEmbed) {
+						const embedOp = async () => threadchannel.send({ embeds: [threadEmbed] });
+						await rateLimitedOperation(embedOp);
+					}
+
+					const archiveOp = async () => threadchannel.setArchived(true);
+					await rateLimitedOperation(archiveOp);
+				}
+
+				if (message.thread) {
+					const deleteThreadOp = async () => message.thread.delete();
+					await rateLimitedOperation(deleteThreadOp).catch(console.error);
+				}
+
+				const deleteOp = async () => message.delete();
+				await rateLimitedOperation(deleteOp).catch(console.error);
+			};
+
+			if (interaction) {
+				// Verify flow: resolve every message first, sort them chronologically, then post them all.
+				const messages = [];
+				for (const messageId of messageids) {
+					const message = await resolveMessage(reviewChannel, messageId, fetchedMessages);
+					if (message) messages.push(message);
+				}
+				messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+				for (const message of messages) {
+					await wait(600);
+					try {
+						await sendCopyForMessage(message);
+					} catch (error) {
+						console.error("Error processing log message:", error);
+					}
+				}
 			} else {
-				const sendOp = async () => logChannel.send(sendPayload);
-				sentMessage = await rateLimitedOperation(sendOp);
-			}
+				// Leave flow: resolve and post each message as it's found, in the given order.
+				for (const messageId of messageids) {
+					await wait(300);
+					const message = await resolveMessage(reviewChannel, messageId, fetchedMessages);
+					if (!message) continue;
 
-			const messageToThread = webhookClient ? await logChannel.messages.fetch(sentMessage.id) : sentMessage;
-			const threadOp = async () => messageToThread.startThread({ name: threadName });
-			const threadchannel = await rateLimitedOperation(threadOp);
-
-			if (threadEmbed) {
-				const embedOp = async () => threadchannel.send({ embeds: [threadEmbed] });
-				await rateLimitedOperation(embedOp);
-			}
-
-			const archiveOp = async () => threadchannel.setArchived(true);
-			await rateLimitedOperation(archiveOp);
-
-			if (message.thread) {
-				const deleteThreadOp = async () => message.thread.delete();
-				await rateLimitedOperation(deleteThreadOp).catch(console.error);
-			}
-
-			const deleteOp = async () => message.delete();
-			await rateLimitedOperation(deleteOp).catch(console.error);
-		};
-
-		if (interaction) {
-			// Verify flow: resolve every message first, sort them chronologically, then post them all.
-			const messages = [];
-			for (const messageId of messageids) {
-				const message = await resolveMessage(reviewChannel, messageId, fetchedMessages);
-				if (message) messages.push(message);
-			}
-			messages.sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-
-			for (const message of messages) {
-				await wait(600);
-				try {
-					await sendCopyForMessage(message);
-				} catch (error) {
-					console.error("Error processing log message:", error);
+					try {
+						await sendCopyForMessage(message);
+					} catch (error) {
+						console.error("Error processing log message:", error);
+					}
 				}
 			}
-		} else {
-			// Leave flow: resolve and post each message as it's found, in the given order.
-			for (const messageId of messageids) {
-				await wait(300);
-				const message = await resolveMessage(reviewChannel, messageId, fetchedMessages);
-				if (!message) continue;
-
-				try {
-					await sendCopyForMessage(message);
-				} catch (error) {
-					console.error("Error processing log message:", error);
-				}
-			}
+		} finally {
+			webhookClient?.destroy?.();
 		}
 	} else {
-		// Only the verify flow ever edits via webhook.
-		const webhookClient = interaction ? await getWebhookClientForChannel(application, reviewChannel.id) : null;
+		await withWebhookClient(application, reviewChannel.id, { requireBrandingEnabled: false }, async (webhookClient) => {
+			for (const messageId of messageids) {
+				if (interaction && messageId === interaction.message?.id) continue;
 
-		for (const messageId of messageids) {
-			if (interaction && messageId === interaction.message?.id) continue;
+				try {
+					// Both flows pause once per iteration before resolving the message; the amount differs.
+					await wait(300);
 
-			try {
-				// Both flows pause once per iteration before resolving the message; the amount differs.
-				await wait(300);
+					const foundMessage = await resolveMessage(reviewChannel, messageId, fetchedMessages);
+					if (!foundMessage) continue;
+					if (!foundMessage.flags?.has(MessageFlags.IsComponentsV2)) continue;
 
-				const foundMessage = await resolveMessage(reviewChannel, messageId, fetchedMessages);
-				if (!foundMessage) continue;
-				if (!foundMessage.flags?.has(MessageFlags.IsComponentsV2)) continue;
-
-				if (interaction) {
-					const editedContainer = handleV2Edit(interaction, foundMessage, status, reason, user.id);
+					const { editedContainer, files } = buildV2ContainerForResend(
+						foundMessage,
+						interaction,
+						status,
+						reason,
+						user.id,
+					);
 					const payload = { flags: [MessageFlags.IsComponentsV2], components: [editedContainer] };
+					if (files) payload.files = files;
 
-					if (foundMessage.webhookId && webhookClient) {
-						// Webhook-authored messages must be edited via the webhook client.
-						await webhookClient.editMessage(foundMessage.id, payload);
+					if (foundMessage.webhookId) {
+						if (!webhookClient || (webhookClient.id && webhookClient.id !== foundMessage.webhookId)) {
+							console.warn(
+								`Skipping webhook message ${foundMessage.id}: no matching GuildWebhook (${foundMessage.webhookId})`,
+							);
+							continue;
+						}
+
+						await rateLimitedOperation(() =>
+							webhookClient.editMessage(foundMessage.id, { ...payload, withComponents: true }),
+						);
 					} else {
+						if (!interaction && foundMessage.author.id !== client.user.id) continue;
+
 						const editOp = async () => foundMessage.edit(payload);
 						await rateLimitedOperation(editOp);
 					}
-				} else {
-					// Leave flow only touches messages the bot itself posted.
-					if (foundMessage.author.id !== client.user.id) continue;
 
-					const { editedContainer, files } = buildV2ContainerForResend(foundMessage, null, status, reason, user.id);
-					const editPayload = {
-						flags: [MessageFlags.IsComponentsV2],
-						components: [editedContainer],
-					};
-					if (files) editPayload.files = files;
-
-					await foundMessage.edit(editPayload);
-					if (foundMessage.thread) await foundMessage.thread.setArchived(true);
+					if (!interaction && foundMessage.thread) {
+						await foundMessage.thread.setArchived(true);
+					}
+				} catch (error) {
+					if (error.code === 10008) {
+						continue;
+					}
+					console.error(`Failed to process message with ID ${messageId}: ${error}`);
 				}
-			} catch (error) {
-				if (error.code === 10008) {
-					continue;
-				}
-				console.error(`Failed to process message with ID ${messageId}: ${error}`);
 			}
-		}
+		});
 	}
 }
 
@@ -798,22 +837,94 @@ async function cleanupVerificationData(verification, guildId, memberId, applicat
 
 // Create "no application" embed for users verified/denied without application
 function createNoApplicationEmbed(user, interaction, invitetracker, status) {
-	const statusText = status === VerificationStatus.VERIFIED ? "VERIFIED" : "DENIED";
-	const actionText = status === VerificationStatus.VERIFIED ? "Verified" : "Denied";
+	const statusText = status === VerificationStatus.VERIFIED ? "ACCEPTED" : "DENIED";
+	const actionText = status === VerificationStatus.VERIFIED ? "Accepted" : "Denied";
 	const color = StatusColors[status];
+
+	const invitedByText = invitetracker?.id
+		? `\n**Invited by:** ${
+				invitetracker.id === "vanity" || invitetracker.id === "Unknown"
+					? `\`${invitetracker.id}\``
+					: `<@${invitetracker.id}>`
+			} (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)`
+		: "";
 
 	return new EmbedBuilder()
 		.setColor(color)
 		.setTitle(`${user.user.displayName} (${statusText})`)
 		.setThumbnail(user.displayAvatarURL({ size: 2048, format: "png" }))
 		.setDescription(
-			`[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.username}\` ${user} \n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitetracker ? `\n**Invited by:** <@${invitetracker.id}> (\`${invitetracker.code}\` has \`${invitetracker.uses}\` uses)` : ""}`,
+			`[Avatar Reverse Image Search](https://lens.google.com/uploadbyurl?url=${user.displayAvatarURL({ size: 2048, format: "png" })})\n**Username:** \`${user.user.username}\` ${user} \n**User ID:** \`${user.id}\`\n**Account created:** <t:${Math.floor(user.user.createdAt / 1000)}:R>\n**Joined server:** <t:${Math.floor(user.joinedTimestamp / 1000)}:R>${invitedByText}`,
 		)
 		.setFooter({ text: `${actionText} by ${interaction.user.username}` });
 }
 
+async function sendNoApplicationLog({ interaction, application, user, status }) {
+	const separateLogChannelId =
+		application?.verifylogs && application.verifylogs !== application.reviewchannel ? application.verifylogs : null;
+	const logChannel =
+		(separateLogChannelId && interaction.guild.channels.cache.get(separateLogChannelId)) ||
+		(application?.reviewchannel && interaction.guild.channels.cache.get(application.reviewchannel)) ||
+		interaction.channel;
+	if (!logChannel?.send) return;
+
+	const invitetracker = await InviteTracker.findOne({
+		where: { unique_id: `${user.id}_${interaction.guild.id}` },
+	});
+
+	const embed = createNoApplicationEmbed(user, interaction, invitetracker, status);
+
+	await rateLimitedOperation(async () => {
+		await logChannel.send({ embeds: [embed] });
+	});
+}
+
+async function processReviewDecisionLogs({ interaction, client, application, messageids, user, status, reason }) {
+	const separateLogChannel =
+		application?.verifylogs && application.verifylogs !== application.reviewchannel
+			? interaction.guild.channels.cache.get(application.verifylogs)
+			: null;
+	const effectiveMessageIds =
+		messageids && messageids.length > 0
+			? messageids
+			: !interaction.isChatInputCommand() && separateLogChannel && interaction.message?.id
+				? [interaction.message.id]
+				: [];
+
+	if (effectiveMessageIds.length === 0) {
+		if (interaction.isChatInputCommand() || separateLogChannel) {
+			await sendNoApplicationLog({ interaction, application, user, status });
+		}
+		return;
+	}
+
+	try {
+		await processLogMessages({
+			interaction,
+			client,
+			application,
+			messageids: effectiveMessageIds,
+			user,
+			status,
+			reason,
+		});
+	} catch (logError) {
+		if (logError.code === 50001 || logError.code === 50013) {
+			console.warn(`Missing permissions for log messages in guild ${interaction.guild.id}`);
+			await interaction
+				.followUp({
+					content: "Warning: Could not process log messages due to missing permissions.",
+					flags: MessageFlags.Ephemeral,
+				})
+				.catch(() => {});
+		} else {
+			throw logError;
+		}
+	}
+}
+
 // Main verification handler
-async function verifyUser(interaction, client, application, user) {
+async function verifyUser(interaction, client, application, user, reason = null) {
 	let submissionData;
 
 	if (interaction.isChatInputCommand()) {
@@ -838,7 +949,13 @@ async function verifyUser(interaction, client, application, user) {
 						const selectedOption = question.mcq?.[index];
 						if (selectedOption?.roles) selectedOption.roles.forEach((role) => void branchRoles.add(role));
 					});
-				} else if (question.regexBranches && response.content) {
+				}
+
+				if (response?.otherSelected && Array.isArray(question.otherRoles)) {
+					question.otherRoles.forEach((role) => void branchRoles.add(role));
+				}
+
+				if (question.regexBranches && response.content) {
 					for (const regex of question.regexBranches) {
 						try {
 							const regpattern = new RegExp(regex.pattern, "i");
@@ -866,14 +983,16 @@ async function verifyUser(interaction, client, application, user) {
 		}).catch((err) => console.error(`Failed to cancel pending kick for user ${user.id}:`, err));
 	}
 
-	const verifiedRoles = application.verifiedrole;
-	const unverifiedRoles = application.unverifiedrole;
+	const verifiedRoles = application.verifiedrole || [];
+	const unverifiedRoles = application.unverifiedrole || [];
+	const pendingRoles = application.pendingrole || [];
 	const welcomeMessage = application.verificationwelcomemessage;
 	const welcomeChannel = application.verificationwelcomechannel;
 
+	const rolesToRemove = [...new Set([...unverifiedRoles, ...pendingRoles])];
 	const rolesToApply = [...new Set([...verifiedRoles, ...branchRoles])];
 
-	const roleErrors = await validateRoles(interaction, rolesToApply, unverifiedRoles);
+	const roleErrors = await validateRoles(interaction, rolesToApply, rolesToRemove);
 	if (roleErrors.length > 0) {
 		return await interaction.followUp({
 			content: roleErrors[0],
@@ -881,11 +1000,23 @@ async function verifyUser(interaction, client, application, user) {
 		});
 	}
 
-	await applyRoles(user, rolesToApply, unverifiedRoles, interaction);
+	await applyRoles(user, rolesToApply, rolesToRemove, interaction);
 
 	if (welcomeChannel && welcomeMessage) {
 		try {
-			await sendWelcomeMessage(interaction, user, welcomeChannel, welcomeMessage, verifiedRoles, application);
+			const answers = {};
+			for (const [i, response] of (submissionData?.responses ?? []).entries()) answers[i + 1] = response.content || "";
+			const modname = interaction?.user?.globalName || interaction?.user?.username || null;
+			await sendWelcomeMessage(
+				interaction,
+				user,
+				welcomeChannel,
+				welcomeMessage,
+				verifiedRoles,
+				application,
+				answers,
+				modname,
+			);
 		} catch (error) {
 			await interaction.followUp({
 				content: `Welcome channel error: ${error.message}`,
@@ -897,69 +1028,23 @@ async function verifyUser(interaction, client, application, user) {
 	const verification = await Verification.findOne({ where: { userId: user.id } });
 	const messageids = getMessageIds(verification, interaction.guild.id, application.id);
 
-	if (!messageids || messageids.length === 0) {
-		let logChannel;
-		if (application.verifylogs && application.reviewchannel !== application.verifylogs) {
-			logChannel = interaction.guild.channels.cache.get(application.verifylogs);
-		} else if (application.reviewchannel) {
-			logChannel = interaction.guild.channels.cache.get(application.reviewchannel);
-		} else {
-			logchannel = interaction.channel;
-		}
-
-		const invitetracker = await InviteTracker.findOne({
-			where: { unique_id: `${user.id}_${interaction.guild.id}` },
-		});
-
-		const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.VERIFIED);
-
-		await rateLimitedOperation(async () => {
-			await logChannel.send({ embeds: [embed] });
-		});
-	} else {
-		try {
-			await processLogMessages({
-				interaction,
-				client,
-				application,
-				messageids,
-				user: user,
-				status: VerificationStatus.VERIFIED,
-			});
-		} catch (logError) {
-			if (logError.code === 50001 || logError.code === 50013) {
-				console.warn(`Missing permissions for log messages in guild ${interaction.guild.id}`);
-				await interaction
-					.followUp({
-						content: "Warning: Could not process log messages due to missing permissions.",
-						flags: MessageFlags.Ephemeral,
-					})
-					.catch(() => {});
-			} else {
-				throw logError;
-			}
-		}
-	}
+	await processReviewDecisionLogs({
+		interaction,
+		client,
+		application,
+		messageids,
+		user,
+		status: VerificationStatus.VERIFIED,
+		reason,
+	});
 
 	// If no separate log channel, edit the current message
-	if (
-		interaction?.message?.flags?.has(MessageFlags.IsComponentsV2) &&
-		(!application.verifylogs || application.reviewchannel === application.verifylogs)
-	) {
-		const { container, files } = relinkAttachments(interaction.message);
-
-		const tempMsg = { ...interaction.message, components: [container] };
-		const verifiedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.VERIFIED);
-
-		const editPayload = {
-			flags: [MessageFlags.IsComponentsV2],
-			components: [verifiedContainer],
-		};
-		if (files) editPayload.files = files;
-		await interaction.editReply(editPayload);
-
-		if (interaction.message.thread) await interaction.message.thread.setArchived(true);
-	}
+	await updateCurrentReviewMessage({
+		interaction,
+		application,
+		status: VerificationStatus.VERIFIED,
+		reason,
+	});
 
 	// Cleanup verification data
 	if (messageids && messageids.length > 0) {
@@ -967,17 +1052,17 @@ async function verifyUser(interaction, client, application, user) {
 	}
 
 	// Send verification DM
-	const dmResult = await sendVerifyDM(user, application, interaction, verifiedRoles);
+	const dmResult = await sendVerifyDM(user, application, interaction, verifiedRoles, reason);
 
 	if (!interaction.isChatInputCommand()) {
 		if (dmResult.dmDisabled) {
 			await interaction.followUp({
-				content: `✅ User Verified successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
+				content: `✅ User accepted successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		} else {
 			await interaction.followUp({
-				content: `✅ User verified successfully!\n${rolesToApply.length} role(s) applied.`,
+				content: `✅ User accepted successfully!\n${rolesToApply.length} role(s) applied.`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -1008,15 +1093,20 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		rolesToApply.push(...application.deniedrole);
 	}
 
-	if (rolesToApply.length > 0) {
+	const pendingRoles = application.pendingrole || [];
+	const deniedRemoveRoles = application.deniedremoveroles || [];
+	const rolesToRemove = [...new Set([...pendingRoles, ...deniedRemoveRoles])];
+
+	if (rolesToApply.length > 0 || rolesToRemove.length > 0) {
 		// Validate roles
-		const roleErrors = await validateRoles(interaction, rolesToApply, null);
+		const roleErrors = await validateRoles(interaction, rolesToApply, rolesToRemove, false);
 		if (roleErrors.length > 0) {
 			return await interaction.followUp({ content: roleErrors[0], flags: MessageFlags.Ephemeral });
 		}
 
-		await applyRoles(user, rolesToApply, null, interaction);
+		await applyRoles(user, rolesToApply, rolesToRemove, interaction);
 		if (
+			rolesToApply.length > 0 &&
 			application.autoRemoveDeniedRoleEnabled &&
 			application.autoRemoveDeniedRoleHours > 0 &&
 			(await isPremiumServer(interaction.guild.id))
@@ -1031,68 +1121,38 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		}
 	}
 
-	if (!messageids || messageids.length === 0) {
-		let logChannel;
-		if (application.verifylogs && application.reviewchannel !== application.verifylogs) {
-			logChannel = interaction.guild.channels.cache.get(application.verifylogs);
-		} else if (application.reviewchannel) {
-			logChannel = interaction.guild.channels.cache.get(application.reviewchannel);
-		} else {
-			logchannel = interaction.channel;
-		}
-
-		const invitetracker = await InviteTracker.findOne({
-			where: { unique_id: `${user.id}_${interaction.guild.id}` },
-		});
-
-		const embed = createNoApplicationEmbed(user, interaction, invitetracker, VerificationStatus.DENIED);
-
-		await rateLimitedOperation(async () => {
-			await logChannel.send({ embeds: [embed] });
-		});
-	} else {
-		// Process log messages
-		try {
-			await processLogMessages({
-				interaction,
-				client,
-				application,
-				messageids,
-				user: user,
-				status: VerificationStatus.DENIED,
-				reason,
-			});
-		} catch (logError) {
-			if (logError.code === 50001 || logError.code === 50013) {
-				console.warn(`Missing permissions for log messages in guild ${interaction.guild.id}`);
-				await interaction
-					.followUp({
-						content: "Warning: Could not process log messages due to missing permissions.",
-						flags: MessageFlags.Ephemeral,
-					})
-					.catch(() => {});
-			} else {
-				throw logError;
-			}
-		}
-	}
+	await processReviewDecisionLogs({
+		interaction,
+		client,
+		application,
+		messageids,
+		user,
+		status: VerificationStatus.DENIED,
+		reason,
+	});
 
 	// If no separate log channel, edit the current message
-	if (
-		interaction?.message?.flags?.has(MessageFlags.IsComponentsV2) &&
-		(!application.verifylogs || application.reviewchannel === application.verifylogs)
-	) {
-		const { container, files } = relinkAttachments(interaction.message);
+	await updateCurrentReviewMessage({
+		interaction,
+		application,
+		status: VerificationStatus.DENIED,
+		reason,
+	});
 
-		const tempMsg = { ...interaction.message, components: [container] };
-		const deniedContainer = handleV2Edit(interaction, tempMsg, VerificationStatus.DENIED, reason);
-		const editPayload = { flags: [MessageFlags.IsComponentsV2], components: [deniedContainer] };
-
-		if (files) editPayload.files = files;
-		await interaction.editReply(editPayload);
-
-		if (interaction.message.thread) await interaction.message.thread.setArchived(true);
-	}
+	// Mark the submission as denied and strip its answers; the row stays for denial history / maxdenials.
+	await Submissions.update(
+		{ status: VerificationStatus.DENIED, data: encryptData({}) },
+		{
+			where: {
+				user_id: user.id,
+				guild_id: interaction.guild.id,
+				app_id: String(application.id),
+				status: "completed",
+			},
+		},
+	).catch((e) => {
+		console.error("Error updating submission status:", e);
+	});
 
 	// Cleanup verification data
 	if (messageids && messageids.length > 0)
@@ -1102,14 +1162,6 @@ async function denyUser(interaction, client, application, user, reason = null) {
 	const dmResult = await sendDenyDM(interaction.user.username, user, application, interaction.guild.name, reason);
 
 	if (!interaction.isChatInputCommand()) {
-		//mark submission as denied (only possible on button denial, not command denial)
-		await Submissions.update(
-			{ status: "denied" },
-			{ where: { message_id: interaction.message.id, status: "completed" } },
-		).catch((e) => {
-			console.error("Error updating submission status:", e);
-		});
-
 		if (dmResult.dmDisabled) {
 			await interaction.followUp({
 				content: `✅ User denied successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.`,
@@ -1118,6 +1170,117 @@ async function denyUser(interaction, client, application, user, reason = null) {
 		} else {
 			await interaction.followUp({
 				content: `✅ User denied successfully!${rolesToApply.length > 0 ? `\nThe deny role(s) has been applied to the user.` : ""}`,
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+	}
+}
+
+// Main kick handler
+async function kickUser(interaction, client, application, user, reason = null) {
+	const member = user.guild ? user : await interaction.guild.members.fetch(user.id).catch(() => null);
+	const userObj = user.user || user;
+
+	if (!member) {
+		return await interaction.followUp({
+			content: "This user is no longer in the server.",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	const botMember = await interaction.guild.members.fetchMe().catch(() => null);
+	if (!botMember?.permissions.has(PermissionsBitField.Flags.KickMembers)) {
+		return await interaction.followUp({
+			content: "I don't have permission to kick members",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	if (member.id === interaction.guild.ownerId) {
+		return await interaction.followUp({
+			content: "I cannot kick the server owner",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	if (member.roles.highest.position >= botMember.roles.highest.position) {
+		return await interaction.followUp({
+			content:
+				"I cannot kick this user - they have a role higher than or equal to mine, please make sure my highest role is higher than the user's highest role",
+			flags: MessageFlags.Ephemeral,
+		});
+	}
+
+	const dmResult = await sendKickDM(interaction.user.username, userObj, application, interaction.guild.name, reason);
+
+	const auditReason = (
+		reason ? `Kicked by ${interaction.user.username}: ${reason}` : `Kicked by ${interaction.user.username}`
+	).slice(0, 512);
+
+	const lockKey = `${interaction.guild.id}:${userObj.id}`;
+	activeKickLocks.add(lockKey);
+	try {
+		await member.kick(auditReason);
+
+		const verification = await Verification.findOne({ where: { userId: userObj.id } });
+
+		const allApplications = await Application.findAll({
+			where: { server_id: interaction.guild.id },
+			attributes: [
+				"id",
+				"reviewchannel",
+				"verifylogs",
+				"usethreads",
+				"branding_enabled",
+				"custom_name",
+				"custom_avatar_url",
+			],
+		});
+
+		for (const app of allApplications) {
+			const appMessageIds = getMessageIds(verification, interaction.guild.id, app.id);
+			if (!appMessageIds || appMessageIds.length === 0) continue;
+
+			try {
+				await processLogMessages({
+					interaction,
+					client,
+					application: app,
+					messageids: appMessageIds,
+					user: member,
+					status: VerificationStatus.KICKED,
+					reason,
+					useRateLimiting: false,
+				});
+			} catch (logError) {
+				if (logError.code !== 50001 && logError.code !== 50013) {
+					console.error("Error processing log messages:", logError);
+				}
+			}
+		}
+
+		await updateCurrentReviewMessage({
+			interaction,
+			application,
+			status: VerificationStatus.KICKED,
+			reason,
+		});
+
+		await cleanupVerificationData(verification, interaction.guild.id, userObj.id);
+	} finally {
+		activeKickLocks.delete(lockKey);
+	}
+
+	if (!interaction.isChatInputCommand()) {
+		if (dmResult?.dmDisabled) {
+			await interaction.followUp({
+				content:
+					"✅ User kicked successfully\n⚠️ Unable to send a DM as this user has their DMs disabled or has blocked the bot.",
+				flags: MessageFlags.Ephemeral,
+			});
+		} else {
+			await interaction.followUp({
+				content: "✅ User kicked successfully!",
 				flags: MessageFlags.Ephemeral,
 			});
 		}
@@ -1153,7 +1316,6 @@ module.exports = {
 	createAutoActionContainer,
 	handleV2Edit,
 	relinkAttachments,
-	processText,
 	getMentions,
 	getMessageIds,
 	addMessageId,
@@ -1166,6 +1328,11 @@ module.exports = {
 	processLeaveMessages,
 	cleanupVerificationData,
 	createNoApplicationEmbed,
+	sendNoApplicationLog,
+	processReviewDecisionLogs,
 	verifyUser,
 	denyUser,
+	kickUser,
+	isBotKickInProgress,
+	updateCurrentReviewMessage,
 };

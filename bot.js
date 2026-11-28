@@ -4,10 +4,15 @@ Error.stackTraceLimit = 30; // (v8/chrome)Set stack limit to 5 to focus on perfo
 const console_hooks = require("./util/console_hooks.js"); // Component : Console class hooking functionality -mat
 const fs = require("node:fs"); // Library : Node js file system module.
 const path = require("node:path"); // Library : Node js path module.
-const { Client, IntentsBitField, Partials, AuditLogEvent, PermissionsBitField, Options } = require("discord.js"); // Library : Discord.js library imports.
+const { Client, IntentsBitField, Partials, PermissionsBitField, Options, Sweepers } = require("discord.js"); // Library : Discord.js library imports.
 require("./util/env_manager.js").config(); // Component : .env parsing (invoking config callback for setup)
 const { updateBotJoins, updateBotLeaves } = require("./js/tempconfigfuncs.js"); //
-const { processLeaveMessages, cleanupVerificationData, getMessageIds } = require("./js/verificationHandler.js"); // Component : Verification handling wrapper.
+const {
+	processLeaveMessages,
+	cleanupVerificationData,
+	getMessageIds,
+	isBotKickInProgress,
+} = require("./js/verificationHandler.js"); // Component : Verification handling wrapper.
 const {
 	ServerConfig,
 	Verification,
@@ -15,6 +20,7 @@ const {
 	Application,
 	Blacklist,
 	PremiumSubscription,
+	sequelize,
 } = require("./dbObjects.js"); // Component : Common database objects.
 const InviteManager = require("./js/dinvite.js"); // Component : Discord invites
 const ErrorHandler = require("./js/ErrorHandling.js"); // Component : Error handling functionality(report to developer etc).
@@ -22,13 +28,21 @@ const RateLimitError = require("./js/RateLimitHandling.js"); // Component : Rate
 const CommandLoader = require("./js/CommandLoader.js"); // Component : Command loader.
 // const MemoryManager = require("./js/MemoryManager.js"); //
 const { ClusterClient, getInfo } = require("discord-hybrid-sharding"); // Library : Discord sharding parts.
+const { Op } = require("sequelize");
 const Sentry = require("@sentry/node");
 const { isPremiumServer } = require("./js/DBFunctions.js");
 const { scheduleAction } = require("./js/scheduler.js"); // Component : Scheduler for pending actions
 
+const SEVEN_DAYS_MS = 60 * 60 * 24 * 7 * 1000;
+const isRecentBotMessage = (message) =>
+	message.author?.id === message.client.user?.id && message.createdTimestamp > Date.now() - SEVEN_DAYS_MS;
+
 if (process.argv.length > 2 && process.argv[2] === "sharded") {
 	console.log("sharded arrived!");
-	createBot(process.env.MELPO_TOKEN).catch(() => {}); //Pass token directly from environment block - mat
+	createBot(process.env.MELPO_TOKEN).catch((error) => {
+		console.error("Failed to start sharded bot:", error);
+		process.exit(1);
+	}); //Pass token directly from environment block - mat
 }
 
 async function createBot(token) {
@@ -46,14 +60,12 @@ async function createBot(token) {
 	);
 	*/
 	const clientOptions = {
-		partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User],
+		partials: [Partials.Channel, Partials.GuildMember],
 		intents: [
 			IntentsBitField.Flags.Guilds,
 			IntentsBitField.Flags.GuildMembers,
-			IntentsBitField.Flags.GuildModeration,
 			IntentsBitField.Flags.GuildInvites,
 			IntentsBitField.Flags.GuildMessages,
-			IntentsBitField.Flags.GuildMessageReactions,
 			IntentsBitField.Flags.DirectMessages,
 			IntentsBitField.Flags.MessageContent,
 		],
@@ -61,23 +73,40 @@ async function createBot(token) {
 		sweepers: {
 			messages: {
 				interval: 3600,
-				lifetime: 7200,
+				filter: Sweepers.filterByLifetime({
+					lifetime: 7200,
+					excludeFromSweep: isRecentBotMessage,
+				}),
 			},
 		},
 		makeCache: Options.cacheWithLimits({
 			MessageManager: {
-				maxSize: 50,
-				keepOverLimit: (message) =>
-					message.author?.id === client.user.id && message.createdTimestamp > Date.now() - 60 * 60 * 24 * 7,
+				maxSize: 20,
+				keepOverLimit: isRecentBotMessage,
 			},
 			UserManager: {
 				maxSize: 5000,
-				keepOverLimit: (user) => user.id === client.user.id,
+				keepOverLimit: (user) => user.id === user.client.user.id,
 			},
 			GuildMemberManager: {
-				maxSize: 1000,
+				maxSize: 250,
+				keepOverLimit: (member) => member.id === member.client.user.id,
 			},
-			RoleManager: Infinity,
+			DMMessageManager: 15,
+			VoiceStateManager: 0,
+			GuildEmojiManager: 0,
+			GuildStickerManager: 0,
+			GuildBanManager: 0,
+			GuildInviteManager: 0,
+			ThreadMemberManager: 0,
+			StageInstanceManager: 0,
+			GuildScheduledEventManager: 0,
+			AutoModerationRuleManager: 0,
+			ApplicationEmojiManager: 0,
+			PresenceManager: 0,
+			ReactionManager: 0,
+			ReactionUserManager: 0,
+			GuildSoundboardSoundManager: 0,
 		}),
 	};
 
@@ -146,7 +175,7 @@ async function createBot(token) {
 		});
 	}
 
-	new InviteManager(client);
+	client.inviteManager = new InviteManager(client);
 
 	// const memoryManager = new MemoryManager(client);
 	// memoryManager.start();
@@ -254,27 +283,41 @@ async function createBot(token) {
 		await updateBotJoins();
 
 		try {
-			const status = await Instances.findOne({ where: { client_id: client.user.id } });
-			const guilds = status?.guilds || [];
-			if (!guilds.includes(guild.id)) {
-				guilds.push(guild.id);
-				await Instances.update({ guilds }, { where: { client_id: client.user.id } });
-			}
+			await ServerConfig.update({ left_at: null }, { where: { server_id: guild.id } });
+			await Instances.findOrCreate({
+				where: { client_id: client.user.id },
+				defaults: { guilds: [] },
+			});
+			await Instances.update(
+				{ guilds: sequelize.fn("array_append", sequelize.col("guilds"), guild.id) },
+				{
+					where: {
+						client_id: client.user.id,
+						[Op.or]: [{ guilds: null }, { [Op.not]: { guilds: { [Op.contains]: [guild.id] } } }],
+					},
+				},
+			);
 		} catch (error) {
 			console.error("Failed to update guild list on guildCreate:", error);
 		}
 	});
 
 	client.on("guildDelete", async (guild) => {
-		if (!guild.name || !guild.memberCount) return; //console.log("Received partial guild data:", guild);
+		if (guild.available === false || !guild.name || !guild.memberCount) return; //console.log("Received partial guild data:", guild);
 
 		await updateBotLeaves();
 
 		try {
-			const status = await Instances.findOne({ where: { client_id: client.user.id } });
-			const guilds = status?.guilds || [];
-			const updatedGuilds = guilds.filter((id) => id !== guild.id);
-			await Instances.update({ guilds: updatedGuilds }, { where: { client_id: client.user.id } });
+			await Instances.update(
+				{ guilds: sequelize.fn("array_remove", sequelize.col("guilds"), guild.id) },
+				{ where: { client_id: client.user.id } },
+			);
+
+			// Mark bot as left
+			const remaining = await Instances.findOne({ where: { guilds: { [Op.contains]: [guild.id] } } });
+			if (!remaining) {
+				await ServerConfig.update({ left_at: new Date() }, { where: { server_id: guild.id, left_at: null } });
+			}
 		} catch (error) {
 			console.error("Failed to update guild list on guildDelete:", error);
 		}
@@ -313,7 +356,7 @@ async function createBot(token) {
 		if (!serverConfig?.autorole || !Array.isArray(serverConfig.autorole) || !serverConfig.autorole.length) return;
 
 		try {
-			const botMember = member.guild.members.me || (await member.guild.members.fetchMe());
+			const botMember = await member.guild.members.fetchMe().catch(() => null);
 			if (!botMember?.permissions.has(PermissionsBitField.Flags.ManageRoles)) return;
 
 			const hasUncachedRoles = serverConfig.autorole.some((id) => !member.guild.roles.cache.has(id));
@@ -344,6 +387,7 @@ async function createBot(token) {
 
 	client.on("guildMemberRemove", async (member) => {
 		if (!member?.guild?.id || !member.id) return;
+		if (isBotKickInProgress(member.guild.id, member.id)) return;
 
 		let applications, verification;
 
@@ -351,7 +395,15 @@ async function createBot(token) {
 			[applications, verification] = await Promise.all([
 				Application.findAll({
 					where: { server_id: member.guild.id },
-					attributes: ["id", "reviewchannel", "verifylogs"],
+					attributes: [
+						"id",
+						"reviewchannel",
+						"verifylogs",
+						"usethreads",
+						"branding_enabled",
+						"custom_name",
+						"custom_avatar_url",
+					],
 				}),
 				Verification.findOne({ where: { userId: member.id }, attributes: ["userId", "guildVerifications"] }),
 			]);
@@ -364,23 +416,6 @@ async function createBot(token) {
 
 		const guildData = verification?.guildVerifications?.[member.guild.id];
 		if (!guildData) return;
-
-		let wasKicked = false;
-		const botMember = member.guild.members.cache.get(client.user.id);
-		if (botMember?.permissions.has("ViewAuditLog")) {
-			try {
-				const auditLogs = await member.guild.fetchAuditLogs({ type: AuditLogEvent.MemberKick, limit: 1 });
-
-				const kickLog = auditLogs.entries.first();
-				wasKicked = kickLog?.target?.id === member.id && kickLog.createdTimestamp > Date.now() - 3000;
-
-				if (wasKicked) {
-					return;
-				}
-			} catch {
-				// Ignore audit log errors
-			}
-		}
 
 		for (const app of applications) {
 			const appMessageIds = getMessageIds(verification, member.guild.id, app.id);
@@ -408,12 +443,14 @@ async function createBot(token) {
 
 	process.on("SIGTERM", () => {
 		console.log("Received SIGTERM, shutting down gracefully...");
+		client?.inviteManager?.destroy();
 		client?.destroy();
 		process.exit(0);
 	});
 
 	process.on("SIGINT", () => {
 		console.log("Received SIGINT, shutting down gracefully...");
+		client?.inviteManager?.destroy();
 		client?.destroy();
 		process.exit(0);
 	});

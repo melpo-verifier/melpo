@@ -1,6 +1,12 @@
 const { EmbedBuilder } = require("discord.js");
 const { deleteTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
-const { deleteImage, purgeOldImages, isR2ImageResource } = require("../../js/customizationImages.js");
+const {
+	deleteImage,
+	purgeOldImages,
+	isR2ImageResource,
+	getImageKey,
+	isTempKey,
+} = require("../../js/customizationImages.js");
 
 module.exports = async ({ interaction, context }) => {
 	await interaction.deferUpdate();
@@ -13,6 +19,8 @@ module.exports = async ({ interaction, context }) => {
 		const tempstartmessage = temporarySetup?.startmessage;
 		const tempfinishmessage = temporarySetup?.finishmessage;
 		const tempverifymessage = temporarySetup?.verifymessage;
+		const tempdenymessage = temporarySetup?.denymessage;
+		const tempkickmessage = temporarySetup?.kickmessage;
 		const tempverificationwelcomemessage = temporarySetup?.verificationwelcomemessage;
 
 		if (tempverifychannelembed?.image)
@@ -53,7 +61,12 @@ module.exports = async ({ interaction, context }) => {
 				appName,
 				"verificationwelcomemessage",
 				tempverificationwelcomemessage.image,
+				"images/verificationwelcomemessage",
 			);
+		if (tempdenymessage?.image)
+			await deleteNewImage(interaction.guild.id, appName, "denymessage", tempdenymessage.image, "images/denymessage");
+		if (tempkickmessage?.image)
+			await deleteNewImage(interaction.guild.id, appName, "kickmessage", tempkickmessage.image, "images/kickmessage");
 
 		await deleteTempApplication(interaction.guild.id, { id: tempApplicationId });
 	}
@@ -75,10 +88,13 @@ module.exports = async ({ interaction, context }) => {
 
 async function deleteNewImage(serverId, appName, section, newImagePath) {
 	if (isR2ImageResource(newImagePath)) {
-		try {
-			await deleteImage(newImagePath);
-		} catch (error) {
-			console.error(`Failed to delete S3 image ${newImagePath.key}:`, error);
+		const key = getImageKey(newImagePath);
+		if (isTempKey(key)) {
+			try {
+				await deleteImage(key);
+			} catch (error) {
+				console.error(`Failed to delete S3 image ${key}:`, error);
+			}
 		}
 
 		try {

@@ -42,6 +42,7 @@ A Discord verification bot that helps server administrators manage user access t
 5. Set up your database (preferably Postgresql, other databases may require parts of code to be adjusted) and update the connection details in `.env`
 
 6. Start the bot:
+
    ```bash
    npm run start
    ```

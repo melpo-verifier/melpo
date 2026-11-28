@@ -6,8 +6,11 @@ const { MessageFlags } = require("discord.js");
 module.exports = async ({ interaction, client, context }) => {
 	const question = interaction.fields.getTextInputValue("question");
 	const mcq = interaction.fields.getTextInputValue("mcq");
+	const minSelections = interaction.fields.getTextInputValue("minSelections");
+	const maxSelections = interaction.fields.getTextInputValue("maxSelections");
+	const allowOther = interaction.fields.getCheckbox("allowOther");
 	let mcqArray = mcq.split("\n").filter((option) => option.trim().length > 0);
-	if (mcqArray.length > 9) mcqArray = mcqArray.slice(0, 9);
+	if (mcqArray.length > 20) mcqArray = mcqArray.slice(0, 20);
 
 	const qnumber = parseInt(context[0], 10);
 	const isfirsttime = parseInt(context[1], 10);
@@ -37,6 +40,9 @@ module.exports = async ({ interaction, client, context }) => {
 			existingQuestion: questions[qnumber],
 			content: question,
 			mcqInput: mcqArray,
+			minSelections,
+			maxSelections,
+			allowOther,
 		});
 	} else {
 		questions.splice(qnumber, 1);
@@ -50,6 +56,6 @@ module.exports = async ({ interaction, client, context }) => {
 	} else {
 		const firsttimequestions = require("../js/firsttimequestions.js");
 
-		firsttimequestions({ interaction, client, tempApplicationId });
+		await firsttimequestions({ interaction, client, tempApplicationId });
 	}
 };

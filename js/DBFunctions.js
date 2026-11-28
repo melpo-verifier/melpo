@@ -67,12 +67,13 @@ async function getSubmission(messageId) {
 
 async function isPremiumServer(guildId) {
 	if (!guildId) return null;
-	const now = new Date();
+
+	const gracePeriodDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
 	const premium = await PremiumSubscription.findOne({
 		where: {
 			status: "ACTIVE",
-			[Op.or]: [{ expires_at: null }, { expires_at: { [Op.gt]: now - 7 * 24 * 60 * 60 * 1000 } }],
+			[Op.or]: [{ expires_at: null }, { expires_at: { [Op.gt]: gracePeriodDate } }],
 			guild_id: { [Op.contains]: [guildId] },
 		},
 	});
@@ -80,7 +81,12 @@ async function isPremiumServer(guildId) {
 	if (premium) return true;
 
 	//check if it is a custom bot
-	const instance = await Instances.findOne({ where: { guilds: { [Op.contains]: [guildId] } } });
+	const instance = await Instances.findOne({
+		where: {
+			guilds: { [Op.contains]: [guildId] },
+			owner_id: { [Op.not]: null },
+		},
+	});
 
 	if (instance) return true;
 

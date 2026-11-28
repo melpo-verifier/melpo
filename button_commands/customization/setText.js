@@ -224,7 +224,7 @@ async function messageCollecting(interaction, customIdValue, tempApplicationId) 
 				{ id: tempApplicationId },
 			);
 			const endmessage = await interaction.message.reply({
-				content: "Verification welcome message succesfully set! Now returning to the setup embed...",
+				content: "Welcome message succesfully set! Now returning to the setup embed...",
 			});
 
 			setTimeout(async () => {

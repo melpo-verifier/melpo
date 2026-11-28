@@ -2,6 +2,15 @@ const { getPublicUrl } = require("./customizationImages.js");
 
 const resolveImage = (image) => {
 	if (!image) return { embedUrl: null };
+	if (typeof image === "string") {
+		if (image.startsWith("http://") || image.startsWith("https://")) {
+			return { embedUrl: image };
+		}
+		if (image.startsWith("customizations/")) {
+			return { embedUrl: getPublicUrl(image) };
+		}
+		return { embedUrl: null };
+	}
 
 	if (typeof image === "object" && (image.url || image.key)) {
 		const embedUrl = image.url || getPublicUrl(image.key);

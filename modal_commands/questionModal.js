@@ -68,6 +68,6 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
 	if (interaction.message.embeds[0]?.footer?.text.startsWith(`DM | `)) {
 		replybutton.components[0].setDisabled(true);
-		interaction.message.edit({ components: [replybutton] });
+		await interaction.message.edit({ components: [replybutton] });
 	}
 };

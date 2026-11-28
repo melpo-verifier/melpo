@@ -14,8 +14,11 @@ module.exports = async ({ interaction, client, context }) => {
 		});
 	}
 
-	const question = interaction.fields.getTextInputValue(`question`);
-	const mcq = interaction.fields.getTextInputValue(`mcq`);
+	const question = interaction.fields.getTextInputValue("question");
+	const mcq = interaction.fields.getTextInputValue("mcq");
+	const minSelections = interaction.fields.getTextInputValue("minSelections");
+	const maxSelections = interaction.fields.getTextInputValue("maxSelections");
+	const allowOther = interaction.fields.getCheckbox("allowOther");
 	let mcqArray = mcq ? mcq.split("\n") : [];
 
 	//allow max of 20 MCQ questions.
@@ -34,8 +37,15 @@ module.exports = async ({ interaction, client, context }) => {
 	if (!temporarySetup.questions) temporarySetup.questions = [];
 
 	temporarySetup.questions = normalizeQuestions(temporarySetup.questions);
-	temporarySetup.questions.push(buildQuestionFromForm({ content: question, mcqInput: mcqArray }));
-
+	temporarySetup.questions.push(
+		buildQuestionFromForm({
+			content: question,
+			mcqInput: mcqArray,
+			minSelections,
+			maxSelections,
+			allowOther,
+		}),
+	);
 	await updateTempApplication(interaction.guild.id, { questions: temporarySetup.questions }, { id: tempApplicationId });
 
 	if (isfirsttime === 0) {
@@ -43,6 +53,6 @@ module.exports = async ({ interaction, client, context }) => {
 	} else {
 		const firsttimequestions = require("../js/firsttimequestions.js");
 
-		firsttimequestions({ interaction, tempApplicationId });
+		await firsttimequestions({ interaction, tempApplicationId });
 	}
 };

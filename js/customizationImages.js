@@ -7,7 +7,6 @@ const {
 	ListObjectsV2Command,
 } = require("@aws-sdk/client-s3");
 const crypto = require("node:crypto");
-const path = require("node:path");
 
 const REQUIRED_ENV = [
 	"S3ACCOUNT_ID",
@@ -39,7 +38,21 @@ const r2Client = new S3Client({
 const PREFIX_ROOT = "customizations";
 const TEMP_FOLDER = "temp";
 
-const isR2ImageResource = (image) => Boolean(image && typeof image === "object" && image.storage === "r2" && image.key);
+const getImageKey = (image) => {
+	if (!image) return null;
+	if (typeof image === "string") {
+		if (image.startsWith(`${PREFIX_ROOT}/`)) return image;
+		const publicPrefix = `${PUBLIC_BASE}/${PREFIX_ROOT}/`;
+		if (image.startsWith(publicPrefix)) return image.slice(PUBLIC_BASE.length + 1);
+		return null;
+	}
+	if (typeof image === "object" && typeof image.key === "string" && image.key.length > 0) {
+		return image.key;
+	}
+	return null;
+};
+
+const isR2ImageResource = (image) => Boolean(getImageKey(image));
 
 const sanitizeAppName = (name = "") =>
 	name
@@ -66,27 +79,6 @@ const buildKey = ({ serverId, appName, section, extension, scope = "temp", fileI
 const getPublicUrl = (key) => {
 	if (!key) return null;
 	return `${PUBLIC_BASE}/${key}`;
-};
-
-const extractFileIdFromKey = (key) => {
-	if (!key) return null;
-	return path.basename(key, path.extname(key));
-};
-
-const serializeImage = (image) => {
-	if (!image) return null;
-
-	return {
-		storage: image.storage,
-		key: image.key,
-		contentType: image.contentType,
-		extension: image.extension,
-		serverId: image.serverId,
-		appName: image.appName,
-		section: image.section,
-		isTemp: Boolean(image.isTemp),
-		fileId: image.fileId || extractFileIdFromKey(image.key),
-	};
 };
 
 const isTempKey = (key) => Boolean(key && (key.split("/").includes(TEMP_FOLDER) || key.includes("_temp")));
@@ -122,52 +114,41 @@ async function uploadCustomizationImage({ serverId, appName, section, buffer, co
 	await r2Client.send(command);
 
 	return {
-		storage: "r2",
 		key,
 		url: getPublicUrl(key),
-		contentType,
-		extension,
-		fileName: path.basename(key),
-		serverId,
-		appName,
-		section,
-		size: buffer.length,
-		uploadedAt: new Date().toISOString(),
-		isTemp: true,
-		fileId,
 	};
 }
 
 async function promoteCustomizationImage(image) {
-	if (!isR2ImageResource(image) || !isTempKey(image.key)) return image;
+	const key = getImageKey(image);
+	if (!key) return image;
+	if (!isTempKey(key)) return key;
 
-	const finalKey = getFinalKeyFromTemp(image.key);
+	const finalKey = getFinalKeyFromTemp(key);
 	const copyCommand = new CopyObjectCommand({
 		Bucket: BUCKET,
 		Key: finalKey,
-		CopySource: `${BUCKET}/${encodeURIComponent(image.key).replace(/%2F/g, "/")}`,
-		ContentType: image.contentType,
-		MetadataDirective: "REPLACE",
-		CacheControl: "public, max-age=31536000, immutable",
+		CopySource: `${BUCKET}/${encodeURIComponent(key).replace(/%2F/g, "/")}`,
 	});
 
 	try {
 		await r2Client.send(copyCommand);
-		await deleteImage(image);
+		await deleteImage(key);
 	} catch (error) {
 		if (error.name !== "NoSuchKey" && error.Code !== "NoSuchKey")
-			console.error(`Failed to promote image ${image.key}:`, error);
+			console.error(`Failed to promote image ${key}:`, error);
 	}
 
-	return serializeImage({ ...image, key: finalKey, isTemp: false });
+	return finalKey;
 }
 
 async function deleteImage(image) {
-	if (!isR2ImageResource(image)) return;
+	const key = getImageKey(image);
+	if (!key) return;
 
 	const command = new DeleteObjectCommand({
 		Bucket: BUCKET,
-		Key: image.key,
+		Key: key,
 	});
 
 	await r2Client.send(command);
@@ -251,5 +232,6 @@ module.exports = {
 	isR2ImageResource,
 	getPublicUrl,
 	sanitizeAppName,
-	serializeImage,
+	getImageKey,
+	isTempKey,
 };

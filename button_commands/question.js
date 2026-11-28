@@ -18,13 +18,29 @@ module.exports = async ({ interaction, client, userid, applicationId }) => {
 
 		if (!hasManagerRole) {
 			return interaction.reply({
-				content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+				content: `You do not have permission to manage applications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
 	}
 
-	const user = await client.users.fetch(userid);
+	if (!userid) throw new Error("Could not fetch user ID");
+
+	let member;
+	try {
+		member = await interaction.guild.members.fetch(userid);
+		if (!member) throw Object.assign(new Error("Unknown Member"), { code: 10007 });
+	} catch (err) {
+		if (err.code === 10007) {
+			return interaction.reply({
+				content: "User not found in server. This user has probably left this server.",
+				flags: MessageFlags.Ephemeral,
+			});
+		}
+		throw err;
+	}
+
+	const user = member.user ?? (await client.users.fetch(userid));
 
 	const optoutdb = await OptOut.findOne({ where: { userId: userid, guildId: interaction.guild.id } });
 	if (optoutdb !== null && optoutdb.optedOut === true) {

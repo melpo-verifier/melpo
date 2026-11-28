@@ -20,26 +20,16 @@ module.exports = async ({ interaction, applicationId, context }) => {
 
 		if (!hasManagerRole) {
 			return interaction.followUp({
-				content: `You do not have permission to manage verifications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
+				content: `You do not have permission to manage applications. You need one of the following roles: ${application.managerrole?.map((role) => `<@&${role}>`).join(", ")}`,
 				flags: MessageFlags.Ephemeral,
 			});
 		}
 	}
 
-	// Check if there's an existing container components message
-	const hasComponents = interaction.message.flags.has(MessageFlags.IsComponentsV2);
-
-	// Get either the container components or the original embed
-	const originalComponents = hasComponents ? interaction.message.components : [];
-	const originalEmbed = hasComponents ? null : interaction.message.embeds[0];
+	const originalComponents = interaction.message.components;
 
 	// Check if verification already in progress
-	if (
-		(hasComponents &&
-			originalComponents.some((c) => c.components?.some((cc) => cc.customId?.includes("actionconfirm")))) ||
-		(!hasComponents && originalEmbed?.fields?.some((f) => f.name.includes("Are you sure")))
-	)
-		return;
+	if (originalComponents.some((c) => c.components?.some((cc) => cc.customId?.includes("actionconfirm")))) return;
 
 	const applicantId = context?.[1] || "";
 
@@ -47,17 +37,22 @@ module.exports = async ({ interaction, applicationId, context }) => {
 		new ButtonBuilder()
 			.setCustomId(`actionconfirm_${applicationId}_${interaction.user.id}${applicantId ? `_${applicantId}` : ""}`)
 			.setLabel("Confirm Kick")
-			.setStyle("Success"),
-		new ButtonBuilder().setCustomId(`returntomenu_${applicationId}`).setLabel("Cancel").setStyle("Danger"),
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`reasonaction_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Kick with Reason")
+			.setStyle("Danger"),
+		new ButtonBuilder()
+			.setCustomId(`returntomenu_${applicationId}${applicantId ? `_${applicantId}` : ""}`)
+			.setLabel("Cancel")
+			.setStyle("Secondary"),
 	);
 
-	if (hasComponents) {
-		const { container, files } = relinkAttachments(interaction.message);
-		const editPayload = {
-			flags: [MessageFlags.IsComponentsV2],
-			components: [container, verifyRow],
-		};
-		if (files) editPayload.files = files;
-		await interaction.editReply(editPayload);
-	}
+	const { container, files } = relinkAttachments(interaction.message);
+	const editPayload = {
+		flags: [MessageFlags.IsComponentsV2],
+		components: [container, verifyRow],
+	};
+	if (files) editPayload.files = files;
+	await interaction.editReply(editPayload);
 };

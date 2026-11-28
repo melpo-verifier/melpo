@@ -29,5 +29,9 @@ const rest = new REST().setToken(process.env.MELPO_TOKEN);
 		console.log(`Successfully reloaded ${data.length} application (/) commands.`);
 	} catch (error) {
 		console.error(error);
+		process.exitCode = 1;
 	}
-})().catch(() => {});
+})().catch((error) => {
+	console.error(error);
+	process.exitCode = 1;
+});
