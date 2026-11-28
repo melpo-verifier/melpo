@@ -11,6 +11,7 @@ const { GuildWebhook } = require("../../dbObjects.js");
 const { decryptData } = require("../DBFunctions.js");
 const { buildV2Components, resolveButtonStyle } = require("./v2ComponentBuilder.js");
 const { messageNeedsUpdate, hasCustomId } = require("./messageComparator.js");
+const { resolveImage } = require("../imageUtils.js");
 
 const DEFAULT_EMBED_COLOR = "#3f7ff1";
 
@@ -52,10 +53,7 @@ function buildPanelPayload(panelConfig, application, dependentApps) {
 		};
 	}
 
-	const imageUrl =
-		panelConfig.imageUrl ||
-		(typeof panelConfig.image === "string" ? panelConfig.image : panelConfig.image?.url) ||
-		null;
+	const imageUrl = resolveImage(panelConfig.image).embedUrl || null;
 
 	let color = DEFAULT_EMBED_COLOR;
 	try {

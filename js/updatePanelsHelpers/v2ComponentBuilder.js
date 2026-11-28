@@ -13,6 +13,7 @@ const {
 	MediaGalleryItemBuilder,
 	resolveColor,
 } = require("discord.js");
+const { resolveImage } = require("../imageUtils.js");
 
 const BUTTON_STYLES = {
 	primary: ButtonStyle.Primary,
@@ -78,10 +79,11 @@ function buildV2SectionBlock(block, app) {
 		const btn = buildV2Button(acc, app);
 		if (!btn) return null;
 		section.setButtonAccessory(btn);
-	} else if (acc.type === "thumbnail" && acc.imageUrl) {
-		if (!isValidUrl(acc.imageUrl)) return null;
+	} else if (acc.type === "thumbnail") {
+		const url = resolveImage(acc.image).embedUrl;
+		if (!url || !isValidUrl(url)) return null;
 		try {
-			section.setThumbnailAccessory(new ThumbnailBuilder({ media: { url: acc.imageUrl } }));
+			section.setThumbnailAccessory(new ThumbnailBuilder({ media: { url } }));
 		} catch {
 			return null;
 		}
@@ -152,13 +154,15 @@ function buildBlock(block, app) {
 				(block.content ? new TextDisplayBuilder().setContent(String(block.content)) : null)
 			);
 
-		case "media":
-			if (!block.imageUrl || !isValidUrl(block.imageUrl)) return null;
+		case "media": {
+			const url = resolveImage(block.image).embedUrl;
+			if (!url || !isValidUrl(url)) return null;
 			try {
-				return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(block.imageUrl));
+				return new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(url));
 			} catch {
 				return null;
 			}
+		}
 
 		case "action_row":
 			return processActionRowBlock(block, app);

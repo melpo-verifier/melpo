@@ -1,7 +1,30 @@
 const { EmbedBuilder } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const { deleteTempApplication } = require("../../js/tempconfigfuncs.js");
-const { deleteImage, purgeOldImages } = require("../../js/customizationImages.js");
+const { deleteImage, getImageKey, purgeOldImages } = require("../../js/customizationImages.js");
+
+function collectR2Keys(fieldData) {
+	if (!fieldData) return [];
+
+	const keys = [];
+	const stack = [fieldData];
+
+	while (stack.length > 0) {
+		const node = stack.pop();
+		if (!node) continue;
+
+		const imageKey = getImageKey(node.image);
+		const thumbKey = getImageKey(node.accessory?.image);
+		if (imageKey) keys.push(imageKey);
+		if (thumbKey) keys.push(thumbKey);
+
+		if (Array.isArray(node.blocks)) {
+			stack.push(...node.blocks);
+		}
+	}
+
+	return keys;
+}
 
 module.exports = async ({ interaction, context }) => {
 	await interaction.deferUpdate();
@@ -18,14 +41,19 @@ module.exports = async ({ interaction, context }) => {
 		"startmessage",
 		"finishmessage",
 		"verifymessage",
+		"denymessage",
+		"kickmessage",
 		"verificationwelcomemessage",
 	];
 
 	for (const field of imageFields) {
 		const fieldData = application[field];
-		if (fieldData?.image) {
+		const keys = collectR2Keys(fieldData);
+		if (keys.length > 0 || fieldData?.image || Array.isArray(fieldData?.blocks)) {
 			try {
-				await deleteImage(fieldData.image);
+				for (const key of keys) {
+					await deleteImage(key);
+				}
 				await purgeOldImages({
 					serverId: interaction.guild.id,
 					appName,

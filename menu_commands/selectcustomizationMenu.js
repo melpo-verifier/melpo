@@ -7,7 +7,7 @@ const {
 	MessageFlags,
 } = require("discord.js");
 const { getApplicationById, getTempApplicationById } = require("../js/tempconfigfuncs.js");
-const { getPublicUrl } = require("../js/customizationImages.js");
+const { resolveImage } = require("../js/imageUtils.js");
 const { isValidHexColor } = require("../js/updatePanels.js");
 
 module.exports = async ({ interaction, customIdValue, tempApplicationId, context }) => {
@@ -262,7 +262,7 @@ module.exports = async ({ interaction, customIdValue, tempApplicationId, context
 	if (infoembed) infoembed.setColor("#3f7ff1");
 
 	if (image && embed) {
-		const imageUrl = typeof image === "string" ? image : image?.url || getPublicUrl(image?.key);
+		const { embedUrl: imageUrl } = resolveImage(image);
 		if (imageUrl) embed.setColor(isValidHexColor(color) ? color : "#3f7ff1").setImage(imageUrl);
 	}
 

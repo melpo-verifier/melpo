@@ -1,7 +1,13 @@
 const { EmbedBuilder, MessageFlags, ActionRowBuilder, ButtonBuilder, PermissionsBitField } = require("discord.js");
 const { Application } = require("../../dbObjects.js");
 const { deleteTempApplication, getApplicationById, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
-const { promoteCustomizationImage, purgeOldImages, isR2ImageResource } = require("../../js/customizationImages.js");
+const {
+	promoteCustomizationImage,
+	purgeOldImages,
+	isR2ImageResource,
+	getImageKey,
+	isTempKey,
+} = require("../../js/customizationImages.js");
 const { syncApplicationPanels } = require("../../js/updatePanels.js");
 const { validateRoles } = require("../../js/verificationHandler.js");
 
@@ -119,18 +125,13 @@ module.exports = async ({ interaction, client, context }) => {
 	const kickmessage = tempApp.kickmessage || {};
 	const verificationwelcomemessage = tempApp.verificationwelcomemessage || {};
 
-	await finalizeCustomizationImage(tempApp, "verifychannelembed", "images/verifychannelembed", interaction.guild.id);
-	await finalizeCustomizationImage(tempApp, "startmessage", "images/startmessage", interaction.guild.id);
-	await finalizeCustomizationImage(tempApp, "finishmessage", "images/finishmessage", interaction.guild.id);
-	await finalizeCustomizationImage(tempApp, "verifymessage", "images/verifymessage", interaction.guild.id);
-	await finalizeCustomizationImage(tempApp, "denymessage", "images/denymessage", interaction.guild.id);
-	await finalizeCustomizationImage(tempApp, "kickmessage", "images/kickmessage", interaction.guild.id);
-	await finalizeCustomizationImage(
-		tempApp,
-		"verificationwelcomemessage",
-		"images/verificationwelcomemessage",
-		interaction.guild.id,
-	);
+	await finalizeCustomizationImage(tempApp, "verifychannelembed", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "startmessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "finishmessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "verifymessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "denymessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "kickmessage", interaction.guild.id);
+	await finalizeCustomizationImage(tempApp, "verificationwelcomemessage", interaction.guild.id);
 
 	cleanConfig(verifychannelembed);
 	cleanConfig(startmessage);
@@ -139,24 +140,6 @@ module.exports = async ({ interaction, client, context }) => {
 	cleanConfig(denymessage);
 	cleanConfig(kickmessage);
 	cleanConfig(verificationwelcomemessage);
-
-	const imageCategories = [
-		"verifychannelembed",
-		"startmessage",
-		"finishmessage",
-		"verifymessage",
-		"denymessage",
-		"kickmessage",
-		"verificationwelcomemessage",
-	];
-
-	for (const category of imageCategories) {
-		if (tempApp[category]?.image === "deleted") {
-			continue;
-		}
-
-		if (isR2ImageResource(tempApp[category]?.image)) continue;
-	}
 
 	const appData = {
 		server_id: interaction.guild.id,
@@ -359,16 +342,12 @@ function cleanConfig(config) {
 	return config;
 }
 
-// Biome fix : imageDir renamed to _imageDir to mark it as unused.
-async function finalizeCustomizationImage(tempApp, sectionKey, _imageDir, guildId) {
+async function finalizeCustomizationImage(tempApp, sectionKey, guildId) {
 	const section = tempApp[sectionKey];
-
-	//if (!section || !section.image) return;
-	if (!section?.image) return;
+	if (!section || typeof section !== "object" || section.format === "v2" || Array.isArray(section.blocks)) return;
 
 	if (section.image === "deleted") {
-		section.image = null;
-		//delete from R2
+		delete section.image;
 		console.log(
 			`Purging images for deleted image in section ${sectionKey} of app ${tempApp.name} on server ${guildId}`,
 		);
@@ -376,26 +355,31 @@ async function finalizeCustomizationImage(tempApp, sectionKey, _imageDir, guildI
 		return;
 	}
 
-	if (isR2ImageResource(section.image)) {
-		section.image = await finalizeRemoteImage(section.image);
+	if (!section.image) {
+		delete section.image;
 		return;
+	}
+
+	if (isR2ImageResource(section.image)) {
+		section.image = await finalizeRemoteImage(section.image, guildId, tempApp.name, sectionKey);
 	}
 }
 
-async function finalizeRemoteImage(image) {
-	let finalizedImage = image;
+async function finalizeRemoteImage(image, serverId, appName, section) {
+	let finalizedKey = getImageKey(image);
+	if (!finalizedKey) return image;
 
-	if (image.isTemp) {
-		finalizedImage = await promoteCustomizationImage(image);
+	if (isTempKey(finalizedKey)) {
+		finalizedKey = await promoteCustomizationImage(image);
 	}
 
 	await purgeOldImages({
-		serverId: finalizedImage.serverId,
-		appName: finalizedImage.appName,
-		section: finalizedImage.section,
-		keepKey: finalizedImage.key,
+		serverId,
+		appName,
+		section,
+		keepKey: finalizedKey,
 		filter: "final",
 	});
 
-	return finalizedImage;
+	return finalizedKey;
 }

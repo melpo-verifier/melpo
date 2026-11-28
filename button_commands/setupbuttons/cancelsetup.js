@@ -1,6 +1,12 @@
 const { EmbedBuilder } = require("discord.js");
 const { deleteTempApplication, getTempApplicationById } = require("../../js/tempconfigfuncs.js");
-const { deleteImage, purgeOldImages, isR2ImageResource } = require("../../js/customizationImages.js");
+const {
+	deleteImage,
+	purgeOldImages,
+	isR2ImageResource,
+	getImageKey,
+	isTempKey,
+} = require("../../js/customizationImages.js");
 
 module.exports = async ({ interaction, context }) => {
 	await interaction.deferUpdate();
@@ -82,10 +88,13 @@ module.exports = async ({ interaction, context }) => {
 
 async function deleteNewImage(serverId, appName, section, newImagePath) {
 	if (isR2ImageResource(newImagePath)) {
-		try {
-			await deleteImage(newImagePath);
-		} catch (error) {
-			console.error(`Failed to delete S3 image ${newImagePath.key}:`, error);
+		const key = getImageKey(newImagePath);
+		if (isTempKey(key)) {
+			try {
+				await deleteImage(key);
+			} catch (error) {
+				console.error(`Failed to delete S3 image ${key}:`, error);
+			}
 		}
 
 		try {

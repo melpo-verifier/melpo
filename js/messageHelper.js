@@ -2,6 +2,7 @@ const { EmbedBuilder, MessageFlags, WebhookClient, resolveColor } = require("dis
 const { GuildWebhook } = require("../dbObjects.js");
 const { decryptData } = require("./DBFunctions.js");
 const { buildV2Components } = require("./updatePanelsHelpers/v2ComponentBuilder.js");
+const { resolveImage } = require("./imageUtils.js");
 
 function safeResolveColor(color, fallback = "#3f7ff1") {
 	if (!color) {
@@ -207,7 +208,7 @@ async function formatCustomMessage(config, context = {}) {
 
 	if (config.text && !config.title && !config.description) {
 		const finalText = await interpolateString(config.text, context);
-		const imageUrl = config.imageUrl || (typeof config.image === "string" ? config.image : config.image?.url) || null;
+		const imageUrl = resolveImage(config.image).embedUrl || null;
 		const payload = { content: finalText };
 		if (imageUrl) {
 			payload.embeds = [new EmbedBuilder().setImage(imageUrl)];
@@ -233,7 +234,7 @@ async function formatCustomMessage(config, context = {}) {
 	const defaultColor = context.defaultColor || "#3f7ff1";
 	const colorInt = safeResolveColor(config.color, defaultColor);
 
-	const imageUrl = config.imageUrl || (typeof config.image === "string" ? config.image : config.image?.url) || null;
+	const imageUrl = resolveImage(config.image).embedUrl || null;
 
 	const embed = new EmbedBuilder();
 	if (title?.trim()) embed.setTitle(title.trim().slice(0, 256));

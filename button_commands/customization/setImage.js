@@ -1,5 +1,5 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { uploadCustomizationImage, purgeOldImages, serializeImage } = require("../../js/customizationImages.js");
+const { uploadCustomizationImage, purgeOldImages, getImageKey } = require("../../js/customizationImages.js");
 const { getTempApplicationById, updateTempApplication } = require("../../js/tempconfigfuncs.js");
 const activeCollectors = new Map();
 
@@ -74,7 +74,7 @@ module.exports = async ({ interaction, context }) => {
 				filter: "temp",
 			});
 
-			const storedImage = serializeImage(uploadedImage);
+			const storedImage = getImageKey(uploadedImage);
 
 			await updateTempApplication(
 				interaction.guild.id,
